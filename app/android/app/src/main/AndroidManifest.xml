@@ -42,6 +42,9 @@
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Reminders are ordinary notifications at roughly the chosen time. Exact alarms are not needed, so the permission is dropped. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+
     <!-- Health Connect: read-only, and only what the app shows (steps, active calories, sleep, weight, workouts).
          The plugin declares many more; they are removed here so the app cannot ask for them. -->
     <uses-permission android:name="android.permission.health.WRITE_STEPS" tools:node="remove" />

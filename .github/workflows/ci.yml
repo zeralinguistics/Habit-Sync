@@ -18,3 +18,11 @@ jobs:
           npx playwright install --with-deps chromium
       - name: End-to-end checks
         run: node prototype/test/e2e.js /tmp/
+      - name: Offline and install checks
+        run: node prototype/test/pwa.js /tmp/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: /tmp/*.png
+          retention-days: 14

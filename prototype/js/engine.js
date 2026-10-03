@@ -10,31 +10,66 @@ E.on=(n,f)=>{(bus[n]=bus[n]||[]).push(f)};
 E.emit=(n,d)=>{(bus[n]||[]).forEach(f=>{try{f(d)}catch(e){console.error(e)}})};
 
 /* ---- state ---- */
-const KEY='habitsync.proto.v4';
+const KEY='habitsync.proto.v4';   /* same key as before, so existing data keeps working; the schema version lives inside */
+const SCHEMA=5;
 const dkey=E.dkey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-const CFG0={name:'PLAYER',kcal:2050,protein:140,goalW:75,gateStep:.5,bossEvery:4,stepGoal:0,strict:'standard',theme:'shadow',volume:.8,haptics:true,sound:true,contract:'',partner:''};
+const CFG0={name:'PLAYER',kcal:2050,protein:140,goalW:70,gateStep:.5,bossEvery:4,stepGoal:0,strict:'standard',theme:'auto',volume:.8,haptics:true,sound:true,contract:'',partner:'',
+  height:166,age:21,deficit:530,water:3000,roast:'playful',camp:true,autoKcal:true};
 const clone=o=>JSON.parse(JSON.stringify(o));
-const blank=()=>({v:4,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],cycle:{a:dkey(),i:0},days:{},custom:{},
-  rehab:{confirmed:false,next:0},routine:clone(HS.ROUTINE_DEFAULT),last:{},pr:{},fatigue:null,pass:{wk:'',used:false},missStreak:0,swept:{}});
+const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],gateDates:{},cycle:{a:dkey(),i:0},days:{},custom:{},
+  rehab:{confirmed:false,next:0},routine:clone(HS.ROUTINE_DEFAULT),last:{},pr:{},fatigue:null,pass:{wk:'',used:false},missStreak:0,swept:{},
+  equip:Object.assign({},HS.EQUIP_DEFAULT),owned:{},realm:'r1',realmSeen:1,claimed:{},counters:{pr:0,comeback:0,goals:0},prWeeks:{},camp:null,bestStreak:0,
+  lastBackup:0,lastAutoBak:'',reviewSeen:'',welcomed:false,newItems:[],health:{on:false,last:0},remind:{on:false}});
+/* bring any saved state up to the current schema without losing anything */
+function migrate(p){
+  const st=Object.assign(blank(),p||{});
+  st.cfg=Object.assign({},CFG0,(p&&p.cfg)||{});
+  if(!p||(p.v||4)<5){
+    if(st.cfg.goalW===75)st.cfg.goalW=70;   /* the goal is 70 kg */
+    if(!p||!p.cfg||p.cfg.theme==='shadow'||!p.cfg.theme)st.cfg.theme='auto';   /* follow the realm */
+    st.v=SCHEMA;
+  }
+  st.equip=Object.assign({},HS.EQUIP_DEFAULT,st.equip||{});
+  st.stats=Object.assign({STR:0,VIT:0,AGI:0,SNS:0},st.stats||{});
+  st.counters=Object.assign({pr:0,comeback:0,goals:0},st.counters||{});
+  st.health=Object.assign({on:false,last:0},st.health||{});
+  st.remind=Object.assign({on:false},st.remind||{});
+  if(!Array.isArray(st.newItems))st.newItems=[];
+  return st;
+}
 let S=blank(),mem=null;
 (function load(){
-  try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);S=Object.assign(blank(),p);S.cfg=Object.assign({},CFG0,p.cfg||{});return}}catch(e){}
+  try{const r=localStorage.getItem(KEY);if(r){S=migrate(JSON.parse(r));return}}catch(e){}
   if(mem)S=mem;
 })();
+E.blank=blank;E.migrate=migrate;E.KEY=KEY;E._set=function(x){S=x};
 E.S=()=>S;
-E.save=function(){mem=S;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
-E.reset=function(){S=blank();E.save();E.emit('reset')};
+E.persist=function(){
+  mem=S;
+  try{
+    const today=dkey();
+    if(S.lastAutoBak!==today){const prev=localStorage.getItem(KEY);if(prev)localStorage.setItem(KEY+'.bak',prev);S.lastAutoBak=today}
+    localStorage.setItem(KEY,JSON.stringify(S));
+  }catch(e){}
+};
+E.save=function(){E.persist();if(E.afterSave)E.afterSave()};
+E.reset=function(){S=blank();E.ensureOwned&&E.ensureOwned();E.save();E.emit('reset')};
 E.cfg=()=>S.cfg;
-E.T=function(){const k=S.cfg.kcal;return{kcal:k,protein:S.cfg.protein,lo:Math.round(k*.855/10)*10,hi:Math.round(k*1.05/10)*10}};
+E.T=function(){
+  const camp=E.campInfo&&E.campInfo();
+  if(camp)return{kcal:camp.kcal,protein:S.cfg.protein,lo:Math.round(camp.kcal*.92/10)*10,hi:Math.round(camp.kcal*1.06/10)*10,camp:true};
+  const k=S.cfg.kcal;return{kcal:k,protein:S.cfg.protein,lo:Math.round(k*.855/10)*10,hi:Math.round(k*1.05/10)*10};
+};
 
 /* ---- dates ---- */
 E.daysBetween=function(a,b){const f=s=>{const x=s.split('-').map(Number);return Date.UTC(x[0],x[1]-1,x[2])/864e5};return Math.round(f(b)-f(a))};
 E.di=()=>(new Date().getDay()+6)%7;
 E.nowMin=()=>{const n=new Date();return n.getHours()*60+n.getMinutes()};
 function weekKey(){const d=new Date();d.setDate(d.getDate()-E.di());return dkey(d)}
+E.weekKey=weekKey;
 
 /* ---- days ---- */
-E.day=function(k){k=k||dkey();return S.days[k]||(S.days[k]={items:[],done:{},skip:{},workout:null,pain:null,burn:0,mins:null,runFree:null,reh:null,lift:{},weighed:false,pAward:false,closed:false,delta:0,sugarPen:0,score:0,steps:'',stepsAward:false})};
+E.day=function(k){k=k||dkey();return S.days[k]||(S.days[k]={items:[],done:{},skip:{},workout:null,pain:null,burn:0,mins:null,runFree:null,reh:null,lift:{},weighed:false,pAward:false,closed:false,calOk:false,delta:0,sugarPen:0,score:0,steps:'',stepsAward:false,water:0,waterHit:false,sleep:null,chest:null})};
 E.planFor=function(k){k=k||dkey();return ['Push','Pull','Legs','Push','Pull','Legs','Rest'][(((S.cycle.i+E.daysBetween(S.cycle.a,k))%7)+7)%7]};
 E.setSession=function(type){
   const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
@@ -46,7 +81,7 @@ E.setSession=function(type){
 /* ---- nutrition ---- */
 E.food=n=>HS.DB[n]||S.custom[n];
 E.nut=(f,g)=>({k:f.k100*g/100,p:f.p100*g/100});
-E.totals=function(d){let k=0,p=0;d.items.forEach(i=>{const f=E.food(i.name);if(f){const n=E.nut(f,i.g);k+=n.k;p+=n.p}});return{k:k,p:p}};
+E.totals=function(d){if(d.compact&&d.sum)return d.sum;let k=0,p=0;d.items.forEach(i=>{const f=E.food(i.name);if(f){const n=E.nut(f,i.g);k+=n.k;p+=n.p}});return{k:k,p:p}};
 E.mealKcal=function(d,m){let k=0;d.items.forEach(i=>{if(i.meal===m){const f=E.food(i.name);if(f)k+=E.nut(f,i.g).k}});return k};
 E.units=(f,g)=>Math.round(g/f.ug*10)/10;
 E.poolFor=function(meal){return Array.from(new Set(HS.menuFor(meal,E.di()).concat(HS.STAPLES)))};
@@ -128,10 +163,12 @@ E.logWeight=function(x){
   const d=E.day(),first=!d.weighed;
   S.weights[dkey()]=Math.round(x*10)/10;d.weighed=true;
   if(first){E.addAura(15);E.stat('SNS',1)}
-  const tr=E.trend();let cleared=null;
-  E.ladder().forEach(g=>{if(tr<=g.kg+1e-6&&!S.gates.includes(g.kg)){S.gates.push(g.kg);E.addAura(150);cleared=g}});
+  const tr=E.trend(),all=[];
+  E.ladder().forEach(g=>{if(tr<=g.kg+1e-6&&!S.gates.includes(g.kg)){S.gates.push(g.kg);S.gateDates[g.kg]=dkey();E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}});
+  /* several gates can fall at once (a big drop after a break): show the most important one, a boss first */
+  const cleared=all.length?(all.find(g=>g.boss)||all[all.length-1]):null;
   E.save();E.emit('weigh',{kg:x,trend:tr});
-  if(cleared)E.emit('gate',cleared);
+  if(cleared)E.emit('gate',Object.assign({},cleared,{count:all.length}));
   return{trend:tr,cleared:cleared};
 };
 
@@ -233,7 +270,7 @@ E.setDone=function(ex,i,on){
   if(on){
     S.last[ex.n]={w:s.w,r:s.r};
     const e1=s.w*(1+s.r/30);
-    if(s.w>0&&S.pr[ex.n]&&e1>S.pr[ex.n]*1.005&&!st.pr){pr=true;st.pr=true;E.addAura(25);E.stat('STR',1)}
+    if(s.w>0&&S.pr[ex.n]&&e1>S.pr[ex.n]*1.005&&!st.pr){pr=true;st.pr=true;S.counters.pr++;const wkk=E.weekKey();S.prWeeks[wkk]=(S.prWeeks[wkk]||0)+1;E.addAura(25);E.stat('STR',1)}
     if(s.w>0&&(!S.pr[ex.n]||e1>S.pr[ex.n]))S.pr[ex.n]=e1;
   }
   E.save();E.emit('set',{ex:ex,on:on,pr:pr,over:!!(ex.cap&&s.w>HS.CAP_KG)});
@@ -241,7 +278,7 @@ E.setDone=function(ex,i,on){
 };
 E.completeWorkout=function(plan){
   const d=E.day(),p=E.liftProgress(plan),frac=p.total?Math.min(1,p.done/p.total/.8):1;
-  const comeback=E.clearFatigue();
+  const comeback=E.clearFatigue();if(comeback)S.counters.comeback++;
   const award=Math.round(100*frac);
   d.workout='done';
   E.addAura(award);E.stat('STR',3);

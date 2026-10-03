@@ -1,0 +1,26 @@
+name: pages
+# Keeps docs/ (the installable web version of the app) in step with the code, so GitHub Pages always serves the latest build.
+# One-time setup: Settings > Pages > Build and deployment > Deploy from a branch > pick this branch and the /docs folder.
+on:
+  push:
+    branches: [claude/cool-babbage-2ak77i, main]
+    paths: ['prototype/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the web app
+        run: python3 prototype/build.py --pages docs
+      - name: Commit if it changed
+        run: |
+          git config user.name "habit-sync-bot"
+          git config user.email "habit-sync-bot@users.noreply.github.com"
+          git add docs
+          if git diff --cached --quiet; then echo "docs already current"; else git commit -m "Update the web build [skip ci]" && git push; fi

@@ -101,12 +101,20 @@ function tile(name,cls){
   const lab=/^\d/.test(f.unit)?f.unit:'1 '+f.unit;
   return `<button class="tile r-${f.rar} ${cls||''}" data-a="add:${esc(name)}"><span class="te">${HS.emoji(name)}</span><span class="tn">${esc(name)}</span><span class="tk">${f.kcal} kcal · ${esc(lab)}</span>${g?`<b>${E.units(f,g)}</b>`:''}</button>`;
 }
+function utile(u){
+  const f=E.food(u.name);if(!f)return'';
+  const k=Math.round(E.nut(f,u.g).k);
+  return `<button class="tile r-${f.rar} usual" data-a="usual:${esc(u.name)}|${u.g}"><span class="te">${HS.emoji(u.name)}</span><span class="tn">${esc(u.name)}</span><span class="tk">${Math.round(u.g)} g \u00B7 ${k} kcal</span><i class="ux">${u.n}\u00D7</i></button>`;
+}
 function drawRows(){
   const sh=U.sh;if(!sh||sh.type!=='plate')return;
   const pool=E.poolFor(sh.meal).map(E.food).filter(Boolean),by=c=>pool.filter(f=>f.cat===c).sort((a,b)=>b.p-a.p).map(f=>f.name);
   const pk=E.picks(sh.meal),treats=Array.from(new Set(by('treat').concat(HS.OUTSIDE)));
   const row=(t,names,cls,tc)=>names.length?`<div class="rl2"><div class="rt ${tc||''}">${t}</div><div class="tiles">${names.map(n=>tile(n,cls)).join('')}</div></div>`:'';
-  $('#rows').innerHTML=row('★ System picks for your remaining macros',pk,'pickt','pick')+row('Protein',by('protein'))+row('Carbs',by('carb'))+row('Sides and veg',by('side'))+row('Treats and outside (sugar costs aura)',treats,'trt');
+  const empty=!items().length,last=empty?E.lastMeal(sh.meal):null,us=E.usuals(sh.meal);
+  const rep=last?`<button class="repeat" data-a="repeat"><span class="ri"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/></svg></span><span class="rm"><b>Same as last time</b><small>${esc(last.items.map(x=>x.name).slice(0,3).join(', '))}${last.items.length>3?' +'+(last.items.length-3):''} \u00B7 ${fmt(last.kcal)} kcal \u00B7 ${U.date(last.k)}</small></span><span class="rg">ONE TAP</span></button>`:'';
+  const usr=us.length?`<div class="rl2"><div class="rt pick">Your usuals</div><div class="tiles">${us.map(utile).join('')}</div></div>`:'';
+  $('#rows').innerHTML=rep+usr+row('\u2605 System picks for your remaining macros',pk,'pickt','pick')+row('Protein',by('protein'))+row('Carbs',by('carb'))+row('Sides and veg',by('side'))+row('Treats and outside (sugar costs aura)',treats,'trt');
 }
 const COMBO_MS=4500;
 function afterAdd(name,srcEl,mult){
@@ -168,12 +176,33 @@ A.gx=function(v){
   ru.scrollTo({left:Math.round(f.ug*(+v))*PX,behavior:'smooth'});
 };
 A.gdel=function(){const sh=U.sh;E.removeItem(sh.edit);sh.edit=-1;F.play('remove');F.vib(14);drawPlate();drawStage();drawRows()};
+A.usual=function(v,b){
+  const sh=U.sh;if(!sh)return;
+  const i=v.lastIndexOf('|'),name=v.slice(0,i),g=parseFloat(v.slice(i+1));
+  if(!E.food(name))return;
+  E.addFood(name,g,sh.meal);afterAdd(name,b,g/E.food(name).ug);
+};
+A.repeat=function(){
+  const sh=U.sh;if(!sh)return;
+  const last=E.lastMeal(sh.meal);if(!last)return;
+  last.items.forEach((x,i)=>setTimeout(()=>{
+    if(!U.sh||U.sh.type!=='plate')return;
+    E.addFood(x.name,x.g,sh.meal);afterAdd(x.name,$('#rows .repeat')||$('#mIn'),1);
+  },i*170));
+};
+function starsOverlay(r){
+  const filled='<i class="on" style="--i:0">\u2605</i><i class="'+(r.stars>=2?'on':'')+'" style="--i:1">\u2605</i><i class="'+(r.stars>=3?'on':'')+'" style="--i:2">\u2605</i>';
+  U.cele({kind:'stars',ms:2800,
+    fx:()=>{for(let i=0;i<r.stars;i++)setTimeout(()=>F.play('star',i),380+i*300);if(r.stars===3)setTimeout(()=>F.burstCenter(60),1000)},
+    html:'<div class="kicker">PLATE RATING</div><div class="stars">'+filled+'</div><p>'+esc(r.stars===3?'Three stars. Protein and a balanced plate.':r.stars===2?'Solid plate. '+(r.notes[0]||''):'Logged. '+(r.notes[0]||''))+'</p><p class="sub">'+r.k+' kcal \u00B7 '+r.p+' g protein \u00B7 +'+(r.stars*4)+' aura</p>'});
+}
 A.mealDone=function(){
   const sh=U.sh,d=E.day(),m=sh.meal;
   if(m==='snack'){U.closeSheet();return}
   if(!d.items.some(i=>i.meal===m)){U.sys('Add something first, or skip the meal.','bad');return}
-  d.done[m]=true;delete d.skip[m];E.stat('VIT',1);E.save();
+  const r=E.finishMeal(m);
   U.justRow=m;F.play('plate');F.vib([20,30,30]);F.burstCenter(34);U.closeSheet();
+  if(r.first)setTimeout(()=>starsOverlay(r),380);
 };
 A.mealSkip=function(){E.day().skip[U.sh.meal]=true;E.save();U.closeSheet();U.sys('Meal skipped. Your calories will show it.','')};
 document.addEventListener('input',e=>{
@@ -289,13 +318,19 @@ A.liftFinish=function(){
   stopRest();U.sh.step='details';F.play('pick');renderGym();
 };
 A.st=function(v){const p=v.split(':'),t=U.sh.tmp;t[p[0]]=Math.max(0,t[p[0]]+ +p[1]);F.play('tick',t[p[0]]*4);F.vib(5);renderGym()};
+function victory(plan,r,p){
+  const d=E.day(),S=E.S(),prs=Object.keys(d.lift||{}).filter(n=>d.lift[n].pr).length,line=U.hype(prs?'pr':'workout'),str=E.streak('workout');
+  const stats=[['+'+r.award,'AURA'],[p.done,'SETS'],[d.burn?'~'+fmt(d.burn):'\u2014','KCAL'],[prs||str||1,prs?'PRS':'IN A ROW']];
+  U.cele({kind:'victory',ms:5600,sound:'hype',vib:[40,40,40,40,200],
+    fx:()=>{F.confetti(140)},
+    html:'<div class="rays"></div><div class="kicker">TRAINING COMPLETE</div><div class="vav">'+HS.avatar.svg(S.equip,{mood:'proud'})+'</div><h1>'+plan.toUpperCase()+' DAY</h1><div class="vstats">'+stats.map(x=>'<div><b>'+x[0]+'</b><span>'+x[1]+'</span></div>').join('')+'</div><p>'+esc(line)+'</p>'+(r.comeback?'<p class="sub">Comeback bonus +40. Fatigue broken, your level can rise again.</p>':'')});
+}
 A.gymNext=function(){
   const sh=U.sh,d=E.day(),t=sh.tmp,plan=E.planFor();
   d.mins={lift:t.lift,walk:t.walk,run:t.run};d.burn=E.burnEst(kg(),t.lift,t.walk,t.run);d.runFree=t.free;
   E.stat('AGI',Math.floor((t.walk+t.run)/10));
-  const r=E.completeWorkout(plan);U.justRow='gym';
-  F.play('quest');F.burstCenter(50);
-  if(r.comeback)setTimeout(()=>U.overlay('','COMEBACK','+40','Fatigue broken. Your level can rise again.',3000),500);
+  const p=E.liftProgress(plan),r=E.completeWorkout(plan);U.justRow='gym';
+  victory(plan,r,p);
   sh.step='pain';renderGym();
 };
 A.pk=A.pb=function(v,b){
@@ -307,31 +342,49 @@ A.pk=A.pb=function(v,b){
 A.gymFinish=function(){const d=E.day();d.pain=d.pain||{knee:'none',back:'none'};E.save();U.closeSheet()};
 
 /* =====================================================================
-   REHAB: the external physio's written plan with a moving outline for every exercise, plus a draft roadmap.
+   REHAB: today's schedule, a guided session with a moving outline for every move, the pain check-in, and the roadmap.
    ===================================================================== */
+function parseRx(rx){
+  let m;
+  if((m=rx.match(/(\d+)\s*sec\s*[×x]\s*(\d+)\s*reps?/i)))return{reps:+m[2],sets:1,note:m[1]+' sec hold on each rep'};
+  if((m=rx.match(/(\d+)\s*sec\s*[×x]\s*(\d+)/i)))return{secs:+m[1],sets:+m[2]};
+  if((m=rx.match(/(\d+)\s*laps\s*[×x]\s*(\d+)\s*sets?/i)))return{laps:+m[1],sets:+m[2]};
+  if((m=rx.match(/(\d+)\s*[×x]\s*(\d+)/)))return{reps:+m[1],sets:+m[2]};
+  return{sets:1,note:''};
+}
 U.rehabSheet=function(tab){
   const d=E.day();
-  if(!d.reh)d.reh={items:{},day:E.S().rehab.next,knee:0,back:0,sharp:false,done:false,n:0};
-  U.sh={type:'rehab',tab:tab||'today',day:d.reh.day};renderRehab();
+  if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0};
+  stopHold();
+  U.sh={type:'rehab',tab:tab||'today',g:null};renderRehab();
 };
 A.roadmap=function(){U.rehabSheet('road')};
+function lightText(l){return l==='red'?'RED: stop, keep it gentle, and message your physio.':l==='amber'?'AMBER: hold your loads today. Do not progress.':'GREEN: fine to continue as planned.'}
+function holdBanner(t){
+  if(t.hold==='red')return '<div class="warn" style="margin-top:0">Your last check-in was <b>RED</b>. Keep today gentle: only the daily block, only what stays pain-free, no strength work and no cardio. If red repeats, message your physio.</div>';
+  if(t.hold==='amber')return '<div class="note amberb" style="margin-top:0">Your last check-in was <b>AMBER</b>. Hold your loads today: the strength finisher is skipped and the daily block should be gentle.</div>';
+  return '';
+}
 function renderRehab(){
   const sh=U.sh,d=E.day(),r=d.reh,S=E.S();
-  const rx=(key,e,skip)=>`<div class="rx${skip?' skipd':''}"><button class="chk" data-a="rt:${esc(key)}" aria-pressed="${!!r.items[key]}"><i>✓</i><span>${esc(e[0])}<small>${esc(e[1])}${skip?' · skipped by you':''}</small></span></button>${e[2]&&!skip?'<div class="rxf">'+HS.figSvg(e[2])+'</div>':''}</div>`;
-  const tabs=`<div class="tg" style="margin-top:0"><button data-a="rview:today" aria-pressed="${sh.tab==='today'}">Today</button><button data-a="rview:road" aria-pressed="${sh.tab==='road'}">Roadmap</button></div>`;
+  const tabs=`<div class="tg" style="margin-top:0"><button data-a="rview:today" aria-pressed="${sh.tab!=='road'}">Today</button><button data-a="rview:road" aria-pressed="${sh.tab==='road'}">Roadmap</button></div>`;
   if(sh.tab==='road'){U.openSheet('Recovery',tabs+roadmapHtml(),'<button class="btn" data-a="rview:today">Back to today</button>');return}
-  const day=HS.RDAYS[sh.day];
-  const green=E.light(r)||'green';
+  if(sh.tab==='guide')return renderGuide();
+  const rg=E.rehabGroups(),t=rg.t,pr=E.rehabProgress(),green=E.light(r)||'green';
+  const row=it=>`<div class="rx"><button class="chk" data-a="rt:${esc(it.key)}" aria-pressed="${!!r.items[it.key]}"><i>✓</i><span>${esc(it.name)}<small>${esc(it.rx)}</small></span>${it.fig?'<div class="rxm">'+HS.figSvg(it.fig,'mini')+'</div>':''}</button></div>`;
+  const mins=Math.max(4,Math.round(E.rehabKeys().filter(x=>x!=='aero').length*1.4));
+  const left=pr.total-pr.done;
   U.openSheet('Rehab',
-    tabs+`<div class="note" style="margin-top:12px">From your external physio's written plan. The sheet shows age 19, so confirm it is still current at your next visit. Figures are simplified outlines of the movement, not technique advice: ask your physio to show you the exact form. "S/B" is drawn as a Swiss ball.</div>
+    tabs+`<div class="rhead"><div class="rring"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="trk" cx="22" cy="22" r="18"/><circle class="arc k" cx="22" cy="22" r="18" pathLength="100" style="stroke-dashoffset:${100-(pr.total?pr.done/pr.total*100:0)}"/></svg><b>${pr.done}/${pr.total}</b></div>
+      <div class="rtxt"><b>${t.plan} day schedule</b><small>${pr.total} moves · about ${mins} min${t.aerobic?' + 30 min easy cardio':''}</small></div></div>
+    ${holdBanner(t)}
+    ${r.done?'<div class="note" style="margin-top:12px">Rehab quest cleared today. Extra moves still help. Log how it felt below.</div>':''}
+    <button class="btn vio gstart" data-a="rguide">${pr.done?'Continue the guided session':'Start the guided session'}<small>${left} move${left===1?'':'s'} left · one at a time, with a moving outline</small></button>
+    ${rg.groups.map(g=>`<div class="sec">${esc(g.title)}${g.bonus?' <em>optional</em>':''}<small>${esc(g.sub)}</small></div>${g.items.map(row).join('')}`).join('')}
+    ${t.finisher!=null&&HS.RDAYS[t.finisher].x.some(e=>e[3])?'<div class="small">Jefferson curl is left out, as you chose.</div>':''}
+    <div class="note">The moves come from your external physio’s written plan (the sheet shows age 19, so confirm it is still current at your next visit). Figures are simplified outlines of the movement, not technique advice: ask your physio to show you the exact form. "S/B" is drawn as a Swiss ball.</div>
     <button class="chk" data-a="rconf" aria-pressed="${S.rehab.confirmed}"><i>✓</i><span>My physio confirmed this plan is current<small>Tick it once they have seen this</small></span></button>
-    <div class="sec">Daily block</div>${HS.BLOCK.map((e,i)=>rx('b'+i,e)).join('')}
-    <div class="sec">Strength rotation</div>
-    <div class="tg">${HS.RDAYS.map((x,i)=>`<button data-a="rday:${i}" aria-pressed="${sh.day===i}">Day ${i+1}</button>`).join('')}</div>
-    <div class="hint" style="margin-top:10px">${esc(day.t)}</div>
-    ${day.x.map((e,i)=>rx('d'+sh.day+'_'+i,e,e[3])).join('')}
-    <div class="note">Also in the plan: pain-free aerobic exercise for 30 minutes, 3 to 4 days a week, and change activities that aggravate pain.</div>
-    <div class="sec">Check-in</div>
+    <div class="sec" id="checkin">Check-in</div>
     <div class="rngl"><span>RIGHT KNEE</span><b id="kv">${r.knee}</b></div><input class="rng" id="kr" type="range" min="0" max="10" value="${r.knee}" aria-label="Right knee pain 0 to 10">
     <div class="rngl"><span>LOWER BACK</span><b id="bv">${r.back}</b></div><input class="rng" id="br" type="range" min="0" max="10" value="${r.back}" aria-label="Lower back pain 0 to 10">
     <div class="tg"><button data-a="rsharp" aria-pressed="${r.sharp}">Sharp pain on any exercise today</button></div>
@@ -339,9 +392,7 @@ function renderRehab(){
     ${r.sharp?'<div class="warn">Stop that exercise. Write down which one and tell your physio.</div>':''}`,
     '<button class="btn good" data-a="rehabFinish">Finish rehab</button>');
 }
-function lightText(l){return l==='red'?'RED: stop, keep it gentle, and message your physio.':l==='amber'?'AMBER: hold your loads today. Do not progress.':'GREEN: fine to continue as planned.'}
-A.rview=function(v){U.sh.tab=v;U.$('#shBody').scrollTop=0;renderRehab()};
-A.rday=function(v){U.sh.day=+v;U.keepScroll(renderRehab)};
+A.rview=function(v){stopHold();U.sh.tab=v==='today'&&U.sh.tab==='guide'?'today':v;U.sh.g=null;$('#shBody').scrollTop=0;renderRehab()};
 A.rt=function(v){
   const m=v.match(/^d(\d)_(\d+)$/);if(m&&HS.RDAYS[+m[1]].x[+m[2]][3])return;
   const r=E.day().reh;r.items[v]=!r.items[v];E.save();F.play(r.items[v]?'set':'tap');F.vib(8);
@@ -357,20 +408,92 @@ document.addEventListener('input',e=>{
   const l=E.light(r),el=$('#rlight');if(el){el.className='light '+l;el.textContent=lightText(l)}
   E.save();
 });
-A.rehabFinish=function(){
-  const sh=U.sh,r=E.day().reh,S=E.S(),n=Object.keys(r.items).filter(x=>r.items[x]).length;
-  if(!n){U.sys('Tick at least one exercise, or close this window.','bad');return}
-  if(!r.done){r.done=true;r.n=n;r.day=sh.day;E.addAura(Math.min(80,n*10));E.stat('SNS',2)}else r.n=n;
-  const day=HS.RDAYS[sh.day],need=day.x.filter(x=>!x[3]).length,got=day.x.filter((x,i)=>!x[3]&&r.items['d'+sh.day+'_'+i]).length;
-  if(got>=need)S.rehab.next=(sh.day+1)%3;
-  E.save();U.justRow='rehab';F.play('quest');U.closeSheet();U.sys('Rehab logged: '+n+' exercises.','good',true);
+
+/* ---- the guided session: one move at a time ---- */
+function stopHold(){const g=U.sh&&U.sh.g;if(g&&g.t){clearInterval(g.t.iv);g.t=null}}
+function guideList(){const out=[];E.rehabGroups().groups.filter(g=>!g.bonus).forEach(g=>g.items.forEach(it=>out.push(Object.assign({group:g.title},it))));return out}
+A.rguide=function(){
+  const list=guideList(),items=E.day().reh.items,first=list.findIndex(it=>!items[it.key]);
+  U.sh.tab='guide';U.sh.g={list:list,i:first<0?0:first,set:0,t:null};F.play('pick');F.vib(10);renderRehab();
 };
+function renderGuide(){
+  const sh=U.sh,g=sh.g,it=g.list[g.i],px=parseRx(it.rx),total=px.sets||1;
+  stopHold();
+  const label=px.secs?'Start hold · '+px.secs+' s'+(total>1?' (set '+(g.set+1)+' of '+total+')':''):total>1?'Set '+(g.set+1)+' of '+total+' done':'Done';
+  U.openSheet('Guided rehab',
+    `<div class="gd"><div class="gtop"><div class="xp"><i style="width:${g.i/g.list.length*100}%"></i></div><span>${g.i+1} / ${g.list.length}</span></div>
+      <div class="ggrp">${esc(it.group)}</div>
+      <div class="gfig">${it.fig?HS.figSvg(it.fig,'big'):''}<div class="holdr" id="holdr" hidden><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="52"/><circle class="arc k" id="holdArc" cx="60" cy="60" r="52" pathLength="100" style="stroke-dashoffset:0"/></svg><b id="holdT">${px.secs||0}</b></div></div>
+      <h3>${esc(it.name)}</h3><div class="grx">${esc(it.rx)}${px.note?' · '+esc(px.note):''}</div>
+      <div class="gsets">${Array.from({length:total},(_,i)=>`<i class="${i<g.set?'on':''}"></i>`).join('')}</div>
+      <div class="small gtip">Stop if you feel sharp pain. A dull stretch or muscle effort is fine.</div></div>`,
+    `<button class="btn good" id="gsetBtn" data-a="gset">${label}</button><div class="gnav"><button class="link" data-a="gprev">Back</button><button class="link" data-a="gskip">Skip this move</button><button class="link" data-a="gend">Back to the list</button></div>`);
+}
+function guideNext(){
+  const sh=U.sh,g=sh.g;stopHold();
+  g.i++;g.set=0;
+  if(g.i>=g.list.length){
+    sh.tab='today';sh.g=null;F.play('quest');F.vib([30,40,60]);F.burstCenter(60);
+    renderRehab();
+    U.sys('Session complete. Log how it felt, then finish.','good',true);
+    setTimeout(()=>{const c=$('#checkin');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})},300);
+    return;
+  }
+  renderGuide();
+}
+A.gset=function(){
+  const sh=U.sh,g=sh.g;if(!g)return;
+  if(g.t){stopHold();renderGuide();return}
+  const it=g.list[g.i],px=parseRx(it.rx),total=px.sets||1;
+  const finishSet=()=>{
+    g.set++;F.play('set');F.vib(18);
+    if(g.set>=total){
+      E.day().reh.items[it.key]=true;E.save();F.play('quest');F.burstAt($('.gfig'),16);
+      setTimeout(guideNext,350);
+    }else renderGuide();
+  };
+  if(px.secs){
+    const end=Date.now()+px.secs*1000,ring=$('#holdr'),arc=$('#holdArc'),tt=$('#holdT'),btn=$('#gsetBtn');
+    ring.hidden=false;btn.textContent='Stop';let lastSec=px.secs;
+    g.t={iv:setInterval(()=>{
+      if(!U.sh||U.sh.g!==g||!g.t){return}
+      const left=Math.max(0,end-Date.now()),s=Math.ceil(left/1000);
+      arc.style.strokeDashoffset=100-left/(px.secs*1000)*100;
+      tt.textContent=s;
+      if(s!==lastSec){lastSec=s;F.play('tick',200+s*10)}
+      if(left<=0){clearInterval(g.t.iv);g.t=null;F.play('timer');F.vib([60,50,60]);finishSet()}
+    },100)};
+  }else finishSet();
+};
+A.gprev=function(){const g=U.sh.g;stopHold();g.i=Math.max(0,g.i-1);g.set=0;F.play('tap');renderGuide()};
+A.gskip=function(){F.play('tap');guideNext()};
+A.gend=function(){stopHold();U.sh.tab='today';U.sh.g=null;renderRehab()};
+A.rehabFinish=function(){
+  const sh=U.sh,r=E.day().reh,pr=E.rehabProgress();stopHold();
+  if(!pr.done){U.sys('Tick at least one move, or close this window.','bad');return}
+  r.n=pr.done;
+  if(pr.ok&&!r.done){
+    r.done=true;E.addAura(U.rehabAura(pr.done));E.stat('SNS',2);E.save();
+    U.justRow='rehab';F.play('quest');U.closeSheet();
+    U.sys(U.hype('rehab')+' '+pr.done+' of '+pr.total+' moves.','good',true);F.burstCenter(40);
+  }else if(pr.ok){
+    E.save();U.closeSheet();U.sys('Rehab updated: '+pr.done+' of '+pr.total+' moves.','good',true);
+  }else{
+    E.save();U.closeSheet();U.sys('Saved '+pr.done+' of '+pr.total+'. Finish at least '+Math.ceil(pr.total*.8)+' to clear the rehab quest.','');
+  }
+};
+function weekPlanHtml(){
+  const w=E.rehabWeek(),td=E.dkey();
+  return '<div class="rweek">'+w.map(x=>`<div class="${x.k===td?'today':''}"><b>${x.d}</b><span>${x.plan}</span><small>${x.fin||'block'}${x.aero?' + walk':''}${x.bonus?' + bonus':''}</small><i>${x.n}</i></div>`).join('')+'</div><div class="small">The daily block every day. Day 1 core with Push, Day 2 Swiss-ball work with Pull, balance after Legs, and a longer session on the rest day. The number is how many moves count that day.</div>';
+}
 function roadmapHtml(){
   const pd=E.painDays(14),ci=pd.filter(x=>x.r).length,gr=pd.filter(x=>E.light(x.r)==='green').length,runs=pd.filter(x=>x.run!=null).map(x=>x.run);
   const phase=(n,t,w,goal,dos,gate)=>`<div class="ph"><div class="phh"><b>PHASE ${n}</b><span>${t}</span></div><div class="phw">${w}</div><div class="phg"><b>Goal</b> ${goal}</div><ul>${dos.map(x=>'<li>'+x+'</li>').join('')}</ul><div class="phgate"><b>Gate</b> ${gate}</div></div>`;
   return `<div class="warn" style="margin-top:12px"><b>DRAFT for your physio to approve.</b> Not medical advice. Recovery time varies. Three to six months is a target to aim for, not a promise. Nothing here changes the exercises, sets or reps your physio wrote.</div>
    <div class="sec">Your numbers</div>
    <div class="dis"><div><span>CHECK-INS</span><b>${ci} / 14</b></div><div><span>GREEN DAYS</span><b>${gr}</b></div><div><span>RUN BEFORE PAIN</span><b>${runs.length?runs[runs.length-1]+' min':'no data'}</b></div></div>
+   <div class="sec">Your rehab week</div>
+   ${weekPlanHtml()}
    <div class="sec">Pain traffic light (proposed)</div>
    <div class="tl"><div class="light green">GREEN 0 to 3: continue as planned</div><div class="light amber">AMBER 4 to 5: hold loads, no progression</div><div class="light red">RED 6 or more, or any sharp pain: stop and message your physio</div></div>
    <div class="sec">Phases</div>
@@ -408,40 +531,53 @@ A.copy=function(){
 };
 
 /* =====================================================================
-   WEIGH-IN and CLEAR THE DAY
+   WEIGH-IN (with last night's sleep) and CLEAR THE DAY
    ===================================================================== */
 let wVal=84;
 U.weighSheet=function(){
-  U.sh={type:'weigh'};
-  const S=E.S(),ks=Object.keys(S.weights).sort();wVal=S.weights[E.dkey()]||(ks.length?S.weights[ks[ks.length-1]]:S.startW);
-  U.openSheet('Weigh-in','<div class="hint">Before food, after the toilet. Same scale every day.</div><div class="wnum"><button data-a="wd" aria-label="Down 0.1">−</button><input id="wIn" type="number" step="0.1" inputmode="decimal" value="'+wVal.toFixed(1)+'" aria-label="Weight in kg"><button data-a="wu" aria-label="Up 0.1">+</button></div><div class="note">One reading never moves your trend by more than a quarter. Water weight is noise.</div>','<button class="btn" data-a="wSave">Save</button>');
+  const S=E.S(),d=E.day(),ks=Object.keys(S.weights).sort();
+  wVal=S.weights[E.dkey()]||(ks.length?S.weights[ks[ks.length-1]]:S.startW);
+  const lastSleep=ks.map(k=>S.days[k]&&S.days[k].sleep).filter(x=>x!=null).pop();
+  U.sh={type:'weigh',sleep:d.sleep!=null?d.sleep:(lastSleep!=null?lastSleep:7),touched:false};
+  renderWeigh();
 };
+const sleepNote=h=>h>=7?'Good. +15 aura':h>=6?'Okay. +8 aura':'Short night. Be kind to yourself today';
+function renderWeigh(){
+  const sh=U.sh,d=E.day();
+  U.openSheet('Morning check-in',
+    `<div class="hint">Before food, after the toilet. Same scale every day.</div>
+    <div class="wnum"><button data-a="wd" aria-label="Down 0.1">−</button><input id="wIn" type="number" step="0.1" inputmode="decimal" value="${wVal.toFixed(1)}" aria-label="Weight in kg"><button data-a="wu" aria-label="Up 0.1">+</button></div>
+    <div class="note">One reading never moves your trend by more than a quarter. Water weight is noise.</div>
+    <div class="sec">Last night’s sleep</div>
+    <div class="stp"><span>Hours slept<small id="slpn">${sleepNote(sh.sleep)}</small></span><div class="c"><button class="sbtn" data-a="slp:-0.5" aria-label="Less sleep">−</button><i class="slpv" id="slpv">${sh.sleep.toFixed(1)}</i><button class="sbtn" data-a="slp:0.5" aria-label="More sleep">+</button></div></div>
+    <div class="small">${d.sleep!=null?'Already logged: '+d.sleep+' h. Change it above if it is off.':'Skip this if you would rather not log it today.'}</div>`,
+    '<button class="btn" data-a="wSave">Save</button>');
+}
+A.slp=function(v){const sh=U.sh;sh.sleep=Math.max(0,Math.min(14,Math.round((sh.sleep+parseFloat(v))*2)/2));sh.touched=true;F.play('tick',sh.sleep*30);F.vib(5);$('#slpv').textContent=sh.sleep.toFixed(1);$('#slpn').textContent=sleepNote(sh.sleep)};
 A.wd=A.wu=function(v,b){
   const i=$('#wIn');let x=parseFloat(i.value)||wVal;
   x=Math.round((x+(b.dataset.a==='wu'?.1:-.1))*10)/10;i.value=x.toFixed(1);F.play('weigh');F.vib(6);
 };
 A.wSave=function(){
   const x=parseFloat($('#wIn').value);if(!(x>30&&x<250)){U.sys('Enter your weight in kg.','bad');return}
-  const r=E.logWeight(x);U.justRow='weigh';F.vib([20,30,30]);U.closeSheet();
-  if(!r.cleared)U.sys('Logged '+x.toFixed(1)+' kg. Trend '+r.trend.toFixed(1)+' kg.','',true);
+  const sh=U.sh,r=E.logWeight(x);
+  if(sh.touched)E.logSleep(sh.sleep);
+  U.justRow='weigh';F.vib([20,30,30]);U.closeSheet();
+  if(!r.cleared)U.sys('Logged '+x.toFixed(1)+' kg. Trend '+r.trend.toFixed(1)+' kg.'+(sh.touched&&sh.sleep>=7?' '+U.hype('sleep'):''),'',true);
 };
-const gymOk=(plan,d)=>plan==='Rest'||d.workout==='done'||d.workout==='pain'||d.workout==='pass';
 U.closeDaySheet=function(){
   U.sh={type:'close'};
-  const d=E.day(),plan=E.planFor(),T=E.T();
-  if(d.closed){U.openSheet('Day cleared','<div class="hint">'+d.score+' of 4 quests. Aura today: '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+'.</div>','<button class="btn ghost" data-a="close">Close</button>');return}
+  const d=E.day();
+  if(d.closed){U.openSheet('Day cleared','<div class="hint">'+d.score+' of 4 quests. Aura today: '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+'.</div>'+(d.chest?'':'<div class="stack2"><button class="btn vio" data-a="chestOpen">Open today’s chest</button></div>'),'<button class="btn ghost" data-a="close">Close</button>');return}
   const open=U.quests().filter(q=>q.st==='todo'&&['close','weigh','rehab'].indexOf(q.id)<0).map(q=>q.id==='gym'?'Log your workout':'Log or skip '+q.id);
   if(open.length){U.openSheet('Not yet','<div class="hint">Finish these first, so the tally is honest.</div>'+open.map(o=>'<div class="q"><span>'+esc(o)+'</span><span class="no">OPEN</span></div>').join(''),'<button class="btn ghost" data-a="close">Back</button>');return}
-  const tot=E.totals(d),calOk=tot.k>=T.lo&&tot.k<=T.hi,rehOk=!!(d.reh&&d.reh.done);
-  const q=[['Protein '+T.protein+' g',d.pAward,Math.round(tot.p)+' g'],['Calories '+fmt(T.lo)+' to '+fmt(T.hi),calOk,fmt(tot.k)],['Workout',gymOk(plan,d),plan==='Rest'?'Rest day':({done:'Done',pain:'Pain day',pass:'Rest pass'}[d.workout]||'Skipped')],['Rehab',rehOk,rehOk?'Done':'Missed']];
-  U.openSheet('Clear the day','<div class="hint">Last look. Clearing adds your calorie reward.</div>'+q.map(x=>'<div class="q"><span>'+esc(x[0])+'</span><span class="'+(x[1]?'ok':'no')+'">'+(x[1]?'✓ ':'')+esc(x[2])+'</span></div>').join('')+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal does not count. Eating too little costs muscle. If you forgot to log something, go back and add it.</div>':''),'<button class="btn" data-a="lock">Clear it</button>');
+  const st=E.dayStatus(),T=st.T,tot=st.tot,d2=d;
+  const q=[['Protein '+T.protein+' g',st.protOk,Math.round(tot.p)+' g'],['Calories '+fmt(T.lo)+' to '+fmt(T.hi),st.calOk,fmt(tot.k)],['Workout',st.gymOk,st.plan==='Rest'?'Rest day':({done:'Done',pain:'Pain day',pass:'Rest pass'}[d2.workout]||'Skipped')],['Rehab',st.rehOk,st.rehOk?'Done':'Missed']];
+  U.openSheet('Clear the day','<div class="hint">Last look. Clearing adds your calorie reward and opens your chest.</div>'+q.map(x=>'<div class="q"><span>'+esc(x[0])+'</span><span class="'+(x[1]?'ok':'no')+'">'+(x[1]?'✓ ':'')+esc(x[2])+'</span></div>').join('')+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal does not count. Eating too little costs muscle. If you forgot to log something, go back and add it.</div>':''),'<button class="btn" data-a="lock">Clear it</button>');
 };
 A.lock=function(){
-  const d=E.day(),plan=E.planFor(),T=E.T(),tot=E.totals(d);if(d.closed)return;
-  const calOk=tot.k>=T.lo&&tot.k<=T.hi,rehOk=!!(d.reh&&d.reh.done);
-  d.closed=true;d.score=(d.pAward?1:0)+(calOk?1:0)+(gymOk(plan,d)?1:0)+(rehOk?1:0);
-  if(calOk){E.addAura(80);E.stat('VIT',2)}
-  E.save();U.justRow='close';F.play('quest');F.vib([30,40,60]);F.burstCenter(48);U.closeSheet();
-  U.sys(d.score+' of 4 quests. '+(d.score>=3?'Day on track.':'Tomorrow, no excuses. Never miss twice.'),d.score>=3?'good':'',true);
+  if(E.day().closed)return;
+  U.justRow='close';F.vib([30,40,60]);U.closeSheet();
+  E.closeDay();
 };
 })();
