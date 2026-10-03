@@ -437,6 +437,12 @@ svg.fig{display:block;margin:0 auto;height:118px;width:auto;max-width:100%;backg
 @keyframes dropin{0%{transform:translateY(-80px) scale(.3);opacity:0}60%{transform:translateY(4px) scale(1.2);opacity:1}100%{transform:none}}
 @keyframes comboin{0%{transform:translateX(-50%) scale(0);opacity:0}60%{transform:translateX(-50%) scale(1.3);opacity:1}100%{transform:translateX(-50%) scale(1);opacity:1}}
 @keyframes radarin{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.qrow.just .qic svg path{stroke-dashoffset:0!important}}
 
 #sheet:not(.on){pointer-events:none}   /* a closing sheet must not catch a second tap while it slides away */
+
+/* a dismissed sheet or card must not be focusable or readable by assistive tech; hide it once its slide-out has finished */
+#sheet:not(.on){visibility:hidden;transition:transform .38s cubic-bezier(.2,.95,.25,1),visibility 0s linear .4s}
+#ov:not(.on){visibility:hidden;transition:opacity .25s,visibility 0s linear .3s}
+.who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who{min-width:0}

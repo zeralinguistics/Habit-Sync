@@ -33,7 +33,7 @@ H.sync=async function(){
   const out={ok:true},d=E.day();
   const day={startDate:mid.toISOString(),endDate:now.toISOString(),bucket:'day',aggregation:'sum'};
   const tryit=async(label,fn)=>{try{await fn()}catch(e){out.errors=(out.errors||[]).concat(label)}};
-  await tryit('steps',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'steps'},day))));if(v>=0){out.steps=v;d.hSteps=v;if(!d.steps||+d.steps<v)d.steps=String(v);if(v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}}});
+  await tryit('steps',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'steps'},day))));if(v>=0){out.steps=v;d.hSteps=v;if(v>0&&(!d.steps||+d.steps<v))d.steps=String(v);   /* a zero reading is not a logged day */if(v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}}});
   await tryit('calories',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'calories'},day))));if(v>=0){out.act=v;d.hAct=v}});
   await tryit('sleep',async()=>{
     const from=new Date(mid.getTime()-6*3600e3);   /* from 6pm yesterday */

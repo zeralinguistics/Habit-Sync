@@ -156,13 +156,16 @@ A.sugadd=function(v){
 };
 A.mAdd=function(){
   const sh=U.sh,inp=$('#mIn'),txt=inp.value.trim();if(!sh||!txt)return;
-  const miss=[];
+  const miss=[];let unnamed=false,zero=false;
   txt.split(/,|\+|\band\b/i).forEach(p=>{
-    const r=E.parsePart(p);if(!r||!r.name)return;
+    const r=E.parsePart(p);if(!r)return;
+    if(!r.name){if(r.g!=null||r.kc!=null||r.tn!=null||r.units!=null)unnamed=true;return}
     const hit=E.scoreFoods(r.name,sh.meal)[0];
     if(hit){
       let amt=r.g!=null?r.g:r.units!=null?r.units*hit.ug:r.tn!=null?r.tn:null;
       if(r.kc!=null&&r.g==null&&hit.k100>0)amt=Math.round(r.kc/hit.k100*100);   /* "momos 500 kcal" means 500 kcal of momos */
+      else if(r.tn!=null&&r.g==null&&r.units==null&&hit.custom&&hit.k100>0)amt=Math.round(r.tn/hit.k100*100);   /* a custom food was made from kcal, so a bare number stays kcal */
+      if(amt!=null&&!(amt>0)){zero=true;return}
       E.addFood(hit.name,amt,sh.meal);afterAdd(hit.name,inp,1);return;
     }
     const kc=r.kc!=null?r.kc:r.tn;
@@ -170,7 +173,9 @@ A.mAdd=function(){
     miss.push(r.name);
   });
   inp.value='';$('#mSug').innerHTML='';
-  if(miss.length)U.sys('Not found: '+miss.join(', ')+'. Add a number, like "momos 350".','bad');
+  if(miss.length)U.sys('Not found: '+miss.join(', ')+'. Add a number, like "momos 350 kcal".','bad');
+  else if(unnamed)U.sys('Add a name too, like "rice 200g" or "momos 350 kcal".','bad');
+  else if(zero)U.sys('An amount of zero adds nothing.','bad');
 };
 A.edit=function(v){const sh=U.sh;if(!sh||sh.type!=='plate')return;sh.edit=(sh.edit===+v)?-1:+v;F.play('pick');drawPlate();drawStage()};
 A.edClose=function(){U.sh.edit=-1;drawPlate();drawStage()};
@@ -359,9 +364,10 @@ function parseRx(rx){
   if((m=rx.match(/(\d+)\s*[×x]\s*(\d+)/)))return{reps:+m[1],sets:+m[2]};
   return{sets:1,note:''};
 }
+/* today's rehab record, made on demand: a sheet left open past the day change must not find it missing */
+function rehRec(){const d=E.day();if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0,checked:false};return d.reh}
 U.rehabSheet=function(tab){
-  const d=E.day();
-  if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0,checked:false};
+  const d=E.day();rehRec();
   stopHold();
   U.sh={type:'rehab',tab:tab||'today',g:null};renderRehab();
 };
@@ -373,7 +379,7 @@ function holdBanner(t){
   return '';
 }
 function renderRehab(){
-  const sh=U.sh,d=E.day(),r=d.reh,S=E.S();
+  const sh=U.sh,d=E.day(),r=rehRec(),S=E.S();
   const tabs=`<div class="tg" style="margin-top:0"><button data-a="rview:today" aria-pressed="${sh.tab!=='road'}">Today</button><button data-a="rview:road" aria-pressed="${sh.tab==='road'}">Roadmap</button></div>`;
   if(sh.tab==='road'){U.openSheet('Recovery',tabs+roadmapHtml(),'<button class="btn" data-a="rview:today">Back to today</button>');return}
   if(sh.tab==='guide')return renderGuide();
@@ -402,12 +408,12 @@ function renderRehab(){
 A.rview=function(v){stopHold();U.sh.tab=v==='today'&&U.sh.tab==='guide'?'today':v;U.sh.g=null;$('#shBody').scrollTop=0;renderRehab()};
 A.rt=function(v){
   const m=v.match(/^d(\d)_(\d+)$/);if(m&&HS.RDAYS[+m[1]].x[+m[2]][3])return;
-  const r=E.day().reh;r.items[v]=!r.items[v];E.save();F.play(r.items[v]?'set':'tap');F.vib(8);
+  const r=rehRec();r.items[v]=!r.items[v];E.save();F.play(r.items[v]?'set':'tap');F.vib(8);
   U.keepScroll(renderRehab);
 };
 A.rconf=function(){const S=E.S();S.rehab.confirmed=!S.rehab.confirmed;E.save();F.play('pick');U.keepScroll(renderRehab)};
-A.rsharp=function(){const r=E.day().reh;r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
-A.rok=function(){const r=E.day().reh;r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
+A.rsharp=function(){const r=rehRec();r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
+A.rok=function(){const r=rehRec();r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
 document.addEventListener('input',e=>{
   const id=e.target.id;if(id!=='kr'&&id!=='br')return;
   const r=E.day().reh;if(!r)return;
@@ -422,7 +428,7 @@ document.addEventListener('input',e=>{
 function stopHold(){const g=U.sh&&U.sh.g;if(g&&g.t){clearInterval(g.t.iv);g.t=null}}
 function guideList(){const out=[];E.rehabGroups().groups.filter(g=>!g.bonus).forEach(g=>g.items.forEach(it=>out.push(Object.assign({group:g.title},it))));return out}
 A.rguide=function(){
-  const list=guideList(),items=E.day().reh.items,first=list.findIndex(it=>!items[it.key]);
+  const list=guideList(),items=rehRec().items,first=list.findIndex(it=>!items[it.key]);
   U.sh.tab='guide';U.sh.g={list:list,i:first<0?0:first,set:0,t:null};F.play('pick');F.vib(10);renderRehab();
 };
 function renderGuide(){
@@ -459,7 +465,7 @@ A.gset=function(){
     g.set++;F.play('set');F.vib(18);
     if(g.set>=total){
       g.busy=true;const i0=g.i;
-      E.day().reh.items[it.key]=true;E.save();F.play('quest');F.burstAt($('.gfig'),16);
+      rehRec().items[it.key]=true;E.save();F.play('quest');F.burstAt($('.gfig'),16);
       setTimeout(()=>{if(U.sh&&U.sh.g===g&&g.i===i0)guideNext()},350);
     }else renderGuide();
   };
@@ -481,7 +487,7 @@ A.gprev=function(){const g=U.sh.g;stopHold();g.i=Math.max(0,g.i-1);g.set=0;F.pla
 A.gskip=function(){F.play('tap');guideNext()};
 A.gend=function(){stopHold();U.sh.tab='today';U.sh.g=null;renderRehab()};
 A.rehabFinish=function(){
-  const sh=U.sh,r=E.day().reh,pr=E.rehabProgress();stopHold();
+  const sh=U.sh,r=rehRec(),pr=E.rehabProgress();stopHold();
   if(!pr.done){U.sys('Tick at least one move, or close this window.','bad');return}
   r.n=pr.done;
   if(pr.ok&&!r.done){
@@ -571,8 +577,13 @@ A.wd=A.wu=function(v,b){
   x=Math.round((x+(b.dataset.a==='wu'?.1:-.1))*10)/10;i.value=x.toFixed(1);F.play('weigh');F.vib(6);
 };
 A.wSave=function(){
+  const sh=U.sh;if(!sh||sh.type!=='weigh')return;
   const x=parseFloat($('#wIn').value);if(!(x>30&&x<250)){U.sys('Enter your weight in kg.','bad');return}
-  const sh=U.sh,r=E.logWeight(x);
+  /* a slipped digit would pay gates that can never be taken back, so a number far from the last reading asks once */
+  const S0=E.S(),prevK=Object.keys(S0.weights).filter(k=>k<E.dkey()).sort(),last=prevK.length?S0.weights[prevK[prevK.length-1]]:S0.startW;
+  const gap=prevK.length?Math.max(1,E.daysBetween(prevK[prevK.length-1],E.dkey())):1,limit=Math.min(10,3+Math.max(0,gap-3)*.3);
+  if(Math.abs(x-last)>limit&&sh.confirmed!==x){sh.confirmed=x;F.play('shake');U.sys('That is '+Math.abs(x-last).toFixed(1)+' kg '+(x<last?'below':'above')+' your last reading ('+last.toFixed(1)+'). Tap Save again if it is right.','bad');return}
+  const r=E.logWeight(x);
   if(sh.touched)E.logSleep(sh.sleep);
   U.justRow='weigh';F.vib([20,30,30]);U.closeSheet();
   if(!r.cleared)U.sys('Logged '+x.toFixed(1)+' kg. Trend '+r.trend.toFixed(1)+' kg.'+(sh.touched&&sh.sleep>=7?' '+U.hype('sleep'):''),'',true);

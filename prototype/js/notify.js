@@ -49,7 +49,6 @@ N.schedule=async function(){
   const p=LN(),S=E.S(),rm=S.remind;
   if(!p||!rm.on)return;
   try{
-    await N.disable();
     const lvl=S.cfg.roast==='off'?'nice':S.cfg.roast,name=S.cfg.name||'Hunter',today=E.dkey(),d=S.days[today]||{};
     const done={weigh:!!d.weighed,lunch:!!(d.done&&d.done.lunch),dinner:!!(d.done&&d.done.dinner),rehab:!!(d.reh&&d.reh.done),clear:!!d.closed};
     const list=[],now=Date.now();
@@ -63,7 +62,11 @@ N.schedule=async function(){
         list.push({id:1000+day*10+si,title:'HABIT SYNC',body:body,channelId:'hs-nudges',schedule:{at:at,allowWhileIdle:true},isExactNotification:false,autoCancel:true});
       });
     }
+    /* same ids replace the old reminders, so the phone is never left with none: schedule first, then cancel only what is stale */
     if(list.length)await p.schedule({notifications:list});
+    const keep=new Set(list.map(x=>x.id)),pend=await p.getPending();
+    const stale=(pend.notifications||[]).filter(n=>!keep.has(n.id));
+    if(stale.length)await p.cancel({notifications:stale});
   }catch(e){}
 };
 document.addEventListener('visibilitychange',()=>{if(document.hidden)N.schedule()});

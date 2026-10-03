@@ -36,7 +36,7 @@ function planChart(){
   const nodes=[{d:0,kg:S.startW}];p.gates.forEach(g=>{nodes.push({d:g.week*7,kg:g.kg});if(g.camp)nodes.push({d:g.camp*7,kg:g.kg})});
   const wAt=d=>{for(let i=1;i<nodes.length;i++){if(d<=nodes[i].d){const a=nodes[i-1],b=nodes[i],f=b.d===a.d?1:(d-a.d)/(b.d-a.d);return a.kg+(b.kg-a.kg)*f}}return S.cfg.goalW};
   const wk=Object.keys(S.weights).sort();
-  const yMax=Math.ceil(S.startW+.3),yMin=Math.floor(Math.min(wAt(span),E.trend(),wk.length?Math.min.apply(null,wk.map(k=>S.weights[k])):99)-.3);
+  const yMax=Math.ceil(Math.max(S.startW,wk.length?Math.max.apply(null,wk.map(k=>S.weights[k])):0)+.3),yMin=Math.floor(Math.min(wAt(span),E.trend(),wk.length?Math.min.apply(null,wk.map(k=>S.weights[k])):99)-.3);
   const X=d=>pl+d/span*pw,Y=kg=>pt+(yMax-kg)/(yMax-yMin)*ph;
   let g='';
   for(let kg=yMax;kg>=yMin;kg--)g+='<line class="cg" x1="'+pl+'" y1="'+Y(kg).toFixed(1)+'" x2="'+(W-pr)+'" y2="'+Y(kg).toFixed(1)+'"/><text class="cx" x="'+(pl-6)+'" y="'+(Y(kg)+3).toFixed(1)+'" text-anchor="end">'+kg+'</text>';
@@ -116,7 +116,7 @@ function healthBlock(hs,d){
 }
 A.saveSteps=function(){
   const d=E.day(),v=$('#stepsIn').value;d.steps=v;
-  if(v&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}
+  if(+v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}
   E.save();U.sys(v?'Steps saved: '+fmt(+v)+'.':'Cleared.','good');
 };
 A.hconnect=async function(){

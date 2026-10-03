@@ -34,6 +34,7 @@ const pin = (iso) => {
   /* ---------- first run: the awakening ---------- */
   ok(await pg.evaluate(() => document.querySelector('#shT').textContent === 'Awakening' && document.querySelector('#sheet').classList.contains('on')), 'first run opens the Awakening sheet');
   await pg.screenshot({ path: out + 'a0-welcome.png' });
+  ok(await pg.evaluate(() => !!document.querySelector('#shFoot [data-a="wRestore"]')), 'the welcome sheet offers "I already have a backup"');
   await pg.fill('#wName', 'Rin'); await pg.click('[data-a="wroast:savage"]'); await pg.click('[data-a="wGo"]'); await pg.waitForTimeout(500);
   let s = await S(pg);
   ok(s.cfg.name === 'RIN' && s.cfg.roast === 'savage' && s.welcomed && s.startW === 84 && s.cfg.goalW === 70, 'awakening saves name, savage teasing, 84 to 70 kg');
@@ -749,6 +750,146 @@ const pin = (iso) => {
     await cp2.click('[data-a="bkPaste"]'); await cp2.fill('#pasteBk', 'not a backup'); await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(1000); await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(400);
     ok(await cp2.evaluate(a => /not a Habit Sync backup/i.test(document.querySelector('#sysT').textContent) && HS.E.S().aura === a, a0), 'wrong text is refused and nothing is lost');
     ok(cp1.errs.length === 0 && cp2.errs.length === 0, 'no console errors with pasted restore ' + JSON.stringify(cp1.errs.concat(cp2.errs)));
+  }
+
+  /* ---------- second review: regressions and edge cases ---------- */
+  {
+    /* an older save with a single training anchor keeps its week (the first fix once reset it to Push) */
+    const lc = await mk(() => { const st = { v: 5, cfg: { name: 'X' }, welcomed: true, start: '2026-09-20', aura: 500, cycle: { a: '2026-09-28', i: 1 }, days: {}, swept: { '2026-10-02': 1, '2026-10-03': 1, '2026-10-04': 1 } }; if (!localStorage.getItem('habitsync.proto.v4')) localStorage.setItem('habitsync.proto.v4', JSON.stringify(st)); });
+    await lc.goto(url); await lc.waitForTimeout(900);
+    const lr = await lc.evaluate(() => ({ today: HS.E.planFor(), sat: HS.E.planFor('2026-10-03'), a: HS.E.S().cycle.a, passes: Object.keys(HS.E.S().passUsed).length, aura: HS.E.S().aura }));
+    ok(lr.today === 'Pull' && lr.sat === 'Rest' && lr.a === '2026-09-28' && lr.passes === 0 && lr.aura === 500, 'an older save keeps its training week (Pull today, Rest on Saturday) and no pass is burned');
+    const im = await lc.evaluate(() => { HS.E.importText(JSON.stringify({ app: 'habit-sync', version: 5, state: { v: 5, cfg: { name: 'OLD' }, start: '2026-09-20', cycle: { a: '2026-09-29', i: 5 }, days: {} } })); return HS.E.planFor('2026-09-29'); });
+    ok(im === 'Legs', 'a backup file written before the cycle anchors existed restores its training week');
+    ok(lc.errs.length === 0, 'no console errors ' + JSON.stringify(lc.errs));
+  }
+  {
+    const qa = await mk();
+    await qa.goto(url); await qa.waitForTimeout(800);
+    await qa.evaluate(() => { HS.E.reset(); HS.E.S().welcomed = true; HS.ui.closeSheet(); });
+    const QB = await qa.evaluate(() => {
+      const E = HS.E, U = HS.ui; U.plateSheet('lunch');
+      const add = t => { document.querySelector('#mIn').value = t; U.act.mAdd(); };
+      const k = () => Math.round(E.mealKcal(E.day(), 'lunch')), toast = () => document.querySelector('#sysT').textContent;
+      add('momos 350'); const a = k();
+      add('momos 350'); const b = k();
+      add('0 g'); const c = k(), t1 = toast();
+      add('300 kcal'); const t2 = toast();
+      add('rice 0g'); const t3 = toast(), d = k();
+      U.closeSheet(); return { a: a, db: b - a, c: c - b, t1: t1, t2: t2, t3: t3, d: d - c };
+    });
+    ok(Math.abs(QB.a - 350) <= 10 && Math.abs(QB.db - 350) <= 10, 'a bare number after a custom food is kcal every time, not grams the second time (' + QB.a + ', +' + QB.db + ')');
+    ok(QB.c === 0 && /Add a name/.test(QB.t1) && /Add a name/.test(QB.t2) && QB.d === 0 && /zero/.test(QB.t3), 'a missing name or a zero amount is refused with a reason');
+  }
+  {
+    const zs = await mk(() => {
+      window.Capacitor = { isNativePlatform: () => true, Plugins: { Health: {
+        isAvailable: async () => ({ available: true }), requestAuthorization: async o => ({ readAuthorized: o.read }),
+        queryAggregated: async () => ({ samples: [{ value: 0 }] }), readSamples: async () => ({ samples: [] }), queryWorkouts: async () => ({ workouts: [] }) } } };
+      const st = { v: 5, cfg: { name: 'X' }, welcomed: true, aura: 5, health: { on: true, last: 0 } };
+      if (!localStorage.getItem('habitsync.proto.v4')) localStorage.setItem('habitsync.proto.v4', JSON.stringify(st));
+    }, '2026-10-10T06:10:00');   /* a day where the automatic bonus quest is "log your steps" */
+    await zs.goto(url); await zs.waitForTimeout(1300);
+    const zr = await zs.evaluate(() => { const d = HS.E.day(), S = HS.E.S(); return { steps: d.steps, h: d.hSteps, ids: HS.E.bonusToday().map(b => b.id).join(), claimed: Object.keys(S.claimed).filter(k => /^bonus:/.test(k)).length, goal: HS.E.goalHave({ id: 'g_steps' }) }; });
+    ok(zr.h === 0 && !zr.steps && zr.claimed === 0 && zr.goal === 0, 'a Samsung sync that reads 0 steps does not count as a logged day (' + zr.ids + ')');
+  }
+  {
+    const wq = await mk();
+    await wq.goto(url); await wq.waitForTimeout(800);
+    await wq.evaluate(() => { HS.E.reset(); HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.weighSheet(); }); await wq.waitForTimeout(500);
+    await wq.fill('#wIn', '70.0'); await wq.click('[data-a="wSave"]'); await wq.waitForTimeout(300);
+    const w1 = await wq.evaluate(() => ({ n: Object.keys(HS.E.S().weights).length, toast: document.querySelector('#sysT').textContent, open: document.querySelector('#sheet').classList.contains('on') }));
+    ok(w1.n === 0 && w1.open && /Tap Save again/.test(w1.toast), 'a weigh-in 14 kg off the last reading asks once before it is saved');
+    await wq.click('[data-a="wSave"]'); await wq.waitForTimeout(400);
+    ok(await wq.evaluate(() => Object.keys(HS.E.S().weights).length) === 1, 'the second tap saves it');
+    const hid = await wq.evaluate(async () => { HS.ui.closeSheet(); const sh = document.querySelector('#sheet'); for (let i = 0; i < 40 && getComputedStyle(sh).visibility !== 'hidden'; i++) await new Promise(r => setTimeout(r, 50)); const before = Object.keys(HS.E.S().weights).length; let thrown = ''; try { HS.ui.act.wSave(); } catch (e) { thrown = e.message; } return { vis: getComputedStyle(sh).visibility, thrown: thrown, same: Object.keys(HS.E.S().weights).length === before }; });
+    ok(hid.vis === 'hidden' && hid.thrown === '' && hid.same, 'a closed sheet is hidden from focus and screen readers, and its Save does nothing ' + JSON.stringify(hid));
+    const nl = await wq.evaluate(() => { HS.E.S().welcomed = true; const n = HS.E.S(); n.cfg.name = 'WWWWWWWWWWWWWW'; HS.ui.tab = 'home'; HS.ui.render(true); const who = document.querySelector('.who').getBoundingClientRect(), aur = document.querySelector('.aur').getBoundingClientRect(); return who.right <= aur.left + 1; });
+    ok(nl, 'a 14-letter wide name stays clear of the aura counter');
+  }
+  {
+    const bf = await mk();
+    await bf.goto(url); await bf.waitForTimeout(800);
+    const BF = await bf.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey(), y = E.addDays(today, -1);
+      S.start = E.addDays(today, -5);
+      E.day(y).reh = { items: {}, day: 0, knee: 7, back: 0, sharp: false, done: true, n: 5, checked: true };   /* yesterday was red */
+      const ids1 = E.bonusToday().map(b => b.id).join();
+      const m = E.bonusToday().find(b => !b.auto); E.tickBonus(m.id);
+      E.day().reh = { items: {}, day: 0, knee: 0, back: 0, sharp: false, done: true, n: 5, checked: true };   /* a green check-in at noon */
+      const ids2 = E.bonusToday().map(b => b.id).join();
+      return { ids1: ids1, ids2: ids2, ticked: E.bonusToday().find(b => b.id === m.id).done };
+    });
+    ok(BF.ids1 === BF.ids2 && BF.ticked, 'the three bonus quests are frozen for the day: a later check-in cannot swap one you already ticked');
+  }
+  {
+    const ro = await mk(null, '2026-10-05T23:40:00');
+    await ro.goto(url); await ro.waitForTimeout(900);
+    await ro.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.E.S().start = HS.E.addDays(HS.E.dkey(), -3); HS.ui.rehabSheet(); }); await ro.waitForTimeout(400);
+    await ro.evaluate(pin, '2026-10-06T07:30:00');
+    const RO = await ro.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); const closed = !HS.ui.sh && !document.querySelector('#sheet').classList.contains('on'); let thrown = ''; try { HS.ui.rehabSheet(); HS.ui.act.rguide(); HS.ui.closeSheet(); } catch (e) { thrown = e.message; } return { closed: closed, day: HS.E.dkey(), thrown: thrown }; });
+    ok(RO.closed && RO.day === '2026-10-06' && RO.thrown === '', 'a sheet left open overnight is closed when the new day starts, and rehab opens cleanly');
+  }
+  {
+    const sc = await mk();
+    await sc.goto(url); await sc.waitForTimeout(800);
+    const SC = await sc.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey();
+      S.start = E.addDays(today, -10); S.cycles = [{ a: S.start, i: 0 }]; S.cycle = { a: S.start, i: 0 };
+      const week = () => { const o = []; for (let i = 0; i < 7; i++) o.push(E.planFor(E.addDays(today, i))); return o.join(); };
+      const w0 = week(), p0 = E.planFor(), other = p0 === 'Pull' ? 'Legs' : 'Pull';
+      E.setSession(other); const w1 = week(); E.setSession(p0); const w2 = week();
+      S.cycles.push({ a: E.addDays(today, 2), i: 0 }); E.setSession(other);
+      return { w0: w0, w2: w2, changed: w1 !== w0, future: S.cycles.filter(c => c.a > today).length, cyc: S.cycle.a <= today };
+    });
+    ok(SC.changed && SC.w0 === SC.w2, 'a mis-tap on the session picker followed by the right session leaves the week exactly as it was');
+    ok(SC.future === 0 && SC.cyc, 'an anchor dated in the future (clock set back) is dropped on the next correction');
+    const CH = await sc.evaluate(async () => {
+      const E = HS.E, U = HS.ui; E.reset(); E.S().welcomed = true; U.closeSheet(); U.clearCele(); E.day().closed = true; E.day().score = 3;
+      let n = 0; const oc = U.cele; U.cele = c => { n++; return oc.call(U, c); };
+      U.act.chestOpen(); await new Promise(r => setTimeout(r, 120)); U.act.chestOpen();
+      await new Promise(r => setTimeout(r, 1500)); U.cele = oc; U.clearCele();
+      return { n: n, aura: E.day().chest && E.day().chest.aura > 0 };
+    });
+    ok(CH.n === 2 && CH.aura, 'a second tap on the chest does not replay the reveal (' + CH.n + ' cards)');
+  }
+  {
+    const rm = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+    await rm.addInitScript(pin, '2026-10-05T12:30:00');
+    const rp2 = await rm.newPage(); rp2.errs = [];
+    rp2.on('pageerror', e => rp2.errs.push('PAGEERR ' + e.message));
+    await rp2.goto(url); await rp2.waitForTimeout(700);
+    const RM = await rp2.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.E.logWeight(83.9); HS.ui.justRow = 'weigh'; HS.ui.render(); const p = document.querySelector('.qrow.just .qic svg path'); return p ? getComputedStyle(p).strokeDashoffset : 'none'; });
+    ok(RM === '0px', 'with "remove animations" on, the tick on a finished quest is still drawn (' + RM + ')');
+    await rm.close();
+  }
+  {
+    const pc = await mk();
+    await pc.goto(url); await pc.waitForTimeout(800);
+    const PC = await pc.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey(); S.start = E.addDays(today, -20);
+      for (let i = 19; i >= 0; i--) S.weights[E.addDays(today, -i)] = 84 + (20 - i) * .6;   /* weight going UP */
+      HS.ui.closeSheet(); HS.ui.tab = 'path'; HS.ui.render(true);
+      const dots = [...document.querySelectorAll('circle.cd')].map(c => +c.getAttribute('cy'));
+      return { n: dots.length, inside: dots.every(y => y >= 0 && y <= 170) };
+    });
+    ok(PC.n > 10 && PC.inside, 'the plan chart keeps every weigh-in inside the frame when the weight goes up');
+  }
+  {
+    const nq = await mk(() => {
+      window.__order = [];
+      window.Capacitor = { isNativePlatform: () => true, Plugins: { LocalNotifications: {
+        checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }), createChannel: async () => {},
+        getPending: async () => ({ notifications: [{ id: 5 }, { id: 6 }] }),
+        cancel: async o => { window.__order.push(['cancel', o.notifications.map(n => n.id)]); },
+        schedule: async o => { window.__order.push(['schedule', o.notifications.map(n => n.id)]); } } } };
+      const st = { v: 5, cfg: { name: 'X' }, welcomed: true, aura: 5, remind: { on: true } };
+      if (!localStorage.getItem('habitsync.proto.v4')) localStorage.setItem('habitsync.proto.v4', JSON.stringify(st));
+    });
+    await nq.goto(url); await nq.waitForTimeout(800);
+    await nq.evaluate(() => HS.notify.schedule()); await nq.waitForTimeout(400);
+    const NQ = await nq.evaluate(() => window.__order);
+    ok(NQ.length >= 2 && NQ[0][0] === 'schedule' && NQ[0][1].length > 30 && NQ[1][0] === 'cancel' && NQ[1][1].join() === '5,6', 'reminders are scheduled first and only the stale ones are cancelled afterwards, so the phone is never left with none');
   }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

@@ -176,6 +176,8 @@ U.act.sound=function(){
 /* ---------------- event dispatch: data-a="name:arg" ---------------- */
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-a]');if(!b)return;
+  /* a sheet or card that has been dismissed can still be reached by a screen reader or a keyboard: ignore it */
+  const shell=b.closest('#sheet,#ov');if(shell&&!shell.classList.contains('on'))return;
   const a=b.dataset.a,i=a.indexOf(':'),k=i<0?a:a.slice(0,i),v=i<0?'':a.slice(i+1);
   const fn=U.act[k];if(fn)fn(v,b,e);
 });
@@ -336,7 +338,7 @@ U.boot=function(){
   let lastDay=E.dkey();
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)return;
-    if(E.dkey()!==lastDay){lastDay=E.dkey();E.sweep();E.checkUnlocks();E.checkGoals()}
+    if(E.dkey()!==lastDay){lastDay=E.dkey();if(U.sh)U.closeSheetQuiet();E.sweep();E.checkUnlocks();E.checkGoals()}   /* a sheet left open overnight belongs to yesterday */
     if(!U.sh)U.render();
   });
   setInterval(()=>{if(!document.hidden&&!U.sh&&U.tab==='home'&&!showing)U.render()},60000);   /* a quiet refresh: times and windows move on, the cards do not replay their entrance */

@@ -121,7 +121,7 @@ E.goalHave=function(g){
     case 'g_sleep':return n(d=>d.sleep>=7);
     case 'g_log':return n(d=>Object.keys(d.done||{}).length>=3);
     case 'g_pr':return s.prWeeks[E.weekKey()]||0;
-    case 'g_steps':return n(d=>d.steps);
+    case 'g_steps':return n(d=>+d.steps>0);
     case 'g_clear':return n(d=>d.closed&&d.score>=3);
   }
   return 0;
@@ -159,7 +159,7 @@ const BONUS=[
   {id:'b_stars',t:'Earn a three-star plate',s:'Protein, a veg side, no sugar.',a:25,auto:d=>Object.keys(d.stars||{}).some(m=>d.stars[m]>=3),p:d=>{const v=Object.keys(d.stars||{}).map(m=>d.stars[m]);return v.length?'best plate so far: '+Math.max.apply(null,v)+' of 3':'no plate rated yet'}},
   {id:'b_sleep',t:'Sleep seven hours',s:'Tell the System at your weigh-in.',a:15,auto:d=>d.sleep!=null&&d.sleep>=7,p:d=>d.sleep!=null?d.sleep+' of 7 h':'not logged yet'},
   {id:'b_water',t:'Drink two litres of water',s:'Tap the bottle on Home.',a:15,auto:d=>(d.water||0)>=2000,p:d=>((d.water||0)/1000).toFixed(1).replace(/\.0$/,'')+' of 2 L'},
-  {id:'b_steps',t:'Log your steps',s:'Samsung Health fills this in for you.',a:10,auto:d=>!!d.steps,p:d=>d.steps?String(d.steps)+' steps':'not logged yet'},
+  {id:'b_steps',t:'Log your steps',s:'Samsung Health fills this in for you.',a:10,auto:d=>+d.steps>0,p:d=>+d.steps>0?String(d.steps)+' steps':'not logged yet'},
   {id:'m_stretch',t:'Gentle stretch, three minutes',s:'Hips and hamstrings. Stop if anything pinches.',a:10},
   {id:'m_walk',t:'Ten-minute easy walk',s:'Flat ground, relaxed pace.',a:12,calm:true},
   {id:'m_breath',t:'Ten slow breaths',s:'In for four, out for six.',a:8},
@@ -171,14 +171,20 @@ const BONUS=[
 ];
 E.BONUS=BONUS;
 const BONUS_ALL_AURA=E.BONUS_ALL=25;
-/* the same three for the whole day, picked from the date so the list does not shuffle on you */
+/* the same three for the whole day: picked from the date on first use, then frozen on the day itself, so a pain check-in
+   later in the day can never swap a quest you already ticked out of the list */
 E.bonusToday=function(k){
-  k=k||dkey();const s=S(),d=s.days[k]||{};
-  let x=hash(k+'bonus');const rnd=()=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x/4294967296};
-  const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a};
-  const gentle=E.lastLight()==='red';   /* after a red check-in no walking quest is offered */
-  const autos=shuf(BONUS.filter(b=>b.auto)),manuals=shuf(BONUS.filter(b=>!b.auto&&!(gentle&&b.calm)));
-  return[autos[0],manuals[0],manuals[1]].map(b=>({id:b.id,t:b.t,s:b.s,a:b.a,auto:!!b.auto,
+  k=k||dkey();const s=S(),isToday=k===dkey(),d=s.days[k]||{};
+  let ids=isToday&&Array.isArray(d.bonusIds)?d.bonusIds.filter(id=>BONUS.some(b=>b.id===id)):[];
+  if(ids.length<3){
+    let x=hash(k+'bonus');const rnd=()=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x/4294967296};
+    const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a};
+    const gentle=E.lastLight()==='red';   /* after a red check-in no walking quest is offered */
+    const autos=shuf(BONUS.filter(b=>b.auto)),manuals=shuf(BONUS.filter(b=>!b.auto&&!(gentle&&b.calm)));
+    ids=[autos[0].id,manuals[0].id,manuals[1].id];
+    if(isToday)E.day().bonusIds=ids;
+  }
+  return ids.map(id=>BONUS.find(b=>b.id===id)).map(b=>({id:b.id,t:b.t,s:b.s,a:b.a,auto:!!b.auto,
     done:b.auto?!!b.auto(d):!!(d.bonus&&d.bonus[b.id]),claimed:!!s.claimed['bonus:'+k+':'+b.id],
     prog:b.auto&&b.p?b.p(d):''}));
 };

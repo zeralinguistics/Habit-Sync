@@ -242,7 +242,11 @@ U.welcome=function(){
       <label class="fr"><span>Goal weight (kg)</span><input id="wGoal" type="number" inputmode="decimal" step="0.5" value="${c.goalW}"></label>
       <div class="small" style="margin-top:12px">When you slack, the System can tease you. It only ever teases the skipped habit, never your body.</div>
       <div id="wRoast">${seg('wroast',[['off','Off'],['playful','Playful'],['savage','Savage']],'playful').replace('seg2','seg2 full')}</div></div>`,
-    '<button class="btn" data-a="wGo">ARISE</button>');
+    '<button class="btn" data-a="wGo">ARISE</button><button class="link" data-a="wRestore">I already have a backup</button>');
+};
+A.wRestore=function(){
+  U.closeSheetQuiet();U.tab='forge';U.render(true);
+  setTimeout(()=>{const v=$('#vaultWrap');if(v)v.scrollIntoView({block:'start',behavior:'smooth'})},350);
 };
 A.wroast=function(v){U.sh.roast=v;$('#wRoast').innerHTML=seg('wroast',[['off','Off'],['playful','Playful'],['savage','Savage']],v).replace('seg2','seg2 full');F.play('pick')};
 A.wGo=function(){

@@ -460,9 +460,15 @@ svg.fig{display:block;margin:0 auto;height:118px;width:auto;max-width:100%;backg
 @keyframes dropin{0%{transform:translateY(-80px) scale(.3);opacity:0}60%{transform:translateY(4px) scale(1.2);opacity:1}100%{transform:none}}
 @keyframes comboin{0%{transform:translateX(-50%) scale(0);opacity:0}60%{transform:translateX(-50%) scale(1.3);opacity:1}100%{transform:translateX(-50%) scale(1);opacity:1}}
 @keyframes radarin{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.qrow.just .qic svg path{stroke-dashoffset:0!important}}
 
 #sheet:not(.on){pointer-events:none}   /* a closing sheet must not catch a second tap while it slides away */
+
+/* a dismissed sheet or card must not be focusable or readable by assistive tech; hide it once its slide-out has finished */
+#sheet:not(.on){visibility:hidden;transition:transform .38s cubic-bezier(.2,.95,.25,1),visibility 0s linear .4s}
+#ov:not(.on){visibility:hidden;transition:opacity .25s,visibility 0s linear .3s}
+.who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who{min-width:0}
 
 </style>
 <style>
@@ -1849,8 +1855,12 @@ function migrate(p){
   }
   ['equip','stats','counters','health','remind','rehab','pass','cycle'].forEach(k=>{st[k]=Object.assign({},d[k],st[k])});
   st.equip=Object.assign({},HS.EQUIP_DEFAULT,st.equip);
-  /* the training cycle keeps every anchor, so correcting today's session never rewrites past days */
-  if(!Array.isArray(st.cycles)||!st.cycles.length||!st.cycles.every(c=>c&&typeof c.a==='string'&&typeof c.i==='number'))st.cycles=[Object.assign({},st.cycle)];
+  /* the training cycle keeps every anchor, so correcting today's session never rewrites past days.
+     Judge the SAVED list: the default filled in above must never hide an older save's single anchor. */
+  const okCycle=c=>!!c&&typeof c==='object'&&typeof c.a==='string'&&typeof c.i==='number';
+  if(!okCycle(st.cycle))st.cycle=Object.assign({},d.cycle);
+  const pc=p&&typeof p==='object'?p.cycles:null;
+  st.cycles=(Array.isArray(pc)&&pc.length&&pc.every(okCycle))?pc.map(c=>({a:c.a,i:c.i})):[Object.assign({},st.cycle)];
   st.cycles.sort((a,b)=>a.a<b.a?-1:a.a>b.a?1:0);
   st.cycle=Object.assign({},st.cycles[st.cycles.length-1]);
   if(st.pass&&st.pass.used&&st.pass.wk&&!st.passUsed[st.pass.wk])st.passUsed[st.pass.wk]=1;
@@ -1941,8 +1951,16 @@ const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
 const anchorFor=k=>{let a=S.cycles[0];for(let i=0;i<S.cycles.length;i++){if(S.cycles[i].a<=k)a=S.cycles[i];else break}return a};
 E.planFor=function(k){k=k||dkey();const a=anchorFor(k);return SEQ[(((a.i+E.daysBetween(a.a,k))%7)+7)%7]};
 E.setSession=function(type){
-  const k=dkey(),a=anchorFor(k),c=(((a.i+E.daysBetween(a.a,k))%7)+7)%7;
+  const k=dkey();
+  S.cycles=S.cycles.filter(q=>q.a<=k);   /* an anchor dated in the future (the clock was set back) is dropped */
+  const cur=anchorFor(k),c=(((cur.i+E.daysBetween(cur.a,k))%7)+7)%7;
   if(SEQ[c]===type)return;
+  const before=S.cycles.filter(q=>q.a<k);
+  if(before.length){
+    /* correcting back to what the earlier plan says just removes today's correction, so a mis-tap leaves no trace */
+    const pv=before[before.length-1];
+    if(SEQ[(((pv.i+E.daysBetween(pv.a,k))%7)+7)%7]===type){S.cycles=before;S.cycle=Object.assign({},pv);return}
+  }
   for(let j=0;j<7;j++){
     const x=(c+j)%7;
     if(SEQ[x]===type){
@@ -2318,7 +2336,7 @@ E.goalHave=function(g){
     case 'g_sleep':return n(d=>d.sleep>=7);
     case 'g_log':return n(d=>Object.keys(d.done||{}).length>=3);
     case 'g_pr':return s.prWeeks[E.weekKey()]||0;
-    case 'g_steps':return n(d=>d.steps);
+    case 'g_steps':return n(d=>+d.steps>0);
     case 'g_clear':return n(d=>d.closed&&d.score>=3);
   }
   return 0;
@@ -2356,7 +2374,7 @@ const BONUS=[
   {id:'b_stars',t:'Earn a three-star plate',s:'Protein, a veg side, no sugar.',a:25,auto:d=>Object.keys(d.stars||{}).some(m=>d.stars[m]>=3),p:d=>{const v=Object.keys(d.stars||{}).map(m=>d.stars[m]);return v.length?'best plate so far: '+Math.max.apply(null,v)+' of 3':'no plate rated yet'}},
   {id:'b_sleep',t:'Sleep seven hours',s:'Tell the System at your weigh-in.',a:15,auto:d=>d.sleep!=null&&d.sleep>=7,p:d=>d.sleep!=null?d.sleep+' of 7 h':'not logged yet'},
   {id:'b_water',t:'Drink two litres of water',s:'Tap the bottle on Home.',a:15,auto:d=>(d.water||0)>=2000,p:d=>((d.water||0)/1000).toFixed(1).replace(/\.0$/,'')+' of 2 L'},
-  {id:'b_steps',t:'Log your steps',s:'Samsung Health fills this in for you.',a:10,auto:d=>!!d.steps,p:d=>d.steps?String(d.steps)+' steps':'not logged yet'},
+  {id:'b_steps',t:'Log your steps',s:'Samsung Health fills this in for you.',a:10,auto:d=>+d.steps>0,p:d=>+d.steps>0?String(d.steps)+' steps':'not logged yet'},
   {id:'m_stretch',t:'Gentle stretch, three minutes',s:'Hips and hamstrings. Stop if anything pinches.',a:10},
   {id:'m_walk',t:'Ten-minute easy walk',s:'Flat ground, relaxed pace.',a:12,calm:true},
   {id:'m_breath',t:'Ten slow breaths',s:'In for four, out for six.',a:8},
@@ -2368,14 +2386,20 @@ const BONUS=[
 ];
 E.BONUS=BONUS;
 const BONUS_ALL_AURA=E.BONUS_ALL=25;
-/* the same three for the whole day, picked from the date so the list does not shuffle on you */
+/* the same three for the whole day: picked from the date on first use, then frozen on the day itself, so a pain check-in
+   later in the day can never swap a quest you already ticked out of the list */
 E.bonusToday=function(k){
-  k=k||dkey();const s=S(),d=s.days[k]||{};
-  let x=hash(k+'bonus');const rnd=()=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x/4294967296};
-  const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a};
-  const gentle=E.lastLight()==='red';   /* after a red check-in no walking quest is offered */
-  const autos=shuf(BONUS.filter(b=>b.auto)),manuals=shuf(BONUS.filter(b=>!b.auto&&!(gentle&&b.calm)));
-  return[autos[0],manuals[0],manuals[1]].map(b=>({id:b.id,t:b.t,s:b.s,a:b.a,auto:!!b.auto,
+  k=k||dkey();const s=S(),isToday=k===dkey(),d=s.days[k]||{};
+  let ids=isToday&&Array.isArray(d.bonusIds)?d.bonusIds.filter(id=>BONUS.some(b=>b.id===id)):[];
+  if(ids.length<3){
+    let x=hash(k+'bonus');const rnd=()=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x/4294967296};
+    const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a};
+    const gentle=E.lastLight()==='red';   /* after a red check-in no walking quest is offered */
+    const autos=shuf(BONUS.filter(b=>b.auto)),manuals=shuf(BONUS.filter(b=>!b.auto&&!(gentle&&b.calm)));
+    ids=[autos[0].id,manuals[0].id,manuals[1].id];
+    if(isToday)E.day().bonusIds=ids;
+  }
+  return ids.map(id=>BONUS.find(b=>b.id===id)).map(b=>({id:b.id,t:b.t,s:b.s,a:b.a,auto:!!b.auto,
     done:b.auto?!!b.auto(d):!!(d.bonus&&d.bonus[b.id]),claimed:!!s.claimed['bonus:'+k+':'+b.id],
     prog:b.auto&&b.p?b.p(d):''}));
 };
@@ -2829,7 +2853,7 @@ H.sync=async function(){
   const out={ok:true},d=E.day();
   const day={startDate:mid.toISOString(),endDate:now.toISOString(),bucket:'day',aggregation:'sum'};
   const tryit=async(label,fn)=>{try{await fn()}catch(e){out.errors=(out.errors||[]).concat(label)}};
-  await tryit('steps',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'steps'},day))));if(v>=0){out.steps=v;d.hSteps=v;if(!d.steps||+d.steps<v)d.steps=String(v);if(v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}}});
+  await tryit('steps',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'steps'},day))));if(v>=0){out.steps=v;d.hSteps=v;if(v>0&&(!d.steps||+d.steps<v))d.steps=String(v);   /* a zero reading is not a logged day */if(v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}}});
   await tryit('calories',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'calories'},day))));if(v>=0){out.act=v;d.hAct=v}});
   await tryit('sleep',async()=>{
     const from=new Date(mid.getTime()-6*3600e3);   /* from 6pm yesterday */
@@ -2921,7 +2945,6 @@ N.schedule=async function(){
   const p=LN(),S=E.S(),rm=S.remind;
   if(!p||!rm.on)return;
   try{
-    await N.disable();
     const lvl=S.cfg.roast==='off'?'nice':S.cfg.roast,name=S.cfg.name||'Hunter',today=E.dkey(),d=S.days[today]||{};
     const done={weigh:!!d.weighed,lunch:!!(d.done&&d.done.lunch),dinner:!!(d.done&&d.done.dinner),rehab:!!(d.reh&&d.reh.done),clear:!!d.closed};
     const list=[],now=Date.now();
@@ -2935,7 +2958,11 @@ N.schedule=async function(){
         list.push({id:1000+day*10+si,title:'HABIT SYNC',body:body,channelId:'hs-nudges',schedule:{at:at,allowWhileIdle:true},isExactNotification:false,autoCancel:true});
       });
     }
+    /* same ids replace the old reminders, so the phone is never left with none: schedule first, then cancel only what is stale */
     if(list.length)await p.schedule({notifications:list});
+    const keep=new Set(list.map(x=>x.id)),pend=await p.getPending();
+    const stale=(pend.notifications||[]).filter(n=>!keep.has(n.id));
+    if(stale.length)await p.cancel({notifications:stale});
   }catch(e){}
 };
 document.addEventListener('visibilitychange',()=>{if(document.hidden)N.schedule()});
@@ -3511,6 +3538,8 @@ U.act.sound=function(){
 /* ---------------- event dispatch: data-a="name:arg" ---------------- */
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-a]');if(!b)return;
+  /* a sheet or card that has been dismissed can still be reached by a screen reader or a keyboard: ignore it */
+  const shell=b.closest('#sheet,#ov');if(shell&&!shell.classList.contains('on'))return;
   const a=b.dataset.a,i=a.indexOf(':'),k=i<0?a:a.slice(0,i),v=i<0?'':a.slice(i+1);
   const fn=U.act[k];if(fn)fn(v,b,e);
 });
@@ -3671,7 +3700,7 @@ U.boot=function(){
   let lastDay=E.dkey();
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)return;
-    if(E.dkey()!==lastDay){lastDay=E.dkey();E.sweep();E.checkUnlocks();E.checkGoals()}
+    if(E.dkey()!==lastDay){lastDay=E.dkey();if(U.sh)U.closeSheetQuiet();E.sweep();E.checkUnlocks();E.checkGoals()}   /* a sheet left open overnight belongs to yesterday */
     if(!U.sh)U.render();
   });
   setInterval(()=>{if(!document.hidden&&!U.sh&&U.tab==='home'&&!showing)U.render()},60000);   /* a quiet refresh: times and windows move on, the cards do not replay their entrance */
@@ -3859,14 +3888,17 @@ A.chest=function(){
   if(!d.closed){U.sys('Clear the day first. 3 of 4 quests makes it a rare chest, 4 of 4 an epic one.','');F.play('shake');return}
   A.chestOpen();
 };
+let chestBusy=false;
 A.chestOpen=function(){
   const d=E.day();
   if(!d.closed){A.chest();return}
-  if(d.chest)return;
+  if(d.chest||chestBusy)return;   /* a second tap while the lid is opening must not replay the reveal */
+  chestBusy=true;
   U.act.ovClose&&U.act.ovClose();
   F.play('shake');F.vib([30,30,30,30,30]);
   U.cele({kind:'chest',ms:600,html:'<div class="chestbig shake"><svg viewBox="0 0 64 56"><path class="cb" d="M6 26h52v26a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path class="cl" d="M6 26c0-12 10-20 26-20s26 8 26 20z"/><path class="cband" d="M6 34h52M30 26v12h4V26"/><rect class="clock" x="29" y="30" width="6" height="8" rx="1.500"/></svg></div><p>Opening...</p>'});
   setTimeout(()=>{
+    chestBusy=false;
     const c=E.openChest(d.score);
     F.confetti(c.crit?200:110);
     U.cele({kind:'chest tier-'+c.tier,ms:3600,
@@ -4098,7 +4130,7 @@ function planChart(){
   const nodes=[{d:0,kg:S.startW}];p.gates.forEach(g=>{nodes.push({d:g.week*7,kg:g.kg});if(g.camp)nodes.push({d:g.camp*7,kg:g.kg})});
   const wAt=d=>{for(let i=1;i<nodes.length;i++){if(d<=nodes[i].d){const a=nodes[i-1],b=nodes[i],f=b.d===a.d?1:(d-a.d)/(b.d-a.d);return a.kg+(b.kg-a.kg)*f}}return S.cfg.goalW};
   const wk=Object.keys(S.weights).sort();
-  const yMax=Math.ceil(S.startW+.3),yMin=Math.floor(Math.min(wAt(span),E.trend(),wk.length?Math.min.apply(null,wk.map(k=>S.weights[k])):99)-.3);
+  const yMax=Math.ceil(Math.max(S.startW,wk.length?Math.max.apply(null,wk.map(k=>S.weights[k])):0)+.3),yMin=Math.floor(Math.min(wAt(span),E.trend(),wk.length?Math.min.apply(null,wk.map(k=>S.weights[k])):99)-.3);
   const X=d=>pl+d/span*pw,Y=kg=>pt+(yMax-kg)/(yMax-yMin)*ph;
   let g='';
   for(let kg=yMax;kg>=yMin;kg--)g+='<line class="cg" x1="'+pl+'" y1="'+Y(kg).toFixed(1)+'" x2="'+(W-pr)+'" y2="'+Y(kg).toFixed(1)+'"/><text class="cx" x="'+(pl-6)+'" y="'+(Y(kg)+3).toFixed(1)+'" text-anchor="end">'+kg+'</text>';
@@ -4178,7 +4210,7 @@ function healthBlock(hs,d){
 }
 A.saveSteps=function(){
   const d=E.day(),v=$('#stepsIn').value;d.steps=v;
-  if(v&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}
+  if(+v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}
   E.save();U.sys(v?'Steps saved: '+fmt(+v)+'.':'Cleared.','good');
 };
 A.hconnect=async function(){
@@ -4536,7 +4568,11 @@ U.welcome=function(){
       <label class="fr"><span>Goal weight (kg)</span><input id="wGoal" type="number" inputmode="decimal" step="0.5" value="${c.goalW}"></label>
       <div class="small" style="margin-top:12px">When you slack, the System can tease you. It only ever teases the skipped habit, never your body.</div>
       <div id="wRoast">${seg('wroast',[['off','Off'],['playful','Playful'],['savage','Savage']],'playful').replace('seg2','seg2 full')}</div></div>`,
-    '<button class="btn" data-a="wGo">ARISE</button>');
+    '<button class="btn" data-a="wGo">ARISE</button><button class="link" data-a="wRestore">I already have a backup</button>');
+};
+A.wRestore=function(){
+  U.closeSheetQuiet();U.tab='forge';U.render(true);
+  setTimeout(()=>{const v=$('#vaultWrap');if(v)v.scrollIntoView({block:'start',behavior:'smooth'})},350);
 };
 A.wroast=function(v){U.sh.roast=v;$('#wRoast').innerHTML=seg('wroast',[['off','Off'],['playful','Playful'],['savage','Savage']],v).replace('seg2','seg2 full');F.play('pick')};
 A.wGo=function(){
@@ -4713,13 +4749,16 @@ A.sugadd=function(v){
 };
 A.mAdd=function(){
   const sh=U.sh,inp=$('#mIn'),txt=inp.value.trim();if(!sh||!txt)return;
-  const miss=[];
+  const miss=[];let unnamed=false,zero=false;
   txt.split(/,|\+|\band\b/i).forEach(p=>{
-    const r=E.parsePart(p);if(!r||!r.name)return;
+    const r=E.parsePart(p);if(!r)return;
+    if(!r.name){if(r.g!=null||r.kc!=null||r.tn!=null||r.units!=null)unnamed=true;return}
     const hit=E.scoreFoods(r.name,sh.meal)[0];
     if(hit){
       let amt=r.g!=null?r.g:r.units!=null?r.units*hit.ug:r.tn!=null?r.tn:null;
       if(r.kc!=null&&r.g==null&&hit.k100>0)amt=Math.round(r.kc/hit.k100*100);   /* "momos 500 kcal" means 500 kcal of momos */
+      else if(r.tn!=null&&r.g==null&&r.units==null&&hit.custom&&hit.k100>0)amt=Math.round(r.tn/hit.k100*100);   /* a custom food was made from kcal, so a bare number stays kcal */
+      if(amt!=null&&!(amt>0)){zero=true;return}
       E.addFood(hit.name,amt,sh.meal);afterAdd(hit.name,inp,1);return;
     }
     const kc=r.kc!=null?r.kc:r.tn;
@@ -4727,7 +4766,9 @@ A.mAdd=function(){
     miss.push(r.name);
   });
   inp.value='';$('#mSug').innerHTML='';
-  if(miss.length)U.sys('Not found: '+miss.join(', ')+'. Add a number, like "momos 350".','bad');
+  if(miss.length)U.sys('Not found: '+miss.join(', ')+'. Add a number, like "momos 350 kcal".','bad');
+  else if(unnamed)U.sys('Add a name too, like "rice 200g" or "momos 350 kcal".','bad');
+  else if(zero)U.sys('An amount of zero adds nothing.','bad');
 };
 A.edit=function(v){const sh=U.sh;if(!sh||sh.type!=='plate')return;sh.edit=(sh.edit===+v)?-1:+v;F.play('pick');drawPlate();drawStage()};
 A.edClose=function(){U.sh.edit=-1;drawPlate();drawStage()};
@@ -4916,9 +4957,10 @@ function parseRx(rx){
   if((m=rx.match(/(\d+)\s*[×x]\s*(\d+)/)))return{reps:+m[1],sets:+m[2]};
   return{sets:1,note:''};
 }
+/* today's rehab record, made on demand: a sheet left open past the day change must not find it missing */
+function rehRec(){const d=E.day();if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0,checked:false};return d.reh}
 U.rehabSheet=function(tab){
-  const d=E.day();
-  if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0,checked:false};
+  const d=E.day();rehRec();
   stopHold();
   U.sh={type:'rehab',tab:tab||'today',g:null};renderRehab();
 };
@@ -4930,7 +4972,7 @@ function holdBanner(t){
   return '';
 }
 function renderRehab(){
-  const sh=U.sh,d=E.day(),r=d.reh,S=E.S();
+  const sh=U.sh,d=E.day(),r=rehRec(),S=E.S();
   const tabs=`<div class="tg" style="margin-top:0"><button data-a="rview:today" aria-pressed="${sh.tab!=='road'}">Today</button><button data-a="rview:road" aria-pressed="${sh.tab==='road'}">Roadmap</button></div>`;
   if(sh.tab==='road'){U.openSheet('Recovery',tabs+roadmapHtml(),'<button class="btn" data-a="rview:today">Back to today</button>');return}
   if(sh.tab==='guide')return renderGuide();
@@ -4959,12 +5001,12 @@ function renderRehab(){
 A.rview=function(v){stopHold();U.sh.tab=v==='today'&&U.sh.tab==='guide'?'today':v;U.sh.g=null;$('#shBody').scrollTop=0;renderRehab()};
 A.rt=function(v){
   const m=v.match(/^d(\d)_(\d+)$/);if(m&&HS.RDAYS[+m[1]].x[+m[2]][3])return;
-  const r=E.day().reh;r.items[v]=!r.items[v];E.save();F.play(r.items[v]?'set':'tap');F.vib(8);
+  const r=rehRec();r.items[v]=!r.items[v];E.save();F.play(r.items[v]?'set':'tap');F.vib(8);
   U.keepScroll(renderRehab);
 };
 A.rconf=function(){const S=E.S();S.rehab.confirmed=!S.rehab.confirmed;E.save();F.play('pick');U.keepScroll(renderRehab)};
-A.rsharp=function(){const r=E.day().reh;r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
-A.rok=function(){const r=E.day().reh;r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
+A.rsharp=function(){const r=rehRec();r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
+A.rok=function(){const r=rehRec();r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
 document.addEventListener('input',e=>{
   const id=e.target.id;if(id!=='kr'&&id!=='br')return;
   const r=E.day().reh;if(!r)return;
@@ -4979,7 +5021,7 @@ document.addEventListener('input',e=>{
 function stopHold(){const g=U.sh&&U.sh.g;if(g&&g.t){clearInterval(g.t.iv);g.t=null}}
 function guideList(){const out=[];E.rehabGroups().groups.filter(g=>!g.bonus).forEach(g=>g.items.forEach(it=>out.push(Object.assign({group:g.title},it))));return out}
 A.rguide=function(){
-  const list=guideList(),items=E.day().reh.items,first=list.findIndex(it=>!items[it.key]);
+  const list=guideList(),items=rehRec().items,first=list.findIndex(it=>!items[it.key]);
   U.sh.tab='guide';U.sh.g={list:list,i:first<0?0:first,set:0,t:null};F.play('pick');F.vib(10);renderRehab();
 };
 function renderGuide(){
@@ -5016,7 +5058,7 @@ A.gset=function(){
     g.set++;F.play('set');F.vib(18);
     if(g.set>=total){
       g.busy=true;const i0=g.i;
-      E.day().reh.items[it.key]=true;E.save();F.play('quest');F.burstAt($('.gfig'),16);
+      rehRec().items[it.key]=true;E.save();F.play('quest');F.burstAt($('.gfig'),16);
       setTimeout(()=>{if(U.sh&&U.sh.g===g&&g.i===i0)guideNext()},350);
     }else renderGuide();
   };
@@ -5038,7 +5080,7 @@ A.gprev=function(){const g=U.sh.g;stopHold();g.i=Math.max(0,g.i-1);g.set=0;F.pla
 A.gskip=function(){F.play('tap');guideNext()};
 A.gend=function(){stopHold();U.sh.tab='today';U.sh.g=null;renderRehab()};
 A.rehabFinish=function(){
-  const sh=U.sh,r=E.day().reh,pr=E.rehabProgress();stopHold();
+  const sh=U.sh,r=rehRec(),pr=E.rehabProgress();stopHold();
   if(!pr.done){U.sys('Tick at least one move, or close this window.','bad');return}
   r.n=pr.done;
   if(pr.ok&&!r.done){
@@ -5128,8 +5170,13 @@ A.wd=A.wu=function(v,b){
   x=Math.round((x+(b.dataset.a==='wu'?.1:-.1))*10)/10;i.value=x.toFixed(1);F.play('weigh');F.vib(6);
 };
 A.wSave=function(){
+  const sh=U.sh;if(!sh||sh.type!=='weigh')return;
   const x=parseFloat($('#wIn').value);if(!(x>30&&x<250)){U.sys('Enter your weight in kg.','bad');return}
-  const sh=U.sh,r=E.logWeight(x);
+  /* a slipped digit would pay gates that can never be taken back, so a number far from the last reading asks once */
+  const S0=E.S(),prevK=Object.keys(S0.weights).filter(k=>k<E.dkey()).sort(),last=prevK.length?S0.weights[prevK[prevK.length-1]]:S0.startW;
+  const gap=prevK.length?Math.max(1,E.daysBetween(prevK[prevK.length-1],E.dkey())):1,limit=Math.min(10,3+Math.max(0,gap-3)*.3);
+  if(Math.abs(x-last)>limit&&sh.confirmed!==x){sh.confirmed=x;F.play('shake');U.sys('That is '+Math.abs(x-last).toFixed(1)+' kg '+(x<last?'below':'above')+' your last reading ('+last.toFixed(1)+'). Tap Save again if it is right.','bad');return}
+  const r=E.logWeight(x);
   if(sh.touched)E.logSleep(sh.sleep);
   U.justRow='weigh';F.vib([20,30,30]);U.closeSheet();
   if(!r.cleared)U.sys('Logged '+x.toFixed(1)+' kg. Trend '+r.trend.toFixed(1)+' kg.'+(sh.touched&&sh.sleep>=7?' '+U.hype('sleep'):''),'',true);

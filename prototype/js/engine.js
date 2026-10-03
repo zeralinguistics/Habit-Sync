@@ -39,8 +39,12 @@ function migrate(p){
   }
   ['equip','stats','counters','health','remind','rehab','pass','cycle'].forEach(k=>{st[k]=Object.assign({},d[k],st[k])});
   st.equip=Object.assign({},HS.EQUIP_DEFAULT,st.equip);
-  /* the training cycle keeps every anchor, so correcting today's session never rewrites past days */
-  if(!Array.isArray(st.cycles)||!st.cycles.length||!st.cycles.every(c=>c&&typeof c.a==='string'&&typeof c.i==='number'))st.cycles=[Object.assign({},st.cycle)];
+  /* the training cycle keeps every anchor, so correcting today's session never rewrites past days.
+     Judge the SAVED list: the default filled in above must never hide an older save's single anchor. */
+  const okCycle=c=>!!c&&typeof c==='object'&&typeof c.a==='string'&&typeof c.i==='number';
+  if(!okCycle(st.cycle))st.cycle=Object.assign({},d.cycle);
+  const pc=p&&typeof p==='object'?p.cycles:null;
+  st.cycles=(Array.isArray(pc)&&pc.length&&pc.every(okCycle))?pc.map(c=>({a:c.a,i:c.i})):[Object.assign({},st.cycle)];
   st.cycles.sort((a,b)=>a.a<b.a?-1:a.a>b.a?1:0);
   st.cycle=Object.assign({},st.cycles[st.cycles.length-1]);
   if(st.pass&&st.pass.used&&st.pass.wk&&!st.passUsed[st.pass.wk])st.passUsed[st.pass.wk]=1;
@@ -131,8 +135,16 @@ const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
 const anchorFor=k=>{let a=S.cycles[0];for(let i=0;i<S.cycles.length;i++){if(S.cycles[i].a<=k)a=S.cycles[i];else break}return a};
 E.planFor=function(k){k=k||dkey();const a=anchorFor(k);return SEQ[(((a.i+E.daysBetween(a.a,k))%7)+7)%7]};
 E.setSession=function(type){
-  const k=dkey(),a=anchorFor(k),c=(((a.i+E.daysBetween(a.a,k))%7)+7)%7;
+  const k=dkey();
+  S.cycles=S.cycles.filter(q=>q.a<=k);   /* an anchor dated in the future (the clock was set back) is dropped */
+  const cur=anchorFor(k),c=(((cur.i+E.daysBetween(cur.a,k))%7)+7)%7;
   if(SEQ[c]===type)return;
+  const before=S.cycles.filter(q=>q.a<k);
+  if(before.length){
+    /* correcting back to what the earlier plan says just removes today's correction, so a mis-tap leaves no trace */
+    const pv=before[before.length-1];
+    if(SEQ[(((pv.i+E.daysBetween(pv.a,k))%7)+7)%7]===type){S.cycles=before;S.cycle=Object.assign({},pv);return}
+  }
   for(let j=0;j<7;j++){
     const x=(c+j)%7;
     if(SEQ[x]===type){

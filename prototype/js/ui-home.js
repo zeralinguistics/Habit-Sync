@@ -177,14 +177,17 @@ A.chest=function(){
   if(!d.closed){U.sys('Clear the day first. 3 of 4 quests makes it a rare chest, 4 of 4 an epic one.','');F.play('shake');return}
   A.chestOpen();
 };
+let chestBusy=false;
 A.chestOpen=function(){
   const d=E.day();
   if(!d.closed){A.chest();return}
-  if(d.chest)return;
+  if(d.chest||chestBusy)return;   /* a second tap while the lid is opening must not replay the reveal */
+  chestBusy=true;
   U.act.ovClose&&U.act.ovClose();
   F.play('shake');F.vib([30,30,30,30,30]);
   U.cele({kind:'chest',ms:600,html:'<div class="chestbig shake"><svg viewBox="0 0 64 56"><path class="cb" d="M6 26h52v26a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path class="cl" d="M6 26c0-12 10-20 26-20s26 8 26 20z"/><path class="cband" d="M6 34h52M30 26v12h4V26"/><rect class="clock" x="29" y="30" width="6" height="8" rx="1.500"/></svg></div><p>Opening...</p>'});
   setTimeout(()=>{
+    chestBusy=false;
     const c=E.openChest(d.score);
     F.confetti(c.crit?200:110);
     U.cele({kind:'chest tier-'+c.tier,ms:3600,
