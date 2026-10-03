@@ -197,7 +197,7 @@ A.wGo=function(){
   S.startW=Math.round(sw*10)/10;c.goalW=Math.round(gw*2)/2;c.name=(nm||'PLAYER').toUpperCase();c.roast=U.sh.roast||'playful';
   c.kcal=E.kcalFor(S.startW);c.protein=Math.round(2*c.goalW/5)*5;
   S.start=E.dkey();S.welcomed=true;E.save();
-  U.sh=null;$('#scrim').classList.remove('on');$('#sheet').classList.remove('on');document.body.classList.remove('lock');
+  U.closeSheetQuiet();
   U.render(true);
   F.play('arise');F.vib([40,40,40,40,200]);F.burstCenter(110);
   U.cele({kind:'realm',ms:3800,html:'<div class="rays"></div><div class="kicker">THE SYSTEM HAS CHOSEN YOU</div><h1>ARISE</h1><p>'+esc(c.name)+', your first gate is '+(S.startW-c.gateStep).toFixed(1)+' kg. Start with the scale.</p>'});

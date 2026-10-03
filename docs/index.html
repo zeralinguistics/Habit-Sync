@@ -28,6 +28,7 @@
   --fg:#dff0ff; --mute:#8aa5c2; --violet:#8b5cff; --red:#ff4d5e; --red-d:#8f1f2c; --green:#3ddc97; --gold:#f5c451; --amber:#ffb23d;
   --display:'Rajdhani','Arial Narrow',system-ui,sans-serif;
   --body:'Exo 2',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --sat:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px)); --sab:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px));
   color-scheme:dark;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -40,7 +41,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 #bg{z-index:0}
 #burst{z-index:96}
 .app{position:relative;z-index:1;max-width:480px;margin:0 auto;height:100%;display:flex;flex-direction:column}
-.strip{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;font:700 13px var(--display);letter-spacing:.24em;color:var(--glow)}
+.strip{display:flex;align-items:center;justify-content:space-between;padding:calc(10px + var(--sat)) 16px 4px;font:700 13px var(--display);letter-spacing:.24em;color:var(--glow)}
 .strip button{background:var(--panelsoft);border:1px solid var(--line);border-radius:8px;width:44px;height:36px;color:var(--glow);display:grid;place-items:center}
 .strip button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .strip button.off{color:var(--mute)}
@@ -52,7 +53,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 @keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 
 /* floating dock */
-.dock{position:fixed;z-index:10;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);transform:translateX(-50%);width:min(360px,calc(100% - 32px));height:62px;display:grid;grid-template-columns:repeat(4,1fr);border-radius:31px;background:var(--dockbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.6),0 0 24px rgba(var(--glr),.18)}
+.dock{position:fixed;z-index:10;left:50%;bottom:calc(var(--sab) + 12px);transform:translateX(-50%);width:min(360px,calc(100% - 32px));height:62px;display:grid;grid-template-columns:repeat(4,1fr);border-radius:31px;background:var(--dockbg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.6),0 0 24px rgba(var(--glr),.18)}
 .dind{position:absolute;left:4px;top:4px;bottom:4px;width:calc((100% - 8px)/4);border-radius:27px;background:linear-gradient(180deg,rgba(var(--glr),.35),rgba(var(--glr),.12));box-shadow:0 0 18px rgba(var(--glr),.4);transition:transform .45s cubic-bezier(.3,1.5,.5,1);pointer-events:none}
 .dock button{position:relative;background:none;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--mute);font:700 11px var(--display);letter-spacing:.16em;text-transform:uppercase}
 .dock button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .3s}
@@ -159,7 +160,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 /* ---------- sheets ---------- */
 #scrim{position:fixed;inset:0;background:rgba(0,0,0,.66);opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
 #scrim.on{opacity:1;pointer-events:auto}
-#sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:480px;max-height:92%;display:flex;flex-direction:column;background:var(--sheet);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;box-shadow:0 -10px 40px rgba(var(--glr),.2);transform:translateY(105%);transition:transform .38s cubic-bezier(.2,.95,.25,1);z-index:30;padding-bottom:env(safe-area-inset-bottom,0px)}
+#sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:480px;max-height:92%;display:flex;flex-direction:column;background:var(--sheet);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;box-shadow:0 -10px 40px rgba(var(--glr),.2);transform:translateY(105%);transition:transform .38s cubic-bezier(.2,.95,.25,1);z-index:30;padding-bottom:var(--sab)}
 #sheet.full{height:calc(100% - 10px);max-height:none}
 #sheet.on{transform:none}
 .shh{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 6px;gap:10px}
@@ -423,7 +424,7 @@ svg.fig{display:block;margin:0 auto;height:118px;width:auto;max-width:100%;backg
 .rxadd button{padding:0 16px;border-radius:6px;border:1px solid var(--glow);background:rgba(var(--glr),.22);font-weight:700}
 
 /* ---------- messages and overlays ---------- */
-#sys{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 10px);max-width:456px;margin:0 auto;background:var(--sysbg);border:1px solid var(--glow);border-radius:4px;padding:10px 14px;box-shadow:0 0 24px rgba(var(--glr),.5);transform:translateY(-130%);opacity:0;pointer-events:none;transition:all .35s cubic-bezier(.2,1.2,.3,1);z-index:90;font-size:15px}
+#sys{position:fixed;left:12px;right:12px;top:calc(var(--sat) + 10px);max-width:456px;margin:0 auto;background:var(--sysbg);border:1px solid var(--glow);border-radius:4px;padding:10px 14px;box-shadow:0 0 24px rgba(var(--glr),.5);transform:translateY(-130%);opacity:0;pointer-events:none;transition:all .35s cubic-bezier(.2,1.2,.3,1);z-index:90;font-size:15px}
 #sys b{display:block;font:700 12px var(--display);letter-spacing:.3em;color:var(--glow);margin-bottom:2px}
 #sys.show{transform:none;opacity:1}
 #sys.bad{border-color:var(--red);box-shadow:0 0 24px rgba(255,77,94,.55)} #sys.bad b{color:var(--red)}
@@ -930,6 +931,7 @@ svg.fig.big{height:210px;width:100%}
 .scene>.scn{inset:-44px 0 0 0;height:calc(100% + 44px);will-change:transform;transform:translateY(min(calc(var(--sy,0px)*.28),44px))}
 .combo2{position:fixed;left:50%;top:30%;z-index:95;pointer-events:none;transform:translateX(-50%);font:700 30px var(--display);letter-spacing:.16em;color:var(--gold);text-shadow:0 0 20px var(--gold);animation:float 1.5s ease-out forwards;white-space:nowrap}
 .combo2 small{display:block;text-align:center;font:600 11px var(--body);letter-spacing:.2em;color:var(--mute)}
+.wt em.warn{color:var(--red)}
 
 </style>
 </head>
@@ -2953,17 +2955,37 @@ U.clearCele=function(){Q.length=0;freshGear=[];clearTimeout(tOv);clearTimeout(ki
 U.overlay=function(kind,h,big,p,ms){U.cele({kind:kind||'',h:h,big:big,p:p,ms:ms})};
 
 /* ---------------- sheets ---------------- */
+/* One history entry per open sheet, so the phone's Back button closes the sheet instead of leaving the app.
+   The "pop" is delayed a moment: if another sheet opens straight away it reuses the same entry. */
+let histOpen=false,backT=null,skipPop=0;
+function pushHist(){
+  if(backT){clearTimeout(backT);backT=null;histOpen=true;return}
+  if(!histOpen){try{history.pushState({hs:1},'');histOpen=true}catch(e){}}
+}
+function popHist(){
+  if(!histOpen)return;
+  histOpen=false;
+  backT=setTimeout(()=>{backT=null;skipPop++;try{history.back()}catch(e){skipPop--}setTimeout(()=>{skipPop=Math.max(0,skipPop-1)},700)},120);
+}
 U.openSheet=function(title,body,foot,opts){
   opts=opts||{};
   $('#shT').textContent=title;const b=$('#shBody');b.innerHTML=body;b.className=opts.col?'col':'';
   $('#shFoot').innerHTML=foot||'';$('#shFoot').hidden=!foot;
   $('#sheet').className=(opts.full?'full ':'')+'on';
   $('#scrim').classList.add('on');document.body.classList.add('lock');b.scrollTop=0;
+  pushHist();
 };
-U.closeSheet=function(){
+U.hideSheet=function(){
   $('#scrim').classList.remove('on');$('#sheet').classList.remove('on');document.body.classList.remove('lock');
-  U.sh=null;U.render();
+  U.sh=null;
 };
+U.closeSheet=function(){U.hideSheet();U.render();popHist()};
+U.closeSheetQuiet=function(){U.hideSheet();popHist()};
+window.addEventListener('popstate',()=>{
+  if(skipPop>0){skipPop--;return}
+  if(backT){clearTimeout(backT);backT=null;return}
+  if(histOpen){histOpen=false;U.hideSheet();U.render()}
+});
 U.act.close=U.closeSheet;
 U.keepScroll=function(fn){const y=$('#shBody').scrollTop;fn();$('#shBody').scrollTop=y};
 
@@ -3380,7 +3402,7 @@ U.views.home=function(){
       <small>${d.burn?'Burned about '+fmt(d.burn)+' kcal. Info only: your target already counts training.':'Finish a workout to see your burn estimate.'}</small></div></div>
   <div class="win rise" style="--i:4"><div class="wt">[ This week ] <em>resets in ${daysLeft} day${daysLeft===1?'':'s'}</em></div>
     <div class="goals">${goals.map(goalCard).join('')}${st.map(streakCard).join('')}</div></div>
-  <div class="win rise" style="--i:5"><div class="wt">[ Daily quest ]</div>`;
+  <div class="win rise" style="--i:5"><div class="wt">[ Daily quest ] <em class="${d.closed?'':(1440-E.nowMin())<180?'warn':''}">${qs.filter(x=>x.st==='done').length} of ${qs.length} done${d.closed?' \u00B7 cleared':' \u00B7 closes in '+Math.floor((1440-E.nowMin())/60)+'h '+String((1440-E.nowMin())%60).padStart(2,'0')+'m'}</em></div>`;
   qs.forEach((q,i)=>{
     const isNext=next&&next.id===q.id;
     h+=`<button class="qrow ${isNext?'next':q.st}${U.justRow===q.id?' just':''}" style="--i:${i}" data-a="node:${q.id}" aria-label="${esc(q.t+', '+q.s)}">
@@ -3907,7 +3929,7 @@ A.wGo=function(){
   S.startW=Math.round(sw*10)/10;c.goalW=Math.round(gw*2)/2;c.name=(nm||'PLAYER').toUpperCase();c.roast=U.sh.roast||'playful';
   c.kcal=E.kcalFor(S.startW);c.protein=Math.round(2*c.goalW/5)*5;
   S.start=E.dkey();S.welcomed=true;E.save();
-  U.sh=null;$('#scrim').classList.remove('on');$('#sheet').classList.remove('on');document.body.classList.remove('lock');
+  U.closeSheetQuiet();
   U.render(true);
   F.play('arise');F.vib([40,40,40,40,200]);F.burstCenter(110);
   U.cele({kind:'realm',ms:3800,html:'<div class="rays"></div><div class="kicker">THE SYSTEM HAS CHOSEN YOU</div><h1>ARISE</h1><p>'+esc(c.name)+', your first gate is '+(S.startW-c.gateStep).toFixed(1)+' kg. Start with the scale.</p>'});

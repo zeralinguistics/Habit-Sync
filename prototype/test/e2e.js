@@ -105,6 +105,16 @@ const pin = () => {
   ok(await pg.evaluate(() => HS.E.day().items.filter(i => i.meal === 'dinner').length) === 2, 'one tap repeats the whole previous meal');
   await pg.evaluate(() => { HS.ui.closeSheet(); const d = HS.E.day(); d.items = d.items.filter(i => i.meal !== 'dinner'); delete d.done.dinner; HS.E.save(); }); await pg.waitForTimeout(300);
 
+  /* ---------- the phone's Back button closes a sheet, not the app ---------- */
+  await pg.evaluate(() => HS.ui.weighSheet()); await pg.waitForTimeout(400);
+  ok(await pg.evaluate(() => document.querySelector('#sheet').classList.contains('on')), 'a sheet is open');
+  await pg.goBack(); await pg.waitForTimeout(500);
+  ok(await pg.evaluate(() => !document.querySelector('#sheet').classList.contains('on') && !!document.querySelector('.hero-av')), 'Back closes the sheet and stays in the app');
+  await pg.evaluate(() => { HS.ui.weighSheet(); }); await pg.waitForTimeout(300);
+  await pg.evaluate(() => { HS.ui.closeSheet(); HS.ui.weighSheet(); }); await pg.waitForTimeout(900);
+  ok(await pg.evaluate(() => document.querySelector('#sheet').classList.contains('on')), 'closing one sheet and opening another straight away keeps the new one open');
+  await pg.evaluate(() => HS.ui.closeSheet()); await pg.waitForTimeout(400);
+
   /* ---------- workout and victory ---------- */
   await pg.evaluate(() => HS.ui.render(true));
   await pg.click('[data-a="node:gym"]'); await pg.waitForTimeout(400);

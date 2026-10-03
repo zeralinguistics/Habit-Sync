@@ -101,17 +101,37 @@ U.clearCele=function(){Q.length=0;freshGear=[];clearTimeout(tOv);clearTimeout(ki
 U.overlay=function(kind,h,big,p,ms){U.cele({kind:kind||'',h:h,big:big,p:p,ms:ms})};
 
 /* ---------------- sheets ---------------- */
+/* One history entry per open sheet, so the phone's Back button closes the sheet instead of leaving the app.
+   The "pop" is delayed a moment: if another sheet opens straight away it reuses the same entry. */
+let histOpen=false,backT=null,skipPop=0;
+function pushHist(){
+  if(backT){clearTimeout(backT);backT=null;histOpen=true;return}
+  if(!histOpen){try{history.pushState({hs:1},'');histOpen=true}catch(e){}}
+}
+function popHist(){
+  if(!histOpen)return;
+  histOpen=false;
+  backT=setTimeout(()=>{backT=null;skipPop++;try{history.back()}catch(e){skipPop--}setTimeout(()=>{skipPop=Math.max(0,skipPop-1)},700)},120);
+}
 U.openSheet=function(title,body,foot,opts){
   opts=opts||{};
   $('#shT').textContent=title;const b=$('#shBody');b.innerHTML=body;b.className=opts.col?'col':'';
   $('#shFoot').innerHTML=foot||'';$('#shFoot').hidden=!foot;
   $('#sheet').className=(opts.full?'full ':'')+'on';
   $('#scrim').classList.add('on');document.body.classList.add('lock');b.scrollTop=0;
+  pushHist();
 };
-U.closeSheet=function(){
+U.hideSheet=function(){
   $('#scrim').classList.remove('on');$('#sheet').classList.remove('on');document.body.classList.remove('lock');
-  U.sh=null;U.render();
+  U.sh=null;
 };
+U.closeSheet=function(){U.hideSheet();U.render();popHist()};
+U.closeSheetQuiet=function(){U.hideSheet();popHist()};
+window.addEventListener('popstate',()=>{
+  if(skipPop>0){skipPop--;return}
+  if(backT){clearTimeout(backT);backT=null;return}
+  if(histOpen){histOpen=false;U.hideSheet();U.render()}
+});
 U.act.close=U.closeSheet;
 U.keepScroll=function(fn){const y=$('#shBody').scrollTop;fn();$('#shBody').scrollTop=y};
 

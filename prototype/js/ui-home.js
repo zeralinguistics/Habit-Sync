@@ -235,7 +235,7 @@ U.views.home=function(){
       <small>${d.burn?'Burned about '+fmt(d.burn)+' kcal. Info only: your target already counts training.':'Finish a workout to see your burn estimate.'}</small></div></div>
   <div class="win rise" style="--i:4"><div class="wt">[ This week ] <em>resets in ${daysLeft} day${daysLeft===1?'':'s'}</em></div>
     <div class="goals">${goals.map(goalCard).join('')}${st.map(streakCard).join('')}</div></div>
-  <div class="win rise" style="--i:5"><div class="wt">[ Daily quest ]</div>`;
+  <div class="win rise" style="--i:5"><div class="wt">[ Daily quest ] <em class="${d.closed?'':(1440-E.nowMin())<180?'warn':''}">${qs.filter(x=>x.st==='done').length} of ${qs.length} done${d.closed?' \u00B7 cleared':' \u00B7 closes in '+Math.floor((1440-E.nowMin())/60)+'h '+String((1440-E.nowMin())%60).padStart(2,'0')+'m'}</em></div>`;
   qs.forEach((q,i)=>{
     const isNext=next&&next.id===q.id;
     h+=`<button class="qrow ${isNext?'next':q.st}${U.justRow===q.id?' just':''}" style="--i:${i}" data-a="node:${q.id}" aria-label="${esc(q.t+', '+q.s)}">

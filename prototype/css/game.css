@@ -368,3 +368,4 @@ svg.fig.big{height:210px;width:100%}
 .scene>.scn{inset:-44px 0 0 0;height:calc(100% + 44px);will-change:transform;transform:translateY(min(calc(var(--sy,0px)*.28),44px))}
 .combo2{position:fixed;left:50%;top:30%;z-index:95;pointer-events:none;transform:translateX(-50%);font:700 30px var(--display);letter-spacing:.16em;color:var(--gold);text-shadow:0 0 20px var(--gold);animation:float 1.5s ease-out forwards;white-space:nowrap}
 .combo2 small{display:block;text-align:center;font:600 11px var(--body);letter-spacing:.2em;color:var(--mute)}
+.wt em.warn{color:var(--red)}

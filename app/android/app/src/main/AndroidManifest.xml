@@ -19,6 +19,7 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:exported="true">
 
             <intent-filter>
@@ -41,6 +42,8 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Haptics: the short buzzes when you finish a set or clear a quest. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Reminders are ordinary notifications at roughly the chosen time. Exact alarms are not needed, so the permission is dropped. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
