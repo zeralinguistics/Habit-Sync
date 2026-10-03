@@ -369,3 +369,15 @@ svg.fig.big{height:210px;width:100%}
 .combo2{position:fixed;left:50%;top:30%;z-index:95;pointer-events:none;transform:translateX(-50%);font:700 30px var(--display);letter-spacing:.16em;color:var(--gold);text-shadow:0 0 20px var(--gold);animation:float 1.5s ease-out forwards;white-space:nowrap}
 .combo2 small{display:block;text-align:center;font:600 11px var(--body);letter-spacing:.2em;color:var(--mute)}
 .wt em.warn{color:var(--red)}
+.s-bot{text-align:center}
+.xpt{display:inline-block;margin-top:5px;padding:1px 9px;border-radius:4px;background:rgba(0,0,0,.42);color:var(--fg);text-shadow:0 1px 3px #000}
+.hero-av .av{filter:drop-shadow(0 0 calc(5px + var(--pw,0)*16px) var(--rc))}
+
+.gcue{max-width:34ch;margin:0 auto 10px;font-size:14px;line-height:1.4;color:var(--fg)}
+.bosschip{display:block;width:100%;margin:0 0 12px;padding:12px 14px 10px;text-align:left;border:1px solid rgba(245,196,81,.5);border-radius:6px;background:linear-gradient(90deg,rgba(245,196,81,.14),rgba(245,196,81,.03));color:var(--fg)}
+.bosschip .bh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.bosschip .bh span{font:700 13px var(--display);letter-spacing:.2em;color:var(--gold)}
+.bosschip .bh b{font:700 16px var(--display);letter-spacing:.06em}
+.bosschip .hp{height:10px;margin:8px 0 5px;border:1px solid rgba(245,196,81,.5);border-radius:2px;background:rgba(0,0,0,.4);overflow:hidden}
+.bosschip .hp i{display:block;height:100%;background:linear-gradient(90deg,#b4501a,var(--red));box-shadow:0 0 10px var(--red);transition:width 1s cubic-bezier(.2,.9,.2,1)}
+.bosschip small{font:600 11px var(--display);letter-spacing:.14em;color:var(--mute);text-transform:uppercase}

@@ -426,8 +426,9 @@ function renderGuide(){
       <div class="ggrp">${esc(it.group)}</div>
       <div class="gfig">${it.fig?HS.figSvg(it.fig,'big'):''}<div class="holdr" id="holdr" hidden><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="52"/><circle class="arc k" id="holdArc" cx="60" cy="60" r="52" pathLength="100" style="stroke-dashoffset:0"/></svg><b id="holdT">${px.secs||0}</b></div></div>
       <h3>${esc(it.name)}</h3><div class="grx">${esc(it.rx)}${px.note?' · '+esc(px.note):''}</div>
+      ${HS.CUES&&HS.CUES[it.fig]?'<div class="gcue">'+esc(HS.CUES[it.fig])+'</div>':''}
       <div class="gsets">${Array.from({length:total},(_,i)=>`<i class="${i<g.set?'on':''}"></i>`).join('')}</div>
-      <div class="small gtip">Stop if you feel sharp pain. A dull stretch or muscle effort is fine.</div></div>`,
+      <div class="small gtip">General cue, not a prescription: confirm the exact form with your physio. Stop if you feel sharp pain.</div></div>`,
     `<button class="btn good" id="gsetBtn" data-a="gset">${label}</button><div class="gnav"><button class="link" data-a="gprev">Back</button><button class="link" data-a="gskip">Skip this move</button><button class="link" data-a="gend">Back to the list</button></div>`);
 }
 function guideNext(){

@@ -10,16 +10,16 @@ const TODAY = '2026-10-05';
 let failed = 0, passed = 0;
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (c) passed++; else failed++; };
 const S = pg => pg.evaluate(() => JSON.parse(JSON.stringify(HS.E.S())));
-const pin = () => {
-  const Real = Date, off = new Real('2026-10-05T12:30:00').getTime() - Real.now();
+const pin = (iso) => {
+  const Real = Date, off = new Real(iso).getTime() - Real.now();
   class Fake extends Real { constructor(...a) { if (a.length === 0) super(Real.now() + off); else super(...a); } static now() { return Real.now() + off; } }
   window.Date = Fake;
 };
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROME, args: ['--no-sandbox', '--allow-file-access-from-files'] });
-  const mk = async (init) => {
+  const mk = async (init, iso) => {
     const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-    await ctx.addInitScript(pin);
+    await ctx.addInitScript(pin, iso || '2026-10-05T12:30:00');
     if (init) await ctx.addInitScript(init);
     const pg = await ctx.newPage();
     pg.errs = [];
@@ -250,10 +250,10 @@ const pin = () => {
   await pg.evaluate(() => { HS.E.reset(); HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'home'; HS.ui.render(true); });
   await pg.evaluate(() => { const E = HS.E; E.S().aura = 380; E.save(); });
   const lv0 = await pg.evaluate(() => HS.E.lv().L);
-  await pg.evaluate(() => HS.E.skipWorkout());
+  await pg.evaluate(() => HS.E.skipWorkout()); await pg.waitForTimeout(250);
   const a = await pg.evaluate(() => ({ aura: HS.E.S().aura, fat: HS.E.fatigued() }));
   ok(a.aura === 320 && a.fat, 'skipping costs 60 aura and starts fatigue (aura ' + a.aura + ')');
-  ok(await pg.evaluate(() => /roast|skip|vibe|couch|dumbbell|gate|Quest/i.test(document.querySelector('#ovb').textContent)), 'a skip is teased, about the habit');
+  ok(await pg.evaluate(() => { const r = document.querySelector('#ovb p.roast'); return !!r && r.textContent.length > 15 && !/\\b(fat|ugly|body|weight|belly|obese)\\b/i.test(r.textContent); }), 'a skip is teased, about the habit and never the body');
   await clr(pg);
   await pg.evaluate(() => HS.E.addAura(100));
   ok((await S(pg)).aura === 370, 'while fatigued, gains are halved (+100 became +50)');
@@ -267,6 +267,10 @@ const pin = () => {
   ok(await pg.evaluate(() => !HS.E.fatigued()), 'a pain day is never punished');
   await clr(pg);
 
+  /* ---------- the voice never mentions the body ---------- */
+  const bad = await pg.evaluate(() => { const all = []; const walk = o => { if (Array.isArray(o)) o.forEach(x => typeof x === 'string' ? all.push(x) : walk(x)); else if (o && typeof o === 'object') Object.values(o).forEach(walk); }; walk(HS.VOICE); return all.filter(t => /\b(fat|ugly|obese|chubby|belly|gut|flab|pig|lard|overweight|skinny|weak|lazy)\b/i.test(t)); });
+  ok(bad.length === 0, 'none of the ' + await pg.evaluate(() => { let n = 0; const w = o => { if (Array.isArray(o)) o.forEach(x => typeof x === 'string' ? n++ : w(x)); else if (o && typeof o === 'object') Object.values(o).forEach(w); }; w(HS.VOICE); return n; }) + ' voice lines mention the body or call you names ' + JSON.stringify(bad));
+
   /* ---------- streaks, goals and unlock rules on seeded history ---------- */
   const info = await pg.evaluate(`(${seedSrc})(24)`);
   await clr(pg);
@@ -275,6 +279,23 @@ const pin = () => {
   ok(G.ahead > 0 && /pace|Plateau|Adherence|Dropping/i.test(G.report), 'weekly report and plan comparison work on real data (' + G.report + ', ahead ' + G.ahead + ' kg)');
   await pg.evaluate(() => { HS.ui.tab = 'home'; HS.ui.render(true); }); await pg.waitForTimeout(900);
   ok(await pg.evaluate(() => document.querySelectorAll('.goals .gc').length >= 5), 'home shows this week\'s goal cards');
+
+  /* ---------- a day that ends at 3 am, for someone who goes to bed after midnight ---------- */
+  const lp = await mk(null, '2026-10-06T01:10:00');
+  await lp.goto(url); await lp.waitForTimeout(800);
+  await lp.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.render(true); }); await lp.waitForTimeout(500);
+  const L1 = await lp.evaluate(() => ({ k: HS.E.dkey(), m: HS.E.nowMin(), sit: HS.E.situation(), hdr: Array.from(document.querySelectorAll('.wt em')).map(e => e.textContent).find(t => /done/.test(t)) }));
+  ok(L1.k === '2026-10-05' && L1.m >= 1500 && L1.m <= 1520, 'at 01:10 it is still yesterday (' + L1.k + ', minute ' + L1.m + ')');
+  ok(/closes in 1h 4\dm|closes in 1h 5\dm/.test(L1.hdr), 'the quest list says when the day really closes: ' + L1.hdr);
+  ok(L1.sit === 'late', 'the late-night nudge applies after midnight');
+  await lp.evaluate(() => { const d = HS.E.day(); d.skip = { breakfast: 1, lunch: 1, dinner: 1 }; d.workout = 'pain'; HS.E.save(); HS.E.closeDay(); });
+  ok(await lp.evaluate(() => { const S = HS.E.S(); return !!S.days['2026-10-05'].closed && !S.days['2026-10-06']; }), 'clearing the day at 01:10 closes yesterday, not the new day');
+  await lp.evaluate(() => { HS.E.cfg().dayStart = 0; HS.E.setShift(0); });
+  ok(await lp.evaluate(() => HS.E.dkey()) === '2026-10-06', 'with the day ending at midnight, 01:10 is the next day');
+  const lp2 = await mk(null, '2026-10-06T03:10:00');
+  await lp2.goto(url); await lp2.waitForTimeout(700);
+  ok(await lp2.evaluate(() => HS.E.dkey() === '2026-10-06' && HS.E.nowMin() < 200), 'at 03:10 the new day has begun');
+  ok(lp.errs.length === 0 && lp2.errs.length === 0, 'no console errors around the day boundary');
 
   /* ---------- layout ---------- */
   ok(!(await pg.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)), 'no horizontal page scroll');

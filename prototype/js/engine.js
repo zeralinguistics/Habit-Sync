@@ -12,9 +12,13 @@ E.emit=(n,d)=>{(bus[n]||[]).forEach(f=>{try{f(d)}catch(e){console.error(e)}})};
 /* ---- state ---- */
 const KEY='habitsync.proto.v4';   /* same key as before, so existing data keeps working; the schema version lives inside */
 const SCHEMA=5;
-const dkey=E.dkey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+/* The day does not end at midnight: it ends at cfg.dayStart (3 am by default), so clearing the day at 1 am still belongs to yesterday. */
+let SHIFT=0;
+E.setShift=h=>{SHIFT=Math.max(0,Math.min(6,+h||0))};
+E.now=()=>SHIFT?new Date(Date.now()-SHIFT*36e5):new Date();
+const dkey=E.dkey=(d)=>{d=d||E.now();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const CFG0={name:'PLAYER',kcal:2050,protein:140,goalW:70,gateStep:.5,bossEvery:4,stepGoal:0,strict:'standard',theme:'auto',volume:.8,haptics:true,sound:true,contract:'',partner:'',
-  height:166,age:21,deficit:530,water:3000,roast:'playful',camp:true,autoKcal:true};
+  height:166,age:21,deficit:530,water:3000,roast:'playful',camp:true,autoKcal:true,dayStart:3};
 const clone=o=>JSON.parse(JSON.stringify(o));
 const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],gateDates:{},cycle:{a:dkey(),i:0},days:{},custom:{},
   rehab:{confirmed:false,next:0},routine:clone(HS.ROUTINE_DEFAULT),last:{},pr:{},fatigue:null,pass:{wk:'',used:false},missStreak:0,swept:{},
@@ -42,7 +46,8 @@ let S=blank(),mem=null;
   try{const r=localStorage.getItem(KEY);if(r){S=migrate(JSON.parse(r));return}}catch(e){}
   if(mem)S=mem;
 })();
-E.blank=blank;E.migrate=migrate;E.KEY=KEY;E._set=function(x){S=x};
+E.setShift(S.cfg.dayStart);
+E.blank=blank;E.migrate=migrate;E.KEY=KEY;E._set=function(x){S=x;E.setShift(S.cfg.dayStart)};
 E.S=()=>S;
 E.persist=function(){
   mem=S;
@@ -53,7 +58,7 @@ E.persist=function(){
   }catch(e){}
 };
 E.save=function(){E.persist();if(E.afterSave)E.afterSave()};
-E.reset=function(){S=blank();E.ensureOwned&&E.ensureOwned();E.save();E.emit('reset')};
+E.reset=function(){S=blank();E.setShift(S.cfg.dayStart);E.ensureOwned&&E.ensureOwned();E.save();E.emit('reset')};
 E.cfg=()=>S.cfg;
 E.T=function(){
   const camp=E.campInfo&&E.campInfo();
@@ -63,9 +68,10 @@ E.T=function(){
 
 /* ---- dates ---- */
 E.daysBetween=function(a,b){const f=s=>{const x=s.split('-').map(Number);return Date.UTC(x[0],x[1]-1,x[2])/864e5};return Math.round(f(b)-f(a))};
-E.di=()=>(new Date().getDay()+6)%7;
-E.nowMin=()=>{const n=new Date();return n.getHours()*60+n.getMinutes()};
-function weekKey(){const d=new Date();d.setDate(d.getDate()-E.di());return dkey(d)}
+E.di=()=>(E.now().getDay()+6)%7;
+/* minutes since midnight of the current (shifted) day; past midnight but before the day ends this is above 1440 */
+E.nowMin=()=>{const n=new Date(),sh=E.now(),mid=new Date(sh.getFullYear(),sh.getMonth(),sh.getDate());return Math.floor((n-mid)/60000)};
+function weekKey(){const d=E.now();d.setDate(d.getDate()-E.di());return dkey(d)}
 E.weekKey=weekKey;
 
 /* ---- days ---- */
@@ -230,7 +236,7 @@ E.sweep=function(){
   if(S.cfg.strict==='chill')return[];
   const out=[];
   for(let i=3;i>=1;i--){
-    const dt=new Date();dt.setDate(dt.getDate()-i);const k=dkey(dt);
+    const dt=E.now();dt.setDate(dt.getDate()-i);const k=dkey(dt);
     if(k<=S.start||S.swept[k])continue;
     S.swept[k]=1;
     if(E.planFor(k)==='Rest')continue;
@@ -296,7 +302,7 @@ E.burnEst=function(kg,lift,walkMin,runMin){
 /* ---- rehab and pain ---- */
 E.painDays=function(n){
   const out=[];
-  for(let i=n-1;i>=0;i--){const x=new Date();x.setDate(x.getDate()-i);const k=dkey(x),d=S.days[k];out.push({k:k,r:d&&d.reh&&d.reh.done?d.reh:null,run:d&&d.runFree!=null&&d.workout==='done'?d.runFree:null,d:d})}
+  for(let i=n-1;i>=0;i--){const x=E.now();x.setDate(x.getDate()-i);const k=dkey(x),d=S.days[k];out.push({k:k,r:d&&d.reh&&d.reh.done?d.reh:null,run:d&&d.runFree!=null&&d.workout==='done'?d.runFree:null,d:d})}
   return out;
 };
 /* proposed pain traffic light, to be confirmed by the physio: green 0-3, amber 4-5, red 6+ or any sharp pain */

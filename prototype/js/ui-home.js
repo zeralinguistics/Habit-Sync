@@ -85,7 +85,7 @@ U.nextMove=function(){
   if(mpend)return mk(mpend,'plate','Log '+mpend,'Still open. Fast taps, no judgement.','+8');
   if((d.water||0)<E.waterPace()-300)return mk('water','drop','Drink water',fmt(d.water||0)+' of '+fmt(E.cfg().water)+' ml. A bottle now catches you up.','+30');
   if(!d.pAward)return mk('protein','prot','Close the protein gap',fmt(Math.max(0,T.protein-E.totals(d).p))+' g to go. Eggs, soya or chicken do it.','+60');
-  if(new Date().getHours()>=19||qs.every(x=>x.id==='close'||x.st!=='todo'))return mk('close','moon','Clear the day','Final tally, then your chest.','+80');
+  if(E.nowMin()>=1140||qs.every(x=>x.id==='close'||x.st!=='todo'))return mk('close','moon','Clear the day','Final tally, then your chest.','+80');
   return mk('close','moon','You are ahead of the day','Keep going, or clear the day when you are done.','');
 };
 A.move=function(){
@@ -105,7 +105,7 @@ function bubbleLine(){
   const d=E.day(),nu=E.nextUnlock();
   if(d.closed)return{t:U.say('hype','clear'),tone:'good'};
   if(nu&&nu.p.pct>=.6)return{t:'Close: '+nu.p.text+' ('+nu.p.have+'/'+nu.p.need+') unlocks '+nu.it.name+'.',tone:'info'};
-  const hr=new Date().getHours(),nm=E.cfg().name||'Hunter';
+  const hr=Math.floor(E.nowMin()/60)%24,nm=E.cfg().name||'Hunter';
   const g=hr<5?'Up this late, '+nm+'? Sleep is a quest too.':hr<12?'Morning, '+nm+'. Scale first, then food.':hr<17?'Afternoon, '+nm+'. Keep the quests moving.':hr<21?'Evening, '+nm+'. Finish strong.':'Night, '+nm+'. Clear the day and rest.';
   return{t:g,tone:'info'};
 }
@@ -198,17 +198,25 @@ function streakCard(s){
   const pct=Math.min(100,s.have/s.need*100);
   return `<div class="gc st"><b>${esc(s.name)}</b><small>${s.have} of ${s.need} days</small><div class="xp"><i style="width:${pct}%"></i></div><span>${s.need-s.have} to go</span><em>+${s.aura}</em></div>`;
 }
+/* the boss's health is the distance left between the previous boss (or the start) and this one */
+function bossHpPct(ng,tr,S){
+  if(!ng.boss)return 0;
+  const bosses=E.bossKgs(),i=bosses.indexOf(ng.boss.kg),from=i>0?bosses[i-1]:S.startW;
+  const span=from-ng.boss.kg;
+  return span>0?Math.max(0,Math.min(100,(tr-ng.boss.kg)/span*100)):100;
+}
+const dayLeft=()=>Math.max(0,1440+(E.cfg().dayStart||0)*60-E.nowMin());
 U.views.home=function(){
   const S=E.S(),cfg=E.cfg(),d=E.day(),T=E.T(),tot=E.totals(d),L=E.lv(),fat=E.fatigued();
   const kp=Math.min(100,tot.k/T.kcal*100),pp=Math.min(100,tot.p/T.protein*100),left=T.kcal-tot.k;
   const qs=U.quests(),next=qs.find(q=>q.st==='todo');
   const ng=E.nextGates(),tr=E.trend(),mv=U.nextMove();
   const title=(HS.ITEM_BY_ID[S.equip.title]||{}).name||'Rookie Hunter';
-  const goals=E.goalsActive(),st=E.streakTargets().sort((a,b)=>(b.have/b.need)-(a.have/a.need)).slice(0,3);
+  const bossHp=bossHpPct(ng,tr,S),goals=E.goalsActive(),st=E.streakTargets().sort((a,b)=>(b.have/b.need)-(a.have/a.need)).slice(0,3);
   const daysLeft=7-E.di();
   const camp=E.campInfo();
   const bl=bubbleLine();
-  let h=`<section class="scene${fat?' fat':''}" style="--rc:var(--glow)">
+  let h=`<section class="scene${fat?' fat':''}" style="--rc:var(--glow);--pw:${Math.min(1,L.L/40).toFixed(2)}">
     ${HS.avatar.scene(S.realm)}
     <div class="aglow"></div>
     <div class="ground"><svg viewBox="0 0 300 300" aria-hidden="true"><circle cx="150" cy="150" r="140" class="r1"/><circle cx="150" cy="150" r="108" class="r2"/><circle cx="150" cy="150" r="76" class="r3"/></svg></div>
@@ -225,7 +233,9 @@ U.views.home=function(){
     <span class="mm"><em>${camp?'CAMP WEEK · ':''}NEXT MOVE</em><b>${esc(mv.title)}</b><small>${esc(mv.sub)}</small></span>
     <span class="mr">${mv.reward?'<b>'+esc(mv.reward)+'</b>':''}<i>${IC.chev}</i></span></button>
   <div class="trio rise" style="--i:1">${waterTile()}${streakTile()}${chestTile()}</div>
-  <button class="goalchip rise" style="--i:2" data-a="tab:path"><span>${ng.boss?'BOSS GATE '+ng.boss.kg+' KG':'FINAL FORM'}</span><b>${ng.boss?ng.toBoss.toFixed(1)+' kg to go':'Cleared'}</b><i>›</i></button>
+  <button class="bosschip rise" style="--i:2" data-a="tab:path" aria-label="${ng.boss?'Boss gate '+ng.boss.kg+' kilograms, '+ng.toBoss.toFixed(1)+' kilograms to go':'Every boss cleared'}">
+    <div class="bh"><span>${ng.boss?'BOSS · '+ng.boss.kg+' KG':'FINAL FORM'}</span><b>${ng.boss?ng.toBoss.toFixed(1)+' kg to go':'Cleared'}</b></div>
+    <div class="hp"><i style="width:${bossHp}%"></i></div><small>${ng.boss?'Boss HP '+Math.round(bossHp)+'%':'Every boss is down'}</small></button>
   <div class="win ringrow rise" style="--i:3">
     <div class="rings${U.pulse?' pulse':''}" role="img" aria-label="${fmt(tot.k)} of ${fmt(T.kcal)} kilocalories, ${Math.round(tot.p)} of ${T.protein} grams protein"><svg viewBox="0 0 100 100" aria-hidden="true">
       <circle class="trk" cx="50" cy="50" r="43"/><circle id="ringK" class="arc k${tot.k>T.hi?' over':''}" cx="50" cy="50" r="43" pathLength="100" style="stroke-dashoffset:${prev.rk!=null?prev.rk:100}"/>
@@ -235,7 +245,7 @@ U.views.home=function(){
       <small>${d.burn?'Burned about '+fmt(d.burn)+' kcal. Info only: your target already counts training.':'Finish a workout to see your burn estimate.'}</small></div></div>
   <div class="win rise" style="--i:4"><div class="wt">[ This week ] <em>resets in ${daysLeft} day${daysLeft===1?'':'s'}</em></div>
     <div class="goals">${goals.map(goalCard).join('')}${st.map(streakCard).join('')}</div></div>
-  <div class="win rise" style="--i:5"><div class="wt">[ Daily quest ] <em class="${d.closed?'':(1440-E.nowMin())<180?'warn':''}">${qs.filter(x=>x.st==='done').length} of ${qs.length} done${d.closed?' \u00B7 cleared':' \u00B7 closes in '+Math.floor((1440-E.nowMin())/60)+'h '+String((1440-E.nowMin())%60).padStart(2,'0')+'m'}</em></div>`;
+  <div class="win rise" style="--i:5"><div class="wt">[ Daily quest ] <em class="${d.closed?'':dayLeft()<180?'warn':''}">${qs.filter(x=>x.st==='done').length} of ${qs.length} done${d.closed?' \u00B7 cleared':' \u00B7 closes in '+Math.floor(dayLeft()/60)+'h '+String(dayLeft()%60).padStart(2,'0')+'m'}</em></div>`;
   qs.forEach((q,i)=>{
     const isNext=next&&next.id===q.id;
     h+=`<button class="qrow ${isNext?'next':q.st}${U.justRow===q.id?' just':''}" style="--i:${i}" data-a="node:${q.id}" aria-label="${esc(q.t+', '+q.s)}">

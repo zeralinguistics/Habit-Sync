@@ -13,6 +13,10 @@
       "style": "DARK",
       "insetsHandling": "css",
       "initialViewportFitValueHint": "cover"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_hunter",
+      "iconColor": "#3AA8FF"
     }
   }
 }

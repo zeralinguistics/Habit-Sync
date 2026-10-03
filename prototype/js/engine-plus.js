@@ -395,7 +395,7 @@ E.closeDay=function(){
 };
 /* which roast applies right now, if any. Roasts only ever target a skipped habit, never the body. */
 E.situation=function(){
-  const d=E.day(),h=new Date().getHours(),cfg=S().cfg,tot=E.totals(d);
+  const d=E.day(),h=Math.floor(E.nowMin()/60),cfg=S().cfg,tot=E.totals(d);
   if(E.fatigued())return'fatigue';
   if(d.workout==='lazy')return'skip';
   if(d.sugarPen>0)return'sugar';

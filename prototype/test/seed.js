@@ -5,7 +5,7 @@ function seedMidGame(days, opt) {
   const E = HS.E;
   E.reset();
   const S = E.S();
-  S.welcomed = true; S.cfg.name = 'RINSHAD';
+  S.welcomed = true; S.cfg.name = 'HUNTER';
   const today = E.dkey();
   S.start = E.addDays(today, -days);
   const foods = [['Boiled egg', 100], ['Plain rice', 200], ['Chapati', 80], ['Veg salad', 100]];

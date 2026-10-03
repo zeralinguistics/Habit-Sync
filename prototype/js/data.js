@@ -198,7 +198,7 @@ HS.menuFor=function(meal,di){
 HS.STAPLES=['Boiled egg','Egg white','Soya chunks (60 g)','Boiled chicken (100 g)','Banana','Milk','Tea (no sugar)','Coffee (no sugar)','Tea (sugar)'];
 HS.OUTSIDE=['Shawarma (full)','Alfaham (half)','Shake','Parotta','Beef fry','Fried chicken (2 pc)','Biscuits','Soft drink','Chai + biscuits'];
 
-/* Rehab: copied from the external physio's written plan (Rinshad_Training_Plan.pdf). Third value is the animation key.
+/* Rehab: copied from the external physio's written plan. Third value is the animation key.
    A fourth value of 1 marks an exercise the user chose to skip. "S/B" is kept as written and drawn as a Swiss ball. */
 HS.BLOCK=[['Lumbar rotation','8 × 3','rot'],['Knee-to-chest stretch','10 sec × 3','kneechest'],['Cobra','10 sec × 3','cobra'],['Pelvic bridge + adductor pillow squeeze','20 sec × 3','bridge'],['Knee range-of-motion exercise','4 to 5 days a week','heelslide']];
 HS.RDAYS=[

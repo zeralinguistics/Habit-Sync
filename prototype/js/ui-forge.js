@@ -57,7 +57,9 @@ U.views.forge=function(){
   NUMF.forEach(sec=>{h+=`<div class="win rise" style="--i:${i++}"><div class="wt">[ ${sec[0]} ]</div><div class="wb">${sec[1].map(fieldRow).join('')}
     ${sec[0]==='Profile and goals'?`<div class="fr"><span>Gate size</span><div class="seg2">${[.5,1].map(g=>`<button data-a="gate:${g}" aria-pressed="${c.gateStep===g}">${g} kg</button>`).join('')}</div></div>
       <div class="fr"><span>Camp week after each boss</span>${seg('camp',[[1,'On'],[0,'Off']],c.camp!==false?1:0)}</div>
-      <div class="fr"><span>Auto-lower calories at bosses</span>${seg('autok',[[1,'On'],[0,'Off']],c.autoKcal!==false?1:0)}</div>`:''}
+      <div class="fr"><span>Auto-lower calories at bosses</span>${seg('autok',[[1,'On'],[0,'Off']],c.autoKcal!==false?1:0)}</div>
+      <div class="fr"><span>Your day ends at</span>${seg('dayend',[[0,'12 am'],[2,'2 am'],[3,'3 am'],[4,'4 am']],c.dayStart==null?3:c.dayStart)}</div>
+      <div class="small">Go to bed after midnight? Quests, the chest and your streak stay on the same day until this hour.</div>`:''}
     ${sec[0]==='Daily targets'?'<div class="small">Starting estimates. After two to three weeks, your weight trend should decide whether to move them.</div>':''}</div></div>`});
   h+=`<div class="win rise" style="--i:${i++}"><div class="wt">[ Rules, penalties and teasing ]</div><div class="wb">
     <div class="small" style="margin-top:0">Penalties</div>${seg('strict',[['chill','Chill'],['standard','Standard'],['hard','Hard']],c.strict).replace('seg2','seg2 full')}
@@ -96,6 +98,7 @@ U.views.forge=function(){
 A.gate=v=>{E.cfg().gateStep=parseFloat(v);E.save();U.render()};
 A.camp=v=>{E.cfg().camp=v==='1';E.save();U.render()};
 A.autok=v=>{E.cfg().autoKcal=v==='1';E.save();U.render()};
+A.dayend=v=>{E.cfg().dayStart=+v;E.setShift(+v);E.save();U.render()};
 A.strict=v=>{E.cfg().strict=v;E.save();U.render()};
 A.roast=v=>{E.cfg().roast=v;E.save();F.play(v==='off'?'pick':'wah');U.render()};
 A.theme=v=>{E.cfg().theme=v;E.save();F.applyTheme();F.play('pick');U.render()};
@@ -123,16 +126,19 @@ A.remind=async function(v){
 const stamp=()=>E.dkey();
 A.bkSave=async function(){
   const txt=E.backupText(),name='habit-sync-backup-'+stamp()+'.json';
+  const showText=(why)=>{$('#exWrap').innerHTML='<div class="small">'+why+'</div><textarea class="ta" id="bkText" readonly aria-label="Backup text">'+esc(txt)+'</textarea>'};
   try{
     if(HS.native&&HS.native.native()&&await HS.native.saveFile(name,txt)){U.sys('Backup ready. Choose where to keep it: Drive, WhatsApp, Files.','good');U.render();return}
     const blob=new Blob([txt],{type:'application/json'}),a=document.createElement('a');
     a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
-    U.sys('Backup saved as '+name+'.','good');
+    U.sys('Backup file requested: '+name+'.','good');
+    /* some embedded viewers silently block downloads, so the text is always shown as a fallback */
+    showText('If no file appeared in your downloads, copy this text and keep it somewhere safe. It is the same backup.');
   }catch(e){
-    $('#exWrap').innerHTML='<div class="small">Your browser blocked the download. Copy this text and keep it somewhere safe:</div><textarea class="ta" readonly aria-label="Backup text">'+esc(txt)+'</textarea>';
+    showText('Your browser blocked the download. Copy this text and keep it somewhere safe:');
   }
-  U.render();
+  E.dataInfo();
 };
 A.bkCopy=function(){
   const txt=E.backupText();let ok=false;

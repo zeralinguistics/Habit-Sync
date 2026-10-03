@@ -29,7 +29,7 @@ H.sync=async function(){
   const p=P(),S=E.S();
   if(!p)return{ok:false,msg:'Samsung Health sync works in the Android app.'};
   if(!S.health.on)return{ok:false,msg:'Connect Samsung Health first.'};
-  const now=new Date(),mid=new Date(now);mid.setHours(0,0,0,0);
+  const now=new Date(),mid=new Date(E.dkey()+'T00:00:00');   /* the app's day, which can run past midnight */
   const out={ok:true},d=E.day();
   const day={startDate:mid.toISOString(),endDate:now.toISOString(),bucket:'day',aggregation:'sum'};
   const tryit=async(label,fn)=>{try{await fn()}catch(e){out.errors=(out.errors||[]).concat(label)}};
