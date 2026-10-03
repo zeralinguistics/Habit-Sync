@@ -921,6 +921,16 @@ svg.fig.big{height:210px;width:100%}
 .hexb text{fill:var(--gold);font:700 34px var(--display)}
 #ov .big.sm{font-size:30px;margin-top:6px;letter-spacing:.2em;color:var(--mute)}
 
+.chipbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin:12px 0 0;padding:11px 14px;border-radius:8px;border:1px solid var(--green);background:rgba(61,220,151,.08);color:var(--fg);text-align:left}
+.chipbtn b{font:700 14px var(--display);letter-spacing:.08em;text-transform:uppercase}
+.chipbtn span{font:700 11px var(--display);letter-spacing:.16em;color:var(--green);text-transform:uppercase;flex:none}
+.chipbtn.on{background:rgba(61,220,151,.22);box-shadow:0 0 12px rgba(61,220,151,.3)}
+.qrow.just .qic svg path{stroke-dasharray:32;stroke-dashoffset:32;animation:tickdraw .55s .1s ease-out forwards}
+@keyframes tickdraw{to{stroke-dashoffset:0}}
+.scene>.scn{inset:-44px 0 0 0;height:calc(100% + 44px);will-change:transform;transform:translateY(min(calc(var(--sy,0px)*.28),44px))}
+.combo2{position:fixed;left:50%;top:30%;z-index:95;pointer-events:none;transform:translateX(-50%);font:700 30px var(--display);letter-spacing:.16em;color:var(--gold);text-shadow:0 0 20px var(--gold);animation:float 1.5s ease-out forwards;white-space:nowrap}
+.combo2 small{display:block;text-align:center;font:600 11px var(--body);letter-spacing:.2em;color:var(--mute)}
+
 </style>
 </head>
 <body>
@@ -2965,7 +2975,7 @@ U.render=function(anim){
   const idx=TABS.indexOf(U.tab),S=E.S();
   document.querySelectorAll('#dock button').forEach((b,i)=>{b.setAttribute('aria-selected',i===idx)});
   $('#dockInd').style.transform='translateX('+(idx*100)+'%)';
-  const dots={armory:S.newItems.length>0,path:E.reviewDue()};
+  const dots={armory:S.newItems.length>0,path:E.reviewDue(),forge:!!(E.backupDue&&E.backupDue())};
   TABS.forEach((t,i)=>{const b=document.querySelectorAll('#dock button')[i];if(b)b.classList.toggle('dot',!!dots[t])});
   const sb=$('#sndBtn');sb.innerHTML=E.cfg().sound?IC.on:IC.off;sb.className=E.cfg().sound?'':'off';
   const sc=$('#screen');
@@ -3056,7 +3066,7 @@ function showGear(){
     html:ray+'<div class="kicker">'+list.length+' ITEMS ACQUIRED</div><div class="igrid">'+list.slice(0,6).map(it=>'<div class="icard sm">'+(it.slot==='title'?'<div class="ttl sm">\u00AB '+esc(it.name)+' \u00BB</div>':'<div class="iprev">'+HS.avatar.thumb(it,S.equip)+'</div>')+'<b>'+esc(it.name)+'</b></div>').join('')+'</div>'+(list.length>6?'<p class="sub">and '+(list.length-6)+' more</p>':'')+'<button class="btn ovbtn" data-a="gotoArmory">Open the Armory</button>'});
 }
 U.act.gotoArmory=function(){closeCele();setTimeout(()=>{U.act.tab('armory')},120)};
-E.on('goal',g=>{U.sys('Goal cleared: '+g.t+'. +'+g.aura+' aura.','good',true);F.burstCenter(40)});
+E.on('goal',g=>{U.sys('Goal cleared: '+g.t+'. +'+g.aura+' aura. '+U.hype('goal'),'good',true);F.burstCenter(40)});
 E.on('streak',s=>{
   const nm=HS.STREAK_NAMES[s.kind]||'Streak';
   U.sys(nm+' milestone! '+U.hype('streak',{n:s.step})+' +'+s.aura+' aura.','good',true);F.burstCenter(70);
@@ -3070,6 +3080,28 @@ E.on('clear',st=>{
 });
 E.on('reset',()=>{F.applyTheme();U.render(true)});
 E.on('pwa-update',()=>U.sys('A new version is ready. Close and reopen the app to get it.','',true));
+
+/* quest combo: finishing quests back to back builds a combo with a rising note */
+let comboN=0,comboT=0;
+U.bump=function(){
+  const now=Date.now();
+  comboN=(now-comboT<90*60000)?comboN+1:1;comboT=now;
+  if(comboN<2)return;
+  const e=document.createElement('div');e.className='combo2';e.innerHTML='QUEST COMBO \u00D7'+comboN+'<small>'+(comboN>=4?'ON FIRE':'KEEP IT GOING')+'</small>';
+  document.body.appendChild(e);setTimeout(()=>e.remove(),1500);
+  F.play('star',Math.min(comboN-2,5));
+};
+E.on('meal',m=>{if(m.first)U.bump()});
+E.on('workout',()=>U.bump());
+E.on('protein',()=>U.bump());
+E.on('rehab',()=>U.bump());
+E.on('clear',()=>U.bump());
+E.on('water',w=>{if(w.hit)U.bump()});
+/* the backdrop drifts slower than the page as you scroll */
+(function(){
+  const sc=document.getElementById('screen');if(!sc)return;let raf=0;
+  sc.addEventListener('scroll',()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;sc.style.setProperty('--sy',sc.scrollTop+'px')})},{passive:true});
+})();
 
 /* ---------------- first run, boot ---------------- */
 U.boot=function(){
@@ -3597,7 +3629,7 @@ function renderCampaign(){
     const open=!!sh.open[i];
     return `<div class="rc2${cleared?' cleared':cur?' cur':''}" style="--c:${th.glow}">
       <div class="rch"><b>REALM ${i+1}</b><span>${cleared?'CLEARED':cur?'YOU ARE HERE':'AHEAD'}</span></div>
-      <div class="rcn">${esc(r.name)}</div>
+      <div class="rcn">${esc(r.name||'Realm '+(i+1))}</div>
       <div class="rcw">${r.from} → ${r.to} kg · weeks ${r.w0} to ${r.w1} · ${r.gates} gates</div>
       <div class="rcw">Eat about <b>${r.kcal0}→${r.kcal1} kcal</b> a day · protein ${S.cfg.protein} g</div>
       <div class="rcr">Boss gate at ${r.to} kg unlocks: ${rewards.length?esc(rewards.join(', ')):'new gear'}${i<pl.realms.length-1?' · then a camp week at maintenance':''}</div>
@@ -3644,10 +3676,16 @@ U.reportSheet=function(){
     ${row('Eaten on average',r.kcalAvg!=null?fmt(r.kcalAvg)+' kcal':'no data')}
     ${row('Trend change',r.rate!=null?(r.rate>=0?'−':'+')+Math.abs(r.rate).toFixed(2)+' kg':'needs 4 weigh-ins')}
     <div class="note">Trend is the smoothed line, not one reading. Honest logging matters more than a perfect week.</div>`,
-    '<button class="btn" data-a="close">Got it</button>');
+    '<button class="btn good" data-a="shareWeek">Share this week</button><button class="btn ghost" data-a="close">Got it</button>');
   E.reviewSeen();
 };
 A.report=function(){F.play('nav');U.reportSheet()};
+A.shareWeek=function(){
+  const S=E.S(),r=E.report(),L=E.lv(),tr=E.trend(),n=S.cfg.name||'Hunter';
+  const t=n+' \u00B7 Level '+L.L+' (rank '+L.rank+') \u00B7 '+tr.toFixed(1)+' kg ('+(tr<=S.startW?'\u2212':'+')+Math.abs(S.startW-tr).toFixed(1)+' since the start)\nThis week: '+r.workouts+' workouts, '+r.rehab+' rehab days, protein hit '+r.protein+' days, water '+r.water+' days.\nClear streak: '+E.streak('clear')+' days. Gates cleared: '+S.gates.length+' of '+E.ladder().length+'.';
+  if(navigator.share){navigator.share({title:'My week on Habit Sync',text:t}).catch(()=>{});return}
+  window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank','noopener');
+};
 
 /* ---------------- goals and streaks ---------------- */
 U.goalsSheet=function(){
@@ -4119,7 +4157,7 @@ function renderGym(){
     const est=E.burnEst(kg(),sh.tmp.lift,sh.tmp.walk,sh.tmp.run);
     U.openSheet(plan+' report',
       '<div class="hint">Quick numbers for your burn estimate.</div>'+stp('lift','Lifting','minutes',sh.tmp.lift)+stp('walk','Incline walk','5 km/h, 9% incline, minutes',sh.tmp.walk)+stp('run','Run','9 km/h, minutes done',sh.tmp.run)+stp('free','Run minutes before pain','0 if no pain at all',sh.tmp.free)+
-      `<div class="est">~${fmt(est)} kcal burned<small>Rough estimate, can be off by 30%. Info only: your calorie target already includes training, so do not eat it back.</small></div>`,
+      `<div class="est">~${fmt(sh.tmp.useH&&d.hWork?d.hWork.kcal:est)} kcal burned<small>Rough estimate, can be off by 30%. Info only: your calorie target already includes training, so do not eat it back.</small></div>`+(d.hWork?`<button class="chipbtn${sh.tmp.useH?' on':''}" data-a="useHB"><b>Samsung Health recorded ${d.hWork.min} min, ${fmt(d.hWork.kcal)} kcal</b><span>${sh.tmp.useH?'Using it':'Use that number'}</span></button>`:''),
       '<button class="btn" data-a="gymNext">Next</button>');
     return;
   }
@@ -4205,9 +4243,10 @@ function victory(plan,r,p){
     fx:()=>{F.confetti(140)},
     html:'<div class="rays"></div><div class="kicker">TRAINING COMPLETE</div><div class="vav">'+HS.avatar.svg(S.equip,{mood:'proud'})+'</div><h1>'+plan.toUpperCase()+' DAY</h1><div class="vstats">'+stats.map(x=>'<div><b>'+x[0]+'</b><span>'+x[1]+'</span></div>').join('')+'</div><p>'+esc(line)+'</p>'+(r.comeback?'<p class="sub">Comeback bonus +40. Fatigue broken, your level can rise again.</p>':'')});
 }
+A.useHB=function(){const sh=U.sh;sh.tmp.useH=!sh.tmp.useH;F.play('pick');renderGym()};
 A.gymNext=function(){
   const sh=U.sh,d=E.day(),t=sh.tmp,plan=E.planFor();
-  d.mins={lift:t.lift,walk:t.walk,run:t.run};d.burn=E.burnEst(kg(),t.lift,t.walk,t.run);d.runFree=t.free;
+  d.mins={lift:t.lift,walk:t.walk,run:t.run};d.burn=t.useH&&d.hWork?d.hWork.kcal:E.burnEst(kg(),t.lift,t.walk,t.run);d.runFree=t.free;
   E.stat('AGI',Math.floor((t.walk+t.run)/10));
   const p=E.liftProgress(plan),r=E.completeWorkout(plan);U.justRow='gym';
   victory(plan,r,p);
@@ -4353,7 +4392,7 @@ A.rehabFinish=function(){
   if(!pr.done){U.sys('Tick at least one move, or close this window.','bad');return}
   r.n=pr.done;
   if(pr.ok&&!r.done){
-    r.done=true;E.addAura(U.rehabAura(pr.done));E.stat('SNS',2);E.save();
+    r.done=true;E.addAura(U.rehabAura(pr.done));E.stat('SNS',2);E.save();E.emit('rehab',{n:pr.done});
     U.justRow='rehab';F.play('quest');U.closeSheet();
     U.sys(U.hype('rehab')+' '+pr.done+' of '+pr.total+' moves.','good',true);F.burstCenter(40);
   }else if(pr.ok){
@@ -4427,12 +4466,14 @@ function renderWeigh(){
   U.openSheet('Morning check-in',
     `<div class="hint">Before food, after the toilet. Same scale every day.</div>
     <div class="wnum"><button data-a="wd" aria-label="Down 0.1">−</button><input id="wIn" type="number" step="0.1" inputmode="decimal" value="${wVal.toFixed(1)}" aria-label="Weight in kg"><button data-a="wu" aria-label="Up 0.1">+</button></div>
+    ${d.hWeight&&!d.weighed?`<button class="chipbtn" data-a="useHW"><b>Samsung Health has ${d.hWeight.toFixed(1)} kg</b><span>Use this reading</span></button>`:''}
     <div class="note">One reading never moves your trend by more than a quarter. Water weight is noise.</div>
     <div class="sec">Last night’s sleep</div>
     <div class="stp"><span>Hours slept<small id="slpn">${sleepNote(sh.sleep)}</small></span><div class="c"><button class="sbtn" data-a="slp:-0.5" aria-label="Less sleep">−</button><i class="slpv" id="slpv">${sh.sleep.toFixed(1)}</i><button class="sbtn" data-a="slp:0.5" aria-label="More sleep">+</button></div></div>
     <div class="small">${d.sleep!=null?'Already logged: '+d.sleep+' h. Change it above if it is off.':'Skip this if you would rather not log it today.'}</div>`,
     '<button class="btn" data-a="wSave">Save</button>');
 }
+A.useHW=function(){const d=E.day();if(!d.hWeight)return;const i=$('#wIn');i.value=d.hWeight.toFixed(1);wVal=d.hWeight;F.play('pick');F.vib(8)};
 A.slp=function(v){const sh=U.sh;sh.sleep=Math.max(0,Math.min(14,Math.round((sh.sleep+parseFloat(v))*2)/2));sh.touched=true;F.play('tick',sh.sleep*30);F.vib(5);$('#slpv').textContent=sh.sleep.toFixed(1);$('#slpn').textContent=sleepNote(sh.sleep)};
 A.wd=A.wu=function(v,b){
   const i=$('#wIn');let x=parseFloat(i.value)||wVal;
