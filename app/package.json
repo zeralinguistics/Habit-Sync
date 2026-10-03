@@ -1,0 +1,17 @@
+{
+  "name": "habit-sync-app",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Android shell for Habit Sync. Wraps the web app and reads Samsung Health data through Health Connect.",
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capgo/capacitor-health": "^8.11.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}

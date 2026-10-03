@@ -1,0 +1,7 @@
+{
+  "appId": "app.habitsync.hunter",
+  "appName": "Habit Sync",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false }
+}
