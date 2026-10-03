@@ -61,6 +61,7 @@ HS.ITEMS=[
   {id:'title_rehab',slot:'title',name:'Rehab Warrior',desc:'Twenty-one rehab days.',req:{t:'rehab',v:21}},
   {id:'title_breaker',slot:'title',name:'Gate Breaker',desc:'First boss gate cleared.',req:{t:'boss',v:1}},
   {id:'title_goals',slot:'title',name:'Quest Collector',desc:'Twenty short-term goals cleared.',req:{t:'goals',v:20}},
+  {id:'title_extra',slot:'title',name:'Extra Credit',desc:'Thirty bonus quests, nobody made you.',req:{t:'bonus',v:30}},
   {id:'title_monarch',slot:'title',name:'Shadow Monarch',desc:'The campaign is complete.',req:{t:'boss',v:4}}
 ];
 HS.ITEM_BY_ID={};HS.ITEMS.forEach(i=>{HS.ITEM_BY_ID[i.id]=i});
@@ -260,6 +261,20 @@ HS.VOICE={
    "The chest cracks open.",
    "Loot incoming.",
    "Let us see what the System left for you."
+  ],
+  "bonus": [
+   "Extra credit. Nobody asked, which is why it counts.",
+   "That one was optional. You did it anyway.",
+   "Tiny win, real aura. Stack them.",
+   "Bonus banked. The System is mildly impressed.",
+   "Free points, taken.",
+   "Side quest cleared."
+  ],
+  "bonusall": [
+   "Full bonus row. Today's chest just got fancier.",
+   "Three for three. The System checked the numbers twice, then nodded.",
+   "Clean sweep of the side quests. Show-off.",
+   "Perfect bonus row. The chest moves up a tier."
   ]
  },
  "roast": {

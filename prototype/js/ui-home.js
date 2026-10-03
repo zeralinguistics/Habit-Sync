@@ -65,6 +65,8 @@ U.nextMove=function(){
   const mk=(id,ic,title,sub,reward)=>({id:id,ic:ic,title:title,sub:sub,reward:reward});
   if(d.closed){
     if(!d.chest)return mk('chest','star','Open today’s chest','You cleared the day. Loot is waiting.','?');
+    const left=E.bonusToday().filter(b=>!b.done);
+    if(left.length)return mk('bonus','bolt','Bonus quests',left.length+' left today. Easy points, no penalty.','+'+left.reduce((a,b)=>a+b.a,0));
     return mk('rest','moon','Day cleared','Nothing left. Sleep is the last quest: aim for 7 hours.','');
   }
   const gq=q('gym'),open=gq&&gq.st==='todo';
@@ -91,6 +93,7 @@ U.nextMove=function(){
 A.move=function(){
   const mv=U.nextMove();
   if(mv.id==='chest')return A.chestOpen();
+  if(mv.id==='bonus'){F.play('tap');const w=$('#bonusWin');if(w){w.scrollIntoView({behavior:'smooth',block:'center'});w.classList.remove('flash');void w.offsetWidth;w.classList.add('flash')}return}
   if(mv.id==='water')return A.water();
   if(mv.id==='rest'||!mv.id)return;
   A.node(mv.id);
@@ -189,6 +192,40 @@ A.chestOpen=function(){
   },700);
 };
 
+/* ---------------- bonus quests: three small optional extras ---------------- */
+function bonusRow(b,i){
+  const sub=b.auto?'AUTO \u00B7 '+(b.done?'done':(b.prog||b.s)):b.s;
+  return `<button class="qrow brow ${b.done?'done':'todo'}${U.justBonus===b.id?' just':''}" style="--i:${i}" data-a="bonus:${b.id}" aria-pressed="${b.done}" aria-label="${esc(b.t+', '+(b.done?'done':'not done')+', plus '+b.a+' aura'+(b.auto?', ticks itself':''))}">
+    <span class="qic">${b.done?IC.check:b.auto?IC.bolt:IC.ring}</span>
+    <span class="qm"><span class="qt">${esc(b.t)}</span><span class="qs">${esc(sub)}</span></span><span class="qr">+${b.a}</span></button>`;
+}
+function bonusHead(row){
+  const n=row.filter(b=>b.done).length;
+  return '[ Bonus quests ] <em>'+(n===row.length?'3 of 3 \u00B7 chest upgraded':n+' of 3 \u00B7 optional, no penalty')+'</em>';
+}
+function bonusCard(i){
+  const row=E.bonusToday(),all=row.every(b=>b.done);
+  return `<div class="win rise bonus${all?' allset':''}" id="bonusWin" style="--i:${i}"><div class="wt" id="bonusHd">${bonusHead(row)}</div><div id="bonusRows">${row.map(bonusRow).join('')}</div></div>`;
+}
+/* redraw only the bonus card, so the rest of the screen does not move */
+U.refreshBonus=function(justId){
+  const w=$('#bonusWin');if(!w||U.tab!=='home')return;
+  const row=E.bonusToday(),all=row.every(b=>b.done);
+  U.justBonus=justId||null;
+  $('#bonusHd').innerHTML=bonusHead(row);
+  $('#bonusRows').innerHTML=row.map(bonusRow).join('');
+  w.classList.toggle('allset',all);
+  U.justBonus=null;
+};
+A.bonus=function(id){
+  const b=E.bonusToday().find(x=>x.id===id);if(!b)return;
+  if(b.auto){F.play('pick');U.sys(b.done?'Done. That one ticked itself.':'This one ticks itself when you do it ('+(b.prog||b.s).toLowerCase()+').','');return}
+  const fresh=!b.claimed,on=E.tickBonus(id);
+  F.play(on?'quest':'tick',60);F.vib(on?[12,24,12]:6);
+  U.refreshBonus(on?id:null);
+  if(on&&fresh){const el=document.querySelector('#bonusRows .qrow.done.just, #bonusRows [data-a="bonus:'+id+'"]');if(el)F.burstAt(el.querySelector('.qic')||el,18,['#f5c451','#ffffff','#3aa8ff']);U.bubble(U.hype('bonus'),'good');U.bump()}
+};
+
 /* ---------------- the home screen ---------------- */
 function goalCard(g){
   const pct=Math.min(100,g.have/g.need*100);
@@ -252,7 +289,7 @@ U.views.home=function(){
       <span class="qic">${q.st==='done'&&q.ic!=='moon'?IC.check:IC[q.ic]}</span>
       <span class="qm"><span class="qt">${esc(q.t)}</span><span class="qs">${esc(q.s)}</span></span><span class="qr">${esc(q.r)}</span></button>`;
   });
-  h+=`</div><button class="link" data-a="snack">Ate something else? Log a snack</button>`;
+  h+=`</div>${bonusCard(6)}<button class="link" data-a="snack">Ate something else? Log a snack</button>`;
   $('#screen').innerHTML=h;
   requestAnimationFrame(()=>{
     const rk=100-kp,rp=100-pp,ek=$('#ringK');

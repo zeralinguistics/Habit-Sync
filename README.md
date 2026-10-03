@@ -26,7 +26,8 @@ A workflow keeps `docs/` rebuilt after every change, so the page is always curre
 ## What is in the game
 
 * **Quests**: weigh-in with sleep, three meals, workout, rehab, protein, clear the day. One big "next move" card says what to do now.
-* **Armory**: 36 pieces of gear (hood, body, eyes, weapon, aura, companion, title) unlock by doing the work and are never bought.
+* **Bonus quests**: three small optional extras a day (one ticks itself from your data, two you tick). No penalty for skipping; a clean row raises the daily chest one tier.
+* **Armory**: 37 pieces of gear (hood, body, eyes, weapon, aura, companion, title) unlock by doing the work and are never bought.
 * **Realms**: each boss gate opens a new realm that changes the colours, backdrop and weather of the whole app.
 * **Penalties are real**: skipped sessions cost aura and cause fatigue (half aura, level locked until you train). Pain days and one weekly rest pass are never punished.
 * **Teasing** (Off, Playful, Savage) only ever targets a skipped habit, never the body.
@@ -39,7 +40,7 @@ A workflow keeps `docs/` rebuilt after every change, so the page is always curre
 python3 prototype/build.py                  # dist/habit-sync.html and a fragment for sandboxed hosts
 python3 prototype/build.py --pages docs     # the installable web build (CI does this on every push)
 python3 prototype/build.py --native app/www # the folder the Android shell wraps
-node prototype/test/e2e.js /tmp/            # about 80 end-to-end checks (Playwright + Chromium)
+node prototype/test/e2e.js /tmp/            # about 115 end-to-end checks (Playwright + Chromium)
 node prototype/test/pwa.js /tmp/            # offline and install checks
 ```
 

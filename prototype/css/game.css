@@ -384,3 +384,17 @@ svg.fig.big{height:210px;width:100%}
 
 .hp2{font-size:14px;line-height:1.5;color:var(--fg)}
 .hp2 b{color:var(--gold);font-weight:600}
+
+/* bonus quests */
+.brow .qic{width:34px;height:34px}
+.brow .qic svg{width:18px;height:18px}
+.brow .qt{font-size:15px;letter-spacing:.06em}
+.brow.todo .qic{color:var(--mute)}
+.brow.todo .qr{color:var(--gold)}
+.bonus.allset{border-color:var(--gold);box-shadow:0 0 26px rgba(245,196,81,.28),inset 0 0 30px rgba(245,196,81,.06)}
+.bonus.allset .wt{color:var(--gold)}
+.bonus.flash{animation:bonusflash 1.1s ease-out}
+@keyframes bonusflash{0%,100%{box-shadow:0 0 22px rgba(var(--glr),.12)}30%{box-shadow:0 0 34px 6px rgba(245,196,81,.6)}}
+.bonus.allset .qrow.done .qic{background:var(--gold);border-color:var(--gold);color:#2a1d00;box-shadow:0 0 14px rgba(245,196,81,.6)}
+.bonus.allset .qrow.done .qr{color:var(--gold)}
+.bonus.allset::before,.bonus.allset::after{border-color:var(--gold)}

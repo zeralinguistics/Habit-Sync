@@ -123,7 +123,8 @@ const pin = (iso) => {
   await pg.click('[data-a="set:0:0"]'); await pg.click('[data-a="set:0:1"]'); await pg.waitForTimeout(400);
   ok((await S(pg)).last['Incline dumbbell press'].w === 5, 'set logged from the edited weight (5 kg)');
   await pg.click('[data-a="liftFinish"]'); await pg.waitForTimeout(300);
-  await pg.click('[data-a="gymNext"]'); await pg.waitForTimeout(900);
+  await pg.click('[data-a="gymNext"]');
+  await pg.waitForFunction(() => !!document.querySelector('#ovb .vstats'), null, { timeout: 6000 }).catch(() => {});   /* wait for the moment itself, not a fixed time: a slow machine must not fail the check */
   ok(await pg.evaluate(() => !!document.querySelector('#ovb .vstats') && /TRAINING COMPLETE/.test(document.querySelector('#ovb').textContent)), 'finishing a workout plays the victory moment');
   await pg.screenshot({ path: out + 'a5-victory.png' });
   await clr(pg);
@@ -350,6 +351,71 @@ const pin = (iso) => {
   const sc = await np.evaluate(() => ({ n: window.__sched.length ? window.__sched[window.__sched.length - 1].length : 0, first: window.__sched.length ? window.__sched[window.__sched.length - 1][0] : null, on: HS.E.S().remind.on }));
   ok(sc.on && sc.n >= 60 && sc.first && sc.first.isExactNotification === false, 'reminders schedule ' + sc.n + ' friendly nudges over 14 days, inexact so no special permission is needed');
   ok(np.errs.length === 0, 'no console errors with reminders ' + JSON.stringify(np.errs));
+
+  /* ---------- bonus quests: three small optional extras a day ---------- */
+  const bq = await mk();
+  await bq.goto(url); await bq.waitForTimeout(800);
+  await bq.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'home'; HS.ui.render(true); HS.E.rng = () => .5; }); await bq.waitForTimeout(1300);
+  const b0 = await bq.evaluate(() => {
+    const E = HS.E, r = E.bonusToday(), r2 = E.bonusToday(), sets = new Set();
+    for (let i = 0; i < 12; i++) sets.add(E.bonusToday(E.addDays(E.dkey(), i)).map(x => x.id).join());
+    return { ids: r.map(x => x.id), same: r.map(x => x.id).join() === r2.map(x => x.id).join(), autos: r.filter(x => x.auto).length, varied: sets.size, rows: document.querySelectorAll('#bonusWin .brow').length };
+  });
+  ok(b0.ids.length === 3 && b0.autos === 1 && b0.same && b0.varied >= 4 && b0.rows === 3, 'three bonus quests a day (one ticks itself, two you tick), stable through the day, different across days: ' + b0.ids.join());
+  const mrow = await bq.evaluate(() => HS.E.bonusToday().find(x => !x.auto));
+  const aura0 = (await S(bq)).aura;
+  const sel = id => '#bonusWin [data-a="bonus:' + id + '"]';
+  await bq.click(sel(mrow.id)); await bq.waitForTimeout(400);
+  const b1 = await bq.evaluate(id => ({ aura: HS.E.S().aura, done: document.querySelector('#bonusWin [data-a="bonus:' + id + '"]').classList.contains('done'), n: HS.E.S().counters.bonus }), mrow.id);
+  ok(b1.aura === aura0 + mrow.a && b1.done && b1.n === 1, 'ticking a bonus quest pays its aura once (+' + mrow.a + ') and shows it done');
+  await bq.click(sel(mrow.id)); await bq.waitForTimeout(250); await bq.click(sel(mrow.id)); await bq.waitForTimeout(300);
+  const b2 = await bq.evaluate(id => ({ aura: HS.E.S().aura, n: HS.E.S().counters.bonus, done: document.querySelector('#bonusWin [data-a="bonus:' + id + '"]').classList.contains('done') }), mrow.id);
+  ok(b2.aura === aura0 + mrow.a && b2.n === 1 && b2.done, 'unticking and ticking again never pays twice');
+  const au = await bq.evaluate(() => {
+    const E = HS.E, d = E.day(), a = E.bonusToday().find(x => x.auto), aura = E.S().aura;
+    if (a.id === 'b_meals') d.done = { breakfast: true, lunch: true, dinner: true };
+    if (a.id === 'b_stars') d.stars = { lunch: 3 };
+    if (a.id === 'b_sleep') d.sleep = 7.5;
+    if (a.id === 'b_water') d.water = 2000;
+    if (a.id === 'b_steps') d.steps = '5000';
+    E.save(); return { id: a.id, a: a.a, aura: aura };
+  });
+  await bq.waitForTimeout(500);
+  const b3 = await bq.evaluate(id => ({ aura: HS.E.S().aura, claimed: !!HS.E.S().claimed['bonus:' + HS.E.dkey() + ':' + id], n: HS.E.S().counters.bonus, toast: document.querySelector('#sysT').textContent, done: document.querySelector('#bonusWin [data-a="bonus:' + id + '"]').classList.contains('done') }), au.id);
+  ok(b3.claimed && b3.done && b3.n === 2 && b3.aura >= au.aura + au.a && /Bonus quest done/.test(b3.toast), 'the self-ticking bonus pays when the data says so (' + au.id + ') and the card updates without a re-render');
+  const other = await bq.evaluate(() => HS.E.bonusToday().find(x => !x.auto && !x.done));
+  const aura1 = (await S(bq)).aura;
+  await bq.click(sel(other.id)); await bq.waitForTimeout(500);
+  const b4 = await bq.evaluate(() => ({ aura: HS.E.S().aura, all: !!HS.E.day().bonusAll, set: document.querySelector('#bonusWin').classList.contains('allset'), toast: document.querySelector('#sysT').textContent }));
+  ok(b4.all && b4.set && b4.aura === aura1 + other.a + 25 && /\+25 aura/.test(b4.toast), 'three out of three adds a +25 aura bonus and gilds the card');
+  const ch = await bq.evaluate(() => { const E = HS.E, d = E.day(); d.chest = null; const up = E.openChest(2).tier; d.chest = null; d.bonusAll = false; const plain = E.openChest(2).tier; d.chest = null; return { up: up, plain: plain }; });
+  ok(ch.up === 'rare' && ch.plain === 'common', 'a clean bonus row lifts the daily chest one tier (common became rare)');
+  const nm = await bq.evaluate(() => {
+    const E = HS.E, d = E.day(); d.closed = true; d.chest = { tier: 'common', aura: 20, crit: false }; d.bonus = {}; d.bonusAll = true;
+    const left = E.bonusToday().filter(x => !x.done).length, mv = HS.ui.nextMove();
+    return { left: left, id: mv.id, title: mv.title };
+  });
+  ok(nm.left >= 1 && nm.id === 'bonus' && /Bonus quests/.test(nm.title), 'once the day is cleared, the next move points at the unfinished bonus quests');
+  const ex = await bq.evaluate(() => { const E = HS.E; E.S().counters.bonus = 30; E.checkUnlocks(); return !!E.S().owned.title_extra; });
+  ok(ex, 'thirty bonus quests unlock the Extra Credit title');
+  const rd = await bq.evaluate(() => {
+    const E = HS.E; let walkOk = 0, walkRed = 0;
+    for (let i = 0; i < 40; i++) if (E.bonusToday(E.addDays(E.dkey(), i)).some(x => x.id === 'm_walk')) walkOk++;
+    E.day().reh = { items: {}, day: 0, knee: 7, back: 0, sharp: false, done: true, n: 1 };
+    for (let i = 0; i < 40; i++) if (E.bonusToday(E.addDays(E.dkey(), i)).some(x => x.id === 'm_walk')) walkRed++;
+    return { walkOk: walkOk, walkRed: walkRed, light: E.lastLight() };
+  });
+  ok(rd.walkOk > 0 && rd.light === 'red' && rd.walkRed === 0, 'after a red pain check-in the walking bonus is never offered (' + rd.walkOk + ' of 40 days before, ' + rd.walkRed + ' after)');
+  const qz = await bq.evaluate(async () => {
+    HS.ui.tab = 'home'; HS.ui.render(); await new Promise(r => setTimeout(r, 120));
+    const plain = document.getAnimations().filter(a => a.animationName === 'rise').length;
+    HS.ui.render(true); await new Promise(r => setTimeout(r, 120));
+    return { plain: plain, full: document.getAnimations().filter(a => a.animationName === 'rise').length };
+  });
+  ok(qz.plain === 0 && qz.full >= 5, 'a plain re-render does not replay the entrance animation; a tab switch does (' + qz.plain + ' vs ' + qz.full + ')');
+  const pr = await bq.evaluate(() => { const E = HS.E, s = E.S(); s.claimed['bonus:2026-06-01:b_meals'] = 1; s.claimed['bonus:2026-10-04:b_meals'] = 1; E.compact(); return { old: !!s.claimed['bonus:2026-06-01:b_meals'], recent: !!s.claimed['bonus:2026-10-04:b_meals'] }; });
+  ok(!pr.old && pr.recent, 'old bonus claims are pruned so the save stays small for years');
+  ok(bq.errs.length === 0, 'no console errors with bonus quests ' + JSON.stringify(bq.errs));
 
   /* ---------- an old, damaged or unreadable save still opens ---------- */
   const tabsOk = pg2 => pg2.evaluate(() => { const o = {}; ['home', 'armory', 'path', 'forge'].forEach(t => { try { HS.ui.tab = t; HS.ui.render(); o[t] = document.querySelector('#screen').textContent.length > 200; } catch (e) { o[t] = 'ERR ' + e.message; } }); return o; });

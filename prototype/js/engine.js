@@ -22,7 +22,7 @@ const CFG0={name:'PLAYER',kcal:2050,protein:140,goalW:70,gateStep:.5,bossEvery:4
 const clone=o=>JSON.parse(JSON.stringify(o));
 const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],gateDates:{},cycle:{a:dkey(),i:0},days:{},custom:{},
   rehab:{confirmed:false,next:0},routine:clone(HS.ROUTINE_DEFAULT),last:{},pr:{},fatigue:null,pass:{wk:'',used:false},missStreak:0,swept:{},
-  equip:Object.assign({},HS.EQUIP_DEFAULT),owned:{},realm:'r1',realmSeen:1,claimed:{},counters:{pr:0,comeback:0,goals:0},prWeeks:{},camp:null,bestStreak:0,
+  equip:Object.assign({},HS.EQUIP_DEFAULT),owned:{},realm:'r1',realmSeen:1,claimed:{},counters:{pr:0,comeback:0,goals:0,bonus:0},prWeeks:{},camp:null,bestStreak:0,
   lastBackup:0,lastAutoBak:'',reviewSeen:'',welcomed:false,newItems:[],health:{on:false,last:0},remind:{on:false}});
 /* bring any saved state up to the current schema without losing anything */
 const DAY0=()=>({items:[],done:{},skip:{},workout:null,pain:null,burn:0,mins:null,runFree:null,reh:null,lift:{},weighed:false,pAward:false,closed:false,calOk:false,delta:0,sugarPen:0,score:0,steps:'',stepsAward:false,water:0,waterHit:false,sleep:null,chest:null});

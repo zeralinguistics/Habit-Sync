@@ -47,7 +47,8 @@ const IC={
   down:sv('<path d="M12 4v12M6 12l6 6 6-6"/>'),
   copy:sv('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'),
   heart:sv('<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.500-7 10-7 10z"/>'),
-  bolt:sv('<path d="M13 2L5 14h6l-1 8 8-12h-6z"/>')
+  bolt:sv('<path d="M13 2L5 14h6l-1 8 8-12h-6z"/>'),
+  ring:sv('<circle cx="12" cy="12" r="7"/>')
 };
 U.IC=IC;
 /* a small flame that grows with the streak */
@@ -139,6 +140,8 @@ U.keepScroll=function(fn){const y=$('#shBody').scrollTop;fn();$('#shBody').scrol
 const TABS=['home','armory','path','forge'];
 U.render=function(anim){
   F.applyTheme();
+  /* a plain re-render (after logging something) must not replay the whole entrance; only tab switches and boot do */
+  $('#screen').classList.toggle('quiet',!anim);
   const v=U.views[U.tab];if(v)v();
   const idx=TABS.indexOf(U.tab),S=E.S();
   document.querySelectorAll('#dock button').forEach((b,i)=>{b.setAttribute('aria-selected',i===idx)});
@@ -238,6 +241,14 @@ E.on('goal',g=>{U.sys('Goal cleared: '+g.t+'. +'+g.aura+' aura. '+U.hype('goal')
 E.on('streak',s=>{
   const nm=HS.STREAK_NAMES[s.kind]||'Streak';
   U.sys(nm+' milestone! '+U.hype('streak',{n:s.step})+' +'+s.aura+' aura.','good',true);F.burstCenter(70);
+});
+E.on('bonus',b=>{
+  if(b.auto){U.sys('Bonus quest done: '+b.t+'. +'+b.a+' aura. '+U.hype('bonus'),'good',true);F.play('goal');F.vib([20,40,20])}
+  if(U.refreshBonus)U.refreshBonus(b.id);
+});
+E.on('bonusall',()=>{
+  U.sys(U.hype('bonusall')+' +'+E.BONUS_ALL+' aura.','good',true);F.play('streak');F.vib([30,30,30,30,90]);F.confetti(70);
+  if(U.refreshBonus)U.refreshBonus();
 });
 E.on('equip',()=>{F.play('equip');F.vib(12)});
 E.on('clear',st=>{

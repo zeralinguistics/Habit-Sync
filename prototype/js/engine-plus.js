@@ -60,7 +60,7 @@ E.counters=function(){
     if(d.pAward)c.protein++;
     if(d.weighed)c.weigh++;
   });
-  c.gates=s.gates.length;c.boss=E.bossCleared();c.prs=s.counters.pr;c.comeback=s.counters.comeback;c.goals=s.counters.goals;
+  c.gates=s.gates.length;c.boss=E.bossCleared();c.prs=s.counters.pr;c.comeback=s.counters.comeback;c.goals=s.counters.goals;c.bonus=s.counters.bonus||0;
   c.streak=Math.max(s.bestStreak||0,E.streak('clear'));c.level=E.lv().L;
   return c;
 };
@@ -71,7 +71,7 @@ E.reqMet=function(it,c){
   if(r.t==='rank')return c.level>=E.RANK_LV[r.v];
   return(c[r.t]||0)>=r.v;
 };
-const LABEL={level:v=>'Reach level '+v,rank:v=>'Reach rank '+v,boss:v=>'Clear boss gate '+v,gates:v=>'Clear '+v+' gates',workouts:v=>'Finish '+v+' workouts',streak:v=>'A '+v+'-day clear streak',prs:v=>v+' personal records',rehab:v=>v+' rehab days',comeback:()=>'Break fatigue by training',logdays:v=>v+' days logging 2+ meals',water:v=>v+' days at your water target',goals:v=>'Clear '+v+' short-term goals',protein:v=>v+' protein days',weigh:v=>v+' weigh-ins'};
+const LABEL={level:v=>'Reach level '+v,rank:v=>'Reach rank '+v,boss:v=>'Clear boss gate '+v,gates:v=>'Clear '+v+' gates',workouts:v=>'Finish '+v+' workouts',streak:v=>'A '+v+'-day clear streak',prs:v=>v+' personal records',rehab:v=>v+' rehab days',comeback:()=>'Break fatigue by training',logdays:v=>v+' days logging 2+ meals',water:v=>v+' days at your water target',goals:v=>'Clear '+v+' short-term goals',bonus:v=>v+' bonus quests',protein:v=>v+' protein days',weigh:v=>v+' weigh-ins'};
 E.reqProgress=function(it,c){
   c=c||E.counters();const r=it.req;
   if(r.t==='free')return{have:1,need:1,pct:1,text:'Yours'};
@@ -151,6 +151,53 @@ E.checkGoals=function(){
   });
   if(any)E.persist();
 };
+/* ======================== bonus quests: three small optional ones each day ======================== */
+/* One ticks itself from your data, two you tick yourself. They never cost aura if skipped, but a clean row of three raises the day's chest. */
+const BONUS=[
+  {id:'b_meals',t:'Log all three meals',s:'Breakfast, lunch and dinner.',a:20,auto:d=>Object.keys(d.done||{}).length>=3,p:d=>Math.min(3,Object.keys(d.done||{}).length)+' of 3 meals'},
+  {id:'b_stars',t:'Earn a three-star plate',s:'Protein, a veg side, no sugar.',a:25,auto:d=>Object.keys(d.stars||{}).some(m=>d.stars[m]>=3),p:d=>{const v=Object.keys(d.stars||{}).map(m=>d.stars[m]);return v.length?'best plate so far: '+Math.max.apply(null,v)+' of 3':'no plate rated yet'}},
+  {id:'b_sleep',t:'Sleep seven hours',s:'Tell the System at your weigh-in.',a:15,auto:d=>d.sleep!=null&&d.sleep>=7,p:d=>d.sleep!=null?d.sleep+' of 7 h':'not logged yet'},
+  {id:'b_water',t:'Drink two litres of water',s:'Tap the bottle on Home.',a:15,auto:d=>(d.water||0)>=2000,p:d=>((d.water||0)/1000).toFixed(1).replace(/\.0$/,'')+' of 2 L'},
+  {id:'b_steps',t:'Log your steps',s:'Samsung Health fills this in for you.',a:10,auto:d=>!!d.steps,p:d=>d.steps?String(d.steps)+' steps':'not logged yet'},
+  {id:'m_stretch',t:'Gentle stretch, three minutes',s:'Hips and hamstrings. Stop if anything pinches.',a:10},
+  {id:'m_walk',t:'Ten-minute easy walk',s:'Flat ground, relaxed pace.',a:12,calm:true},
+  {id:'m_breath',t:'Ten slow breaths',s:'In for four, out for six.',a:8},
+  {id:'m_desk',t:'Stand and walk for two minutes',s:'After a long sit. Your back likes it.',a:8},
+  {id:'m_screen',t:'Phone down 30 minutes before bed',s:'Sleep is where the gains get built.',a:12},
+  {id:'m_sun',t:'Ten minutes of daylight',s:'Step outside. Sunglasses optional.',a:10},
+  {id:'m_prep',t:'Set out tomorrow\u2019s gym clothes',s:'Future you says thanks.',a:8},
+  {id:'m_win',t:'Say one win from today out loud',s:'Small counts. Say it anyway.',a:10}
+];
+E.BONUS=BONUS;
+const BONUS_ALL_AURA=E.BONUS_ALL=25;
+/* the same three for the whole day, picked from the date so the list does not shuffle on you */
+E.bonusToday=function(k){
+  k=k||dkey();const s=S(),d=s.days[k]||{};
+  let x=hash(k+'bonus');const rnd=()=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x/4294967296};
+  const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a};
+  const gentle=E.lastLight()==='red';   /* after a red check-in no walking quest is offered */
+  const autos=shuf(BONUS.filter(b=>b.auto)),manuals=shuf(BONUS.filter(b=>!b.auto&&!(gentle&&b.calm)));
+  return[autos[0],manuals[0],manuals[1]].map(b=>({id:b.id,t:b.t,s:b.s,a:b.a,auto:!!b.auto,
+    done:b.auto?!!b.auto(d):!!(d.bonus&&d.bonus[b.id]),claimed:!!s.claimed['bonus:'+k+':'+b.id],
+    prog:b.auto&&b.p?b.p(d):''}));
+};
+E.tickBonus=function(id){
+  const b=BONUS.find(x=>x.id===id);if(!b||b.auto)return null;
+  if(!E.bonusToday().some(x=>x.id===id))return null;   /* only today's three */
+  const d=E.day();d.bonus=d.bonus||{};d.bonus[id]=!d.bonus[id];
+  E.persist();E.checkBonus();
+  return!!d.bonus[id];
+};
+E.checkBonus=function(){
+  const s=S(),k=dkey();let any=false;
+  const row=E.bonusToday(k);
+  row.forEach(b=>{
+    if(b.done&&!b.claimed){s.claimed['bonus:'+k+':'+b.id]=1;s.counters.bonus=(s.counters.bonus||0)+1;any=true;E.addAura(b.a);E.emit('bonus',b)}
+  });
+  const d=s.days[k];
+  if(d&&!d.bonusAll&&row.every(b=>b.done)){d.bonusAll=true;any=true;E.addAura(BONUS_ALL_AURA);E.emit('bonusall',{aura:BONUS_ALL_AURA})}
+  if(any){E.persist();E.checkUnlocks()}
+};
 /* the next streak step to chase, for the "short-term" strip */
 E.streakTargets=function(){
   const out=[];
@@ -161,7 +208,7 @@ E.streakTargets=function(){
   return out;
 };
 let afterT=null;
-E.afterSave=function(){clearTimeout(afterT);afterT=setTimeout(()=>{E.checkUnlocks();E.checkGoals()},0)};
+E.afterSave=function(){clearTimeout(afterT);afterT=setTimeout(()=>{E.checkUnlocks();E.checkGoals();E.checkBonus()},0)};
 
 /* ======================== numbers: maintenance, targets, plan ======================== */
 E.maint=function(kg){const c=S().cfg;return Math.round((10*kg+6.25*c.height-5*c.age+5)*1.45/10)*10};
@@ -331,7 +378,8 @@ E.logSleep=function(h){
 E.rng=Math.random;
 E.openChest=function(score){
   const d=E.day();if(d.chest)return d.chest;
-  const tier=score>=4?'epic':score>=3?'rare':'common',r=E.rng();let aura,crit=false;
+  const sc=(score||0)+(d.bonusAll?1:0);   /* a clean bonus row lifts the chest one tier */
+  const tier=sc>=4?'epic':sc>=3?'rare':'common',r=E.rng();let aura,crit=false;
   if(tier==='common')aura=15+Math.floor(r*16);
   else if(tier==='rare'){aura=30+Math.floor(r*41);if(E.rng()<.1){aura*=2;crit=true}}
   else{aura=60+Math.floor(r*61);if(E.rng()<.1){aura=200;crit=true}}
@@ -467,7 +515,9 @@ E.compact=function(){
     const d=s.days[k];
     if(k<cutoff&&!d.compact){d.sum=E.totals(d);d.compact=true;d.items=[];d.lift={};n++}
   });
-  if(n)E.persist();
+  const stale=keyOffset(-60);let pruned=0;   /* bonus claims only matter for the day they were earned */
+  Object.keys(s.claimed).forEach(c=>{if(c.indexOf('bonus:')===0&&c.slice(6,16)<stale){delete s.claimed[c];pruned++}});
+  if(n||pruned)E.persist();
   return n;
 };
 E.ensureOwned();
