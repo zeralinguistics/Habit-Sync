@@ -1,7 +1,7 @@
 /* Habit Sync service worker: the whole app is cached on the first visit, so it opens instantly and works with no signal.
    Stale-while-revalidate: you always get the cached copy at once, and a newer one is fetched quietly for next time.
    Your data is never touched here. It lives in the page's own storage. */
-const CACHE = 'habit-sync-b5670a8511';
+const CACHE = 'habit-sync-dcd88cc456';
 const CORE = ['./', './index.html', './manifest.webmanifest', './privacypolicy.html', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

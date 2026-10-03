@@ -500,7 +500,7 @@ const pin = (iso) => {
   const und = await rs.evaluate(() => HS.E.undoInfo());
   ok(und && und.days >= days0 - 1, 'the old state is kept aside for an undo (' + (und && und.days) + ' days)');
   await rs.evaluate(() => { HS.ui.tab = 'forge'; HS.ui.render(true); }); await rs.waitForTimeout(400);
-  ok(await rs.evaluate(() => /Undo the last reset or restore/.test(document.querySelector('#vaultWrap').textContent)), 'the Data vault offers the undo');
+  ok(await rs.evaluate(() => /Undo last reset or restore/.test(document.querySelector("#vaultWrap").textContent)), 'the Data vault offers the undo');
   const back = await rs.evaluate(() => { HS.E.reset(); return HS.E.undoLast(); });
   ok(back >= days0 - 1, 'undo brings everything back, even after a second reset (' + back + ' days)');
   ok(rs.errs.length === 0, 'no console errors around reset and undo ' + JSON.stringify(rs.errs));

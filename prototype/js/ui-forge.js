@@ -42,7 +42,7 @@ function vaultHtml(){
     <button class="btn ghost" data-a="bkCopy">Copy backup text</button>
     <label class="btn ghost filebtn">Restore from a backup file<input type="file" accept=".json,application/json,text/plain" id="restoreFile" hidden></label>
     <button class="btn ghost" data-a="bkAuto">Restore yesterday’s automatic copy</button>
-    ${E.undoInfo()?'<button class="btn ghost" data-a="undo">Undo the last reset or restore ('+E.undoInfo().days+' days kept)</button>':''}</div>
+    ${E.undoInfo()?'<button class="btn ghost" data-a="undo">Undo last reset or restore \u00B7 '+E.undoInfo().days+' days</button>':''}</div>
    <div class="small">${P.persisted===true?'Storage is protected: the browser will not clear it when space runs low.':P.persisted===false?'The browser may clear storage if the phone runs very low on space. Install the app or save backups.':'Storage protection status is unknown here.'}
      ${P.native?' You are using the Android app, which keeps its data in private app storage.':P.standalone?' Installed as an app.':''}</div>
    ${P.deferred?'<div class="stack2"><button class="btn vio" data-a="install">Install on this phone</button></div>':''}
