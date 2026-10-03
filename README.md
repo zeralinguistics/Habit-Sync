@@ -52,4 +52,5 @@ Rules worth keeping when changing things:
 * The engine (`engine*.js`) has no DOM access. The UI listens to its events (`E.on('gate', ...)`).
 * Celebrations go through `U.cele(...)` so they queue and never stack.
 * Android builds use one fixed signing key (`app/android/app/habit-sync.keystore`) so updates install over each other. It is a personal key, not a store key.
+* Never change the Capacitor `appId`, `server.androidScheme` or the signing key. Doing so orphans the data stored in the installed app or blocks updates over it.
 * Samsung Health and reminders can only be verified on a real phone. Tests use mocked plugins.
