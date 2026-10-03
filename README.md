@@ -10,7 +10,7 @@ The goal is built in: 84 kg to 70 kg in 28 half-kilo gates, five realms, four bo
 | Way | What you get | How |
 | --- | --- | --- |
 | **Android app (APK)** | Samsung Health sync (steps, active calories, sleep, weight, workouts), reminders, backup through the share sheet | Open the [latest release](../../releases/tag/android-latest) on the phone, download `habit-sync.apk`, open it, allow "install unknown apps" once. Each new build installs over the last one and keeps your data. The app tells you in the Forge when a newer build is out. |
-| **Web app (PWA)** | Same game, works offline, install it from the browser menu ("Add to Home screen") | After enabling GitHub Pages (below) open the Pages address on the phone. |
+| **Web app (PWA)** | Same game, works offline, install it from the browser menu ("Add to Home screen") | After enabling GitHub Pages (below) open <https://zeralinguistics.github.io/Habit-Sync/> on the phone. |
 
 **Enable the web app once:** repository Settings, Pages, "Deploy from a branch", choose this branch and the `/docs` folder, Save.
 A workflow keeps `docs/` rebuilt after every change, so the page is always current.

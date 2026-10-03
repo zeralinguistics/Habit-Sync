@@ -339,6 +339,6 @@ U.boot=function(){
     if(E.dkey()!==lastDay){lastDay=E.dkey();E.sweep();E.checkUnlocks();E.checkGoals()}
     if(!U.sh)U.render();
   });
-  setInterval(()=>{if(!document.hidden&&!U.sh&&U.tab==='home'&&!showing)U.views.home()},60000);
+  setInterval(()=>{if(!document.hidden&&!U.sh&&U.tab==='home'&&!showing)U.render()},60000);   /* a quiet refresh: times and windows move on, the cards do not replay their entrance */
 };
 })();
