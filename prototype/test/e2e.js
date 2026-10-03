@@ -706,6 +706,51 @@ const pin = (iso) => {
     ok(ha.errs.length === 0, 'no console errors with the automatic Samsung Health refresh ' + JSON.stringify(ha.errs));
   }
 
+  {
+    /* the phone's Back button must close a sheet, never leave the app, even when a sheet opens right as the delayed Back fires */
+    const bad = [];
+    for (let gap = 116; gap <= 130; gap += 2) {
+      const hc = await b.newContext({ viewport: { width: 390, height: 844 } });
+      const hp2 = await hc.newPage();
+      await hp2.goto(url); await hp2.waitForTimeout(450);
+      await hp2.evaluate(async g => {
+        HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.weighSheet();
+        await new Promise(r => setTimeout(r, 250)); HS.ui.closeSheet();
+        await new Promise(r => setTimeout(r, g)); HS.ui.weighSheet();
+      }, gap);
+      await hp2.waitForTimeout(900);
+      await hp2.goBack().catch(() => null); await hp2.waitForTimeout(400);
+      let open = 'navigated-away';
+      try { open = await hp2.evaluate(() => document.querySelector('#sheet').classList.contains('on')); } catch (e) { /* the page is gone */ }
+      if (open !== false) bad.push(gap + 'ms:' + open);
+      await hc.close();
+    }
+    ok(bad.length === 0, 'Back closes a sheet that opened at any moment around the delayed Back ' + JSON.stringify(bad));
+  }
+
+  {
+    /* a backup copied as text (the only option inside embedded viewers) can be pasted into another copy of the app */
+    const cp1 = await mk();
+    await cp1.goto(url); await cp1.waitForTimeout(700);
+    await cp1.evaluate(`(${seedSrc})(20)`);
+    const srcAura = await cp1.evaluate(() => HS.E.S().aura);
+    const text = await cp1.evaluate(() => HS.E.backupText());
+    const cp2 = await mk();
+    await cp2.goto(url); await cp2.waitForTimeout(700);
+    await cp2.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'forge'; HS.ui.render(true); }); await cp2.waitForTimeout(400);
+    await cp2.click('[data-a="bkPaste"]'); await cp2.fill('#pasteBk', text);
+    await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(150);
+    ok(await cp2.evaluate(() => Object.keys(HS.E.S().days).length) < 3, 'pasting backup text needs a deliberate second tap');
+    await cp2.waitForTimeout(900); await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(500);
+    const got = await cp2.evaluate(() => ({ days: Object.keys(HS.E.S().days).length, aura: HS.E.S().aura, name: HS.E.S().cfg.name }));
+    ok(got.days >= 20 && got.aura === srcAura && got.name === 'HUNTER', 'pasted backup text restores the whole save (' + got.days + ' days)');
+    await cp2.evaluate(() => { HS.ui.tab = 'forge'; HS.ui.render(true); }); await cp2.waitForTimeout(300);
+    const a0 = await cp2.evaluate(() => HS.E.S().aura);
+    await cp2.click('[data-a="bkPaste"]'); await cp2.fill('#pasteBk', 'not a backup'); await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(1000); await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(400);
+    ok(await cp2.evaluate(a => /not a Habit Sync backup/i.test(document.querySelector('#sysT').textContent) && HS.E.S().aura === a, a0), 'wrong text is refused and nothing is lost');
+    ok(cp1.errs.length === 0 && cp2.errs.length === 0, 'no console errors with pasted restore ' + JSON.stringify(cp1.errs.concat(cp2.errs)));
+  }
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   await b.close();
   process.exit(failed ? 1 : 0);

@@ -41,6 +41,7 @@ function vaultHtml(){
    <div class="stack2"><button class="btn good" data-a="bkSave">${IC.down.replace('<svg','<svg class="bi"')}Save a backup file</button>
     <button class="btn ghost" data-a="bkCopy">Copy backup text</button>
     <label class="btn ghost filebtn">Restore from a backup file<input type="file" accept=".json,application/json,text/plain" id="restoreFile" hidden></label>
+    <button class="btn ghost" data-a="bkPaste">Restore from pasted text</button>
     <button class="btn ghost" data-a="bkAuto">Restore yesterday’s automatic copy</button>
     ${E.undoInfo()?'<button class="btn ghost" data-a="undo">Undo last reset or restore \u00B7 '+E.undoInfo().days+' days</button>':''}</div>
    <div class="small">${P.persisted===true?'Storage is protected: the browser will not clear it when space runs low.':P.persisted===false?'The browser may clear storage if the phone runs very low on space. Install the app or save backups.':'Storage protection status is unknown here.'}
@@ -107,11 +108,12 @@ A.help=function(){
     sec('Quests and clearing the day','Each day has quests: weigh-in with last night\u2019s sleep, three meals, a workout (or rest), rehab, protein. Four things score the day: <b>protein</b>, <b>calories inside the window</b>, <b>workout</b> and <b>rehab</b>. Three of four is a good day, four of four is a perfect one. Clearing the day pays a calorie bonus and opens a chest: common, rare for 3 of 4, epic for 4 of 4.')+
     sec('Real penalties','Skipping a session with no pain costs aura and gives you <b>fatigue</b>: aura gains are halved and your level is locked until you train. Missing a planned session without opening the app is punished when you come back. <b>Pain days are never punished</b>, and you get <b>one rest pass a week</b>. Strictness (Chill, Standard, Hard) is in the Forge.')+
     sec('Plates and stars','Every finished plate gets up to three stars: one for logging it, one for 25 g of protein or more, one for balance (a veg side, no sugar, not more than half your day\u2019s calories). Stars pay aura. Sugar and outside food cost a little aura, on purpose.')+
+    sec('Bonus quests','Under the daily quests sit three small extras: one ticks itself from your data (like logging all three meals), two you tick yourself (a short walk, ten slow breaths). They are optional and skipping them costs nothing. Finish all three and the day\u2019s chest goes up a tier. Thirty bonus quests earn a title.')+
     sec('Streaks and goals','Five weekly goals are picked fresh every Monday. Streaks pay milestone rewards at 3, 7, 14, 30 and 60 days. Training streaks skip rest days and pain days. The clear streak forgives one off day, because never missing <i>twice</i> is the rule that works.')+
     sec('Gates, bosses and realms','You are going from '+S.startW+' kg to '+c.goalW+' kg in '+pl.gates.length+' gates of '+c.gateStep+' kg of <i>trend</i>. Every fourth kilo is a <b>boss gate</b>: it opens a new realm that changes the colours, backdrop and weather of the whole app, unlocks gear, lowers your daily calories a little, and starts a <b>camp week</b> at maintenance so you recover before the next push.')+
     sec('Gear','Gear is never bought. It unlocks when you do the work, and the closest unlock is always shown in the Armory. Wear whatever you have earned.')+
     sec('Rehab','Rehab comes from your physio\u2019s list, spread over the training cycle. The guided session shows one move at a time with a moving outline and a hold timer. Your pain check-in sets a traffic light: green carries on, amber holds the strength work back, red keeps it gentle and tells you to message your physio.')+
-    sec('Your data','Everything is stored on this phone only. Save a backup file now and then from the Data vault in the Forge. Your day ends at '+(c.dayStart==null?3:c.dayStart)+' am, so clearing it after midnight still counts for yesterday.'),
+    sec('Your data','Everything is stored on this phone only. Save a backup file now and then from the Data vault in the Forge. A reset or restore keeps one undo copy there. Your day ends at '+(c.dayStart==null?3:c.dayStart)+' am, so clearing it after midnight still counts for yesterday.'),
     '<button class="btn" data-a="close">Got it</button>');
 };
 
@@ -192,6 +194,16 @@ function armed(el,label,again){
 A.bkAuto=function(b,el){
   if(!armed(el,'Restore yesterday’s automatic copy','Tap again to replace everything with the automatic copy'))return;
   try{const n=E.restoreAuto();U.sys('Restored '+n+' days from the automatic copy. You can undo this in the Data vault.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
+};
+A.bkPaste=function(){
+  $('#exWrap').innerHTML='<div class="small">Paste the backup text here, then restore. It replaces what is on this phone, and you can undo it.</div><textarea class="ta" id="pasteBk" aria-label="Backup text to restore" placeholder="Paste the backup text"></textarea><div class="stack2"><button class="btn ghost" data-a="bkPasteGo">Restore from this text</button></div>';
+  $('#pasteBk').focus();
+};
+A.bkPasteGo=function(v,el){
+  const t=($('#pasteBk')||{}).value;if(!t||!t.trim()){U.sys('Paste the backup text first.','bad');return}
+  if(!armed(el,'Restore from this text','Tap again to replace everything with this text'))return;
+  try{const n=E.importText(t.trim());U.sys('Restored '+n+' days from the pasted text. You can undo this in the Data vault.','good');U.tab='home';U.render(true)}
+  catch(err){U.sys(err.message,'bad')}
 };
 A.undo=function(b,el){
   if(!armed(el,el.textContent,'Tap again to bring back what you had before'))return;
