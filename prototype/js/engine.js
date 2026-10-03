@@ -1,0 +1,268 @@
+/* engine.js: state, nutrition math, aura/level/stats, fatigue and penalties, workouts. No DOM access here; the UI listens to events. */
+(function(){
+'use strict';
+const HS=window.HS=window.HS||{};
+const E=HS.E={};
+
+/* ---- tiny event bus: the UI and sound layer subscribe, the engine only emits ---- */
+const bus={};
+E.on=(n,f)=>{(bus[n]=bus[n]||[]).push(f)};
+E.emit=(n,d)=>{(bus[n]||[]).forEach(f=>{try{f(d)}catch(e){console.error(e)}})};
+
+/* ---- state ---- */
+const KEY='habitsync.proto.v4';
+const dkey=E.dkey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const CFG0={name:'PLAYER',kcal:2050,protein:140,goalW:75,gateStep:.5,bossEvery:4,stepGoal:0,strict:'standard',theme:'shadow',volume:.8,haptics:true,sound:true,contract:'',partner:''};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const blank=()=>({v:4,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],cycle:{a:dkey(),i:0},days:{},custom:{},
+  rehab:{confirmed:false,next:0},routine:clone(HS.ROUTINE_DEFAULT),last:{},pr:{},fatigue:null,pass:{wk:'',used:false},missStreak:0,swept:{}});
+let S=blank(),mem=null;
+(function load(){
+  try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);S=Object.assign(blank(),p);S.cfg=Object.assign({},CFG0,p.cfg||{});return}}catch(e){}
+  if(mem)S=mem;
+})();
+E.S=()=>S;
+E.save=function(){mem=S;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+E.reset=function(){S=blank();E.save();E.emit('reset')};
+E.cfg=()=>S.cfg;
+E.T=function(){const k=S.cfg.kcal;return{kcal:k,protein:S.cfg.protein,lo:Math.round(k*.855/10)*10,hi:Math.round(k*1.05/10)*10}};
+
+/* ---- dates ---- */
+E.daysBetween=function(a,b){const f=s=>{const x=s.split('-').map(Number);return Date.UTC(x[0],x[1]-1,x[2])/864e5};return Math.round(f(b)-f(a))};
+E.di=()=>(new Date().getDay()+6)%7;
+E.nowMin=()=>{const n=new Date();return n.getHours()*60+n.getMinutes()};
+function weekKey(){const d=new Date();d.setDate(d.getDate()-E.di());return dkey(d)}
+
+/* ---- days ---- */
+E.day=function(k){k=k||dkey();return S.days[k]||(S.days[k]={items:[],done:{},skip:{},workout:null,pain:null,burn:0,mins:null,runFree:null,reh:null,lift:{},weighed:false,pAward:false,closed:false,delta:0,sugarPen:0,score:0,steps:'',stepsAward:false})};
+E.planFor=function(k){k=k||dkey();return ['Push','Pull','Legs','Push','Pull','Legs','Rest'][(((S.cycle.i+E.daysBetween(S.cycle.a,k))%7)+7)%7]};
+E.setSession=function(type){
+  const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
+  const c=(((S.cycle.i+E.daysBetween(S.cycle.a,dkey()))%7)+7)%7;
+  if(SEQ[c]===type)return;
+  for(let j=0;j<7;j++){const x=(c+j)%7;if(SEQ[x]===type){S.cycle={a:dkey(),i:x};break}}
+};
+
+/* ---- nutrition ---- */
+E.food=n=>HS.DB[n]||S.custom[n];
+E.nut=(f,g)=>({k:f.k100*g/100,p:f.p100*g/100});
+E.totals=function(d){let k=0,p=0;d.items.forEach(i=>{const f=E.food(i.name);if(f){const n=E.nut(f,i.g);k+=n.k;p+=n.p}});return{k:k,p:p}};
+E.mealKcal=function(d,m){let k=0;d.items.forEach(i=>{if(i.meal===m){const f=E.food(i.name);if(f)k+=E.nut(f,i.g).k}});return k};
+E.units=(f,g)=>Math.round(g/f.ug*10)/10;
+E.poolFor=function(meal){return Array.from(new Set(HS.menuFor(meal,E.di()).concat(HS.STAPLES)))};
+E.picks=function(meal){
+  const d=E.day(),t=E.totals(d),T=E.T(),rK=T.kcal-t.k;
+  if(t.p>=T.protein)return[];
+  return E.poolFor(meal).map(E.food).filter(f=>f&&!f.sugar&&!f.out&&f.p>=10&&f.kcal<=Math.max(150,rK*.5)).sort((a,b)=>b.p/b.kcal-a.p/a.kcal).slice(0,3).map(f=>f.name);
+};
+const NUMW={half:.5,one:1,two:2,three:3,four:4,five:5};
+E.scoreFoods=function(q,meal){
+  q=q.toLowerCase().trim();if(!q)return[];
+  const qs=[q];if(q.endsWith('es'))qs.push(q.slice(0,-2));if(q.endsWith('s'))qs.push(q.slice(0,-1));
+  const menu=new Set(E.poolFor(meal));const out=[];
+  Object.values(HS.DB).concat(Object.values(S.custom)).forEach(f=>{const n=f.name.toLowerCase();let best=-1;
+    qs.forEach(x=>{const tk=x.split(/\s+/);if(tk.every(t=>n.includes(t))){const s=(menu.has(f.name)?100:0)+(n.startsWith(x)?20:0)+(n.split(/\W+/).includes(x)?10:0)-n.length/50;if(s>best)best=s}});
+    if(best>-1)out.push({f:f,s:best})});
+  return out.sort((a,b)=>b.s-a.s).map(o=>o.f);
+};
+/* "2 chapati", "rice 200g", "chicken 150", "momos 350 kcal" */
+E.parsePart=function(p){
+  p=p.trim();if(!p)return null;
+  let g=null,units=null,kc=null,tn=null;
+  const m=p.match(/(\d+(?:\.\d+)?)\s*(kg|gms|gm|grams|gram|g)\b/i);
+  if(m){g=parseFloat(m[1])*(m[2].toLowerCase()==='kg'?1000:1);p=p.replace(m[0],' ')}
+  const k=p.match(/(\d{2,4})\s*(?:kcal|cal)\b/i);
+  if(k){kc=+k[1];p=p.replace(k[0],' ')}
+  p=p.replace(/\bof\b/i,' ').replace(/\s+/g,' ').trim();
+  if(g===null&&kc===null){
+    const n=p.match(/^(\d+(?:\.\d+)?|half|one|two|three|four|five)\s*(?:x\s*)?(.*)$/i);
+    if(n&&n[2]){units=isNaN(n[1])?NUMW[n[1].toLowerCase()]:parseFloat(n[1]);p=n[2]}
+    else{const t=p.match(/^(.*?)\s+(\d{2,4})$/);if(t){tn=+t[2];p=t[1]}}
+  }
+  return{name:p.trim(),g:g,units:units,kc:kc,tn:tn};
+};
+/* add a food to the plate. Returns details so the UI can animate; the sound layer reacts to the 'add' event. */
+E.addFood=function(name,grams,meal){
+  const f=E.food(name);if(!f)return null;
+  const d=E.day(),T=E.T(),g=grams||f.ug;
+  const ex=d.items.find(i=>i.name===name&&i.meal===meal);
+  if(ex)ex.g=Math.round((ex.g+g)*10)/10;else d.items.push({name:name,meal:meal,g:g});
+  const k=E.nut(f,g).k;let pen=0;
+  if(f.sugar){pen=Math.min(10,20-d.sugarPen);if(pen>0){d.sugarPen+=pen;E.addAura(-pen)}else pen=0}
+  E.save();
+  const proteinHit=E.checkProtein();
+  E.emit('add',{food:f,grams:g,kcal:k,pct:Math.round(k/T.kcal*100),pen:pen,proteinHit:proteinHit});
+  return{food:f,kcal:k,pen:pen};
+};
+E.removeItem=function(ix){
+  const d=E.day(),it=d.items[ix];if(!it)return;
+  const f=E.food(it.name);
+  if(f&&f.sugar&&d.sugarPen>0){const r=Math.min(10,d.sugarPen);d.sugarPen-=r;S.aura+=r;d.delta+=r}
+  d.items.splice(ix,1);E.save();E.emit('remove',{food:f});
+};
+E.customFood=function(name,kcal){
+  const f=HS.mkFood(name,kcal,0,'serving','o');f.custom=true;f.p100=0;S.custom[name]=f;return f;
+};
+E.checkProtein=function(){
+  const d=E.day();if(d.pAward)return false;
+  if(E.totals(d).p>=E.T().protein){d.pAward=true;E.addAura(60);E.stat('VIT',2);E.emit('protein');E.save();return true}
+  return false;
+};
+
+/* ---- weight, gates, journey ---- */
+E.trend=function(){let t=S.startW;Object.keys(S.weights).sort().forEach(k=>{t=t+.25*(S.weights[k]-t)});return Math.round(t*100)/100};
+E.ladder=function(){
+  const c=S.cfg,step=c.gateStep||.5,out=[],n=Math.max(0,Math.round((S.startW-c.goalW)/step));
+  for(let i=1;i<=n;i++){const kg=Math.round((S.startW-i*step)*10)/10;
+    const boss=kg===c.goalW||(c.bossEvery>0&&Math.abs((S.startW-kg)/c.bossEvery-Math.round((S.startW-kg)/c.bossEvery))<1e-6);
+    out.push({kg:kg,boss:boss})}
+  return out;
+};
+E.progress=function(){
+  const tr=E.trend(),total=S.startW-S.cfg.goalW,left=Math.max(0,tr-S.cfg.goalW);
+  const pct=total>0?Math.max(0,Math.min(1,(S.startW-tr)/total)):0;
+  const weeks=left/.5,eta=new Date();eta.setDate(eta.getDate()+Math.round(weeks*7));
+  return{pct:pct,left:left,weeks:weeks,eta:eta,day:Math.max(1,E.daysBetween(S.start,dkey())+1)};
+};
+E.logWeight=function(x){
+  const d=E.day(),first=!d.weighed;
+  S.weights[dkey()]=Math.round(x*10)/10;d.weighed=true;
+  if(first){E.addAura(15);E.stat('SNS',1)}
+  const tr=E.trend();let cleared=null;
+  E.ladder().forEach(g=>{if(tr<=g.kg+1e-6&&!S.gates.includes(g.kg)){S.gates.push(g.kg);E.addAura(150);cleared=g}});
+  E.save();E.emit('weigh',{kg:x,trend:tr});
+  if(cleared)E.emit('gate',cleared);
+  return{trend:tr,cleared:cleared};
+};
+
+/* ---- aura, level, rank, stats ---- */
+const LV=a=>Math.floor(Math.sqrt(Math.max(0,a)/200))+1;
+const LVF=L=>200*(L-1)*(L-1);
+const rankOf=L=>L>=61?'S':L>=41?'A':L>=26?'B':L>=16?'C':L>=8?'D':'E';
+E.rankOf=rankOf;E.LVF=LVF;
+E.lv=function(){
+  const raw=LV(S.aura),locked=!!(S.fatigue&&S.fatigue.on&&raw>S.fatigue.lock),L=locked?S.fatigue.lock:raw;
+  const a=LVF(L),b=LVF(L+1);
+  return{L:L,raw:raw,locked:locked,rank:rankOf(L),pct:locked?1:(S.aura-a)/(b-a),have:Math.round(S.aura-a),need:b-a};
+};
+E.addAura=function(n){
+  const before=E.lv(),d=E.day(),fat=S.fatigue&&S.fatigue.on;
+  if(n>0&&fat)n=Math.floor(n/2);
+  const real=Math.max(-S.aura,n);
+  S.aura+=real;d.delta+=real;
+  E.emit('aura',real);
+  const after=E.lv();
+  if(after.L>before.L)E.emit('level',{from:before,to:after,rankUp:after.rank!==before.rank});
+  else if(after.locked&&real>0&&!before.locked)E.emit('locked',after);
+  return real;
+};
+E.stat=function(k,n){S.stats[k]=Math.max(0,(S.stats[k]||0)+n);E.emit('stat',{k:k,n:n})};
+
+/* ---- fatigue, penalties, rest pass (the real consequences) ---- */
+E.fatigued=()=>!!(S.fatigue&&S.fatigue.on);
+E.startFatigue=function(reason){
+  if(E.fatigued())return;
+  S.fatigue={on:true,lock:LV(S.aura),since:dkey(),reason:reason||'missed'};
+  E.emit('fatigue',true);
+};
+E.clearFatigue=function(){
+  if(!E.fatigued())return false;
+  const before=E.lv();S.fatigue.on=false;const after=E.lv();
+  E.emit('fatigue',false);
+  if(after.L>before.L)E.emit('level',{from:before,to:after,rankUp:after.rank!==before.rank});
+  return true;
+};
+E.passLeft=function(){const w=weekKey();if(S.pass.wk!==w)S.pass={wk:w,used:false};return !S.pass.used};
+E.usePass=function(){if(!E.passLeft())return false;S.pass.used=true;E.save();return true};
+/* A skipped session without pain. Chill: aura only. Standard: aura plus fatigue (half aura, no level-ups until you train).
+   Hard: bigger loss, a strength point, and a second miss in a row hits twice. */
+E.penalty=function(why){
+  const st=S.cfg.strict,base=st==='chill'?30:st==='hard'?100:60;let extra=0;
+  E.addAura(-base);
+  if(st!=='chill')E.startFatigue(why);
+  if(st==='hard'){E.stat('STR',-1);if(S.missStreak>=1){E.addAura(-100);E.stat('STR',-2);extra=100}}
+  S.missStreak=(S.missStreak||0)+1;
+  E.save();
+  E.emit('penalty',{base:base,extra:extra,strict:st,why:why,streak:S.missStreak});
+};
+E.skipWorkout=function(){const d=E.day();d.workout='lazy';E.penalty('skipped');E.save()};
+E.painDay=function(){const d=E.day();d.workout='pain';E.stat('SNS',1);E.save()};
+E.restPass=function(){if(!E.usePass())return false;const d=E.day();d.workout='pass';E.save();return true};
+/* On open: any planned session in the last 3 days with nothing logged is an absence. A rest pass covers one per week. */
+E.sweep=function(){
+  if(S.cfg.strict==='chill')return[];
+  const out=[];
+  for(let i=3;i>=1;i--){
+    const dt=new Date();dt.setDate(dt.getDate()-i);const k=dkey(dt);
+    if(k<=S.start||S.swept[k])continue;
+    S.swept[k]=1;
+    if(E.planFor(k)==='Rest')continue;
+    const d=S.days[k];if(d&&d.workout)continue;
+    const dd=E.day(k);
+    if(E.usePass()){dd.workout='pass';out.push({k:k,pass:true})}
+    else{dd.workout='lazy';E.penalty('absent');out.push({k:k,pass:false})}
+  }
+  if(out.length)E.save();
+  return out;
+};
+E.contractMessage=function(why){
+  const c=S.cfg;
+  return (c.name||'I')+' here. I broke my own rule ('+why+'). My contract: '+(c.contract||'you pick my penalty')+'. Hold me to it.';
+};
+
+/* ---- workouts ---- */
+E.routine=type=>S.routine[type]||[];
+E.exState=function(ex){
+  const d=E.day();d.lift=d.lift||{};
+  if(!d.lift[ex.n]){
+    const last=S.last[ex.n];
+    d.lift[ex.n]={sets:Array.from({length:ex.sets},()=>({w:last?last.w:0,r:last?last.r:ex.reps,done:false})),pr:false};
+  }
+  const st=d.lift[ex.n];
+  while(st.sets.length<ex.sets)st.sets.push({w:st.sets.length?st.sets[st.sets.length-1].w:0,r:ex.reps,done:false});
+  return st;
+};
+E.liftProgress=function(plan){
+  let done=0,total=0;
+  E.routine(plan).forEach(ex=>{const st=E.exState(ex);st.sets.slice(0,ex.sets).forEach(s=>{total++;if(s.done)done++})});
+  return{done:done,total:total};
+};
+E.setDone=function(ex,i,on){
+  const st=E.exState(ex),s=st.sets[i];if(!s)return{};
+  s.done=on;let pr=false;
+  if(on){
+    S.last[ex.n]={w:s.w,r:s.r};
+    const e1=s.w*(1+s.r/30);
+    if(s.w>0&&S.pr[ex.n]&&e1>S.pr[ex.n]*1.005&&!st.pr){pr=true;st.pr=true;E.addAura(25);E.stat('STR',1)}
+    if(s.w>0&&(!S.pr[ex.n]||e1>S.pr[ex.n]))S.pr[ex.n]=e1;
+  }
+  E.save();E.emit('set',{ex:ex,on:on,pr:pr,over:!!(ex.cap&&s.w>HS.CAP_KG)});
+  return{pr:pr};
+};
+E.completeWorkout=function(plan){
+  const d=E.day(),p=E.liftProgress(plan),frac=p.total?Math.min(1,p.done/p.total/.8):1;
+  const comeback=E.clearFatigue();
+  const award=Math.round(100*frac);
+  d.workout='done';
+  E.addAura(award);E.stat('STR',3);
+  if(comeback)E.addAura(40);
+  S.missStreak=0;
+  E.save();E.emit('workout',{award:award,comeback:comeback,done:p.done,total:p.total});
+  return{award:award,comeback:comeback};
+};
+/* calories burned: net of resting, ACSM treadmill equations; lifting at about 4.5 MET. Information only. */
+E.burnEst=function(kg,lift,walkMin,runMin){
+  const m=v=>v*1000/60,wk=(0.1*m(5)+1.8*m(5)*.09)*kg/1000*5*walkMin,rn=(0.2*m(9))*kg/1000*5*runMin,lf=3.5*kg*(lift/60);
+  return Math.round(wk+rn+lf);
+};
+
+/* ---- rehab and pain ---- */
+E.painDays=function(n){
+  const out=[];
+  for(let i=n-1;i>=0;i--){const x=new Date();x.setDate(x.getDate()-i);const k=dkey(x),d=S.days[k];out.push({k:k,r:d&&d.reh&&d.reh.done?d.reh:null,run:d&&d.runFree!=null&&d.workout==='done'?d.runFree:null,d:d})}
+  return out;
+};
+/* proposed pain traffic light, to be confirmed by the physio: green 0-3, amber 4-5, red 6+ or any sharp pain */
+E.light=function(r){if(!r)return null;const m=Math.max(r.knee,r.back);return r.sharp||m>=6?'red':m>=4?'amber':'green'};
+E.exportJSON=()=>JSON.stringify(S,null,1);
+})();
