@@ -123,7 +123,7 @@ U.render=function(anim){
   const idx=TABS.indexOf(U.tab),S=E.S();
   document.querySelectorAll('#dock button').forEach((b,i)=>{b.setAttribute('aria-selected',i===idx)});
   $('#dockInd').style.transform='translateX('+(idx*100)+'%)';
-  const dots={armory:S.newItems.length>0,path:E.reviewDue()};
+  const dots={armory:S.newItems.length>0,path:E.reviewDue(),forge:!!(E.backupDue&&E.backupDue())};
   TABS.forEach((t,i)=>{const b=document.querySelectorAll('#dock button')[i];if(b)b.classList.toggle('dot',!!dots[t])});
   const sb=$('#sndBtn');sb.innerHTML=E.cfg().sound?IC.on:IC.off;sb.className=E.cfg().sound?'':'off';
   const sc=$('#screen');
@@ -214,7 +214,7 @@ function showGear(){
     html:ray+'<div class="kicker">'+list.length+' ITEMS ACQUIRED</div><div class="igrid">'+list.slice(0,6).map(it=>'<div class="icard sm">'+(it.slot==='title'?'<div class="ttl sm">\u00AB '+esc(it.name)+' \u00BB</div>':'<div class="iprev">'+HS.avatar.thumb(it,S.equip)+'</div>')+'<b>'+esc(it.name)+'</b></div>').join('')+'</div>'+(list.length>6?'<p class="sub">and '+(list.length-6)+' more</p>':'')+'<button class="btn ovbtn" data-a="gotoArmory">Open the Armory</button>'});
 }
 U.act.gotoArmory=function(){closeCele();setTimeout(()=>{U.act.tab('armory')},120)};
-E.on('goal',g=>{U.sys('Goal cleared: '+g.t+'. +'+g.aura+' aura.','good',true);F.burstCenter(40)});
+E.on('goal',g=>{U.sys('Goal cleared: '+g.t+'. +'+g.aura+' aura. '+U.hype('goal'),'good',true);F.burstCenter(40)});
 E.on('streak',s=>{
   const nm=HS.STREAK_NAMES[s.kind]||'Streak';
   U.sys(nm+' milestone! '+U.hype('streak',{n:s.step})+' +'+s.aura+' aura.','good',true);F.burstCenter(70);
@@ -228,6 +228,28 @@ E.on('clear',st=>{
 });
 E.on('reset',()=>{F.applyTheme();U.render(true)});
 E.on('pwa-update',()=>U.sys('A new version is ready. Close and reopen the app to get it.','',true));
+
+/* quest combo: finishing quests back to back builds a combo with a rising note */
+let comboN=0,comboT=0;
+U.bump=function(){
+  const now=Date.now();
+  comboN=(now-comboT<90*60000)?comboN+1:1;comboT=now;
+  if(comboN<2)return;
+  const e=document.createElement('div');e.className='combo2';e.innerHTML='QUEST COMBO \u00D7'+comboN+'<small>'+(comboN>=4?'ON FIRE':'KEEP IT GOING')+'</small>';
+  document.body.appendChild(e);setTimeout(()=>e.remove(),1500);
+  F.play('star',Math.min(comboN-2,5));
+};
+E.on('meal',m=>{if(m.first)U.bump()});
+E.on('workout',()=>U.bump());
+E.on('protein',()=>U.bump());
+E.on('rehab',()=>U.bump());
+E.on('clear',()=>U.bump());
+E.on('water',w=>{if(w.hit)U.bump()});
+/* the backdrop drifts slower than the page as you scroll */
+(function(){
+  const sc=document.getElementById('screen');if(!sc)return;let raf=0;
+  sc.addEventListener('scroll',()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;sc.style.setProperty('--sy',sc.scrollTop+'px')})},{passive:true});
+})();
 
 /* ---------------- first run, boot ---------------- */
 U.boot=function(){

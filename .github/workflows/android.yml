@@ -35,6 +35,7 @@ jobs:
           npx cap sync android
       - name: Build the APK
         working-directory: app/android
+        shell: bash
         run: ./gradlew assembleRelease -PhsVersionCode=${{ github.run_number }} -PhsVersionName=0.5.${{ github.run_number }} --no-daemon --console=plain 2>&1 | tee "$GITHUB_WORKSPACE/gradle.log"
       - name: Show what went wrong
         if: failure()

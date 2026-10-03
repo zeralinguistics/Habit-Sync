@@ -239,7 +239,7 @@ function renderGym(){
     const est=E.burnEst(kg(),sh.tmp.lift,sh.tmp.walk,sh.tmp.run);
     U.openSheet(plan+' report',
       '<div class="hint">Quick numbers for your burn estimate.</div>'+stp('lift','Lifting','minutes',sh.tmp.lift)+stp('walk','Incline walk','5 km/h, 9% incline, minutes',sh.tmp.walk)+stp('run','Run','9 km/h, minutes done',sh.tmp.run)+stp('free','Run minutes before pain','0 if no pain at all',sh.tmp.free)+
-      `<div class="est">~${fmt(est)} kcal burned<small>Rough estimate, can be off by 30%. Info only: your calorie target already includes training, so do not eat it back.</small></div>`,
+      `<div class="est">~${fmt(sh.tmp.useH&&d.hWork?d.hWork.kcal:est)} kcal burned<small>Rough estimate, can be off by 30%. Info only: your calorie target already includes training, so do not eat it back.</small></div>`+(d.hWork?`<button class="chipbtn${sh.tmp.useH?' on':''}" data-a="useHB"><b>Samsung Health recorded ${d.hWork.min} min, ${fmt(d.hWork.kcal)} kcal</b><span>${sh.tmp.useH?'Using it':'Use that number'}</span></button>`:''),
       '<button class="btn" data-a="gymNext">Next</button>');
     return;
   }
@@ -325,9 +325,10 @@ function victory(plan,r,p){
     fx:()=>{F.confetti(140)},
     html:'<div class="rays"></div><div class="kicker">TRAINING COMPLETE</div><div class="vav">'+HS.avatar.svg(S.equip,{mood:'proud'})+'</div><h1>'+plan.toUpperCase()+' DAY</h1><div class="vstats">'+stats.map(x=>'<div><b>'+x[0]+'</b><span>'+x[1]+'</span></div>').join('')+'</div><p>'+esc(line)+'</p>'+(r.comeback?'<p class="sub">Comeback bonus +40. Fatigue broken, your level can rise again.</p>':'')});
 }
+A.useHB=function(){const sh=U.sh;sh.tmp.useH=!sh.tmp.useH;F.play('pick');renderGym()};
 A.gymNext=function(){
   const sh=U.sh,d=E.day(),t=sh.tmp,plan=E.planFor();
-  d.mins={lift:t.lift,walk:t.walk,run:t.run};d.burn=E.burnEst(kg(),t.lift,t.walk,t.run);d.runFree=t.free;
+  d.mins={lift:t.lift,walk:t.walk,run:t.run};d.burn=t.useH&&d.hWork?d.hWork.kcal:E.burnEst(kg(),t.lift,t.walk,t.run);d.runFree=t.free;
   E.stat('AGI',Math.floor((t.walk+t.run)/10));
   const p=E.liftProgress(plan),r=E.completeWorkout(plan);U.justRow='gym';
   victory(plan,r,p);
@@ -473,7 +474,7 @@ A.rehabFinish=function(){
   if(!pr.done){U.sys('Tick at least one move, or close this window.','bad');return}
   r.n=pr.done;
   if(pr.ok&&!r.done){
-    r.done=true;E.addAura(U.rehabAura(pr.done));E.stat('SNS',2);E.save();
+    r.done=true;E.addAura(U.rehabAura(pr.done));E.stat('SNS',2);E.save();E.emit('rehab',{n:pr.done});
     U.justRow='rehab';F.play('quest');U.closeSheet();
     U.sys(U.hype('rehab')+' '+pr.done+' of '+pr.total+' moves.','good',true);F.burstCenter(40);
   }else if(pr.ok){
@@ -547,12 +548,14 @@ function renderWeigh(){
   U.openSheet('Morning check-in',
     `<div class="hint">Before food, after the toilet. Same scale every day.</div>
     <div class="wnum"><button data-a="wd" aria-label="Down 0.1">−</button><input id="wIn" type="number" step="0.1" inputmode="decimal" value="${wVal.toFixed(1)}" aria-label="Weight in kg"><button data-a="wu" aria-label="Up 0.1">+</button></div>
+    ${d.hWeight&&!d.weighed?`<button class="chipbtn" data-a="useHW"><b>Samsung Health has ${d.hWeight.toFixed(1)} kg</b><span>Use this reading</span></button>`:''}
     <div class="note">One reading never moves your trend by more than a quarter. Water weight is noise.</div>
     <div class="sec">Last night’s sleep</div>
     <div class="stp"><span>Hours slept<small id="slpn">${sleepNote(sh.sleep)}</small></span><div class="c"><button class="sbtn" data-a="slp:-0.5" aria-label="Less sleep">−</button><i class="slpv" id="slpv">${sh.sleep.toFixed(1)}</i><button class="sbtn" data-a="slp:0.5" aria-label="More sleep">+</button></div></div>
     <div class="small">${d.sleep!=null?'Already logged: '+d.sleep+' h. Change it above if it is off.':'Skip this if you would rather not log it today.'}</div>`,
     '<button class="btn" data-a="wSave">Save</button>');
 }
+A.useHW=function(){const d=E.day();if(!d.hWeight)return;const i=$('#wIn');i.value=d.hWeight.toFixed(1);wVal=d.hWeight;F.play('pick');F.vib(8)};
 A.slp=function(v){const sh=U.sh;sh.sleep=Math.max(0,Math.min(14,Math.round((sh.sleep+parseFloat(v))*2)/2));sh.touched=true;F.play('tick',sh.sleep*30);F.vib(5);$('#slpv').textContent=sh.sleep.toFixed(1);$('#slpn').textContent=sleepNote(sh.sleep)};
 A.wd=A.wu=function(v,b){
   const i=$('#wIn');let x=parseFloat(i.value)||wVal;

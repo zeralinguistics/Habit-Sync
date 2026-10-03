@@ -358,3 +358,13 @@ svg.fig.big{height:210px;width:100%}
 .hexb polygon{fill:rgba(245,196,81,.12);stroke:var(--gold);stroke-width:2.5;filter:drop-shadow(0 0 10px var(--gold))}
 .hexb text{fill:var(--gold);font:700 34px var(--display)}
 #ov .big.sm{font-size:30px;margin-top:6px;letter-spacing:.2em;color:var(--mute)}
+
+.chipbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin:12px 0 0;padding:11px 14px;border-radius:8px;border:1px solid var(--green);background:rgba(61,220,151,.08);color:var(--fg);text-align:left}
+.chipbtn b{font:700 14px var(--display);letter-spacing:.08em;text-transform:uppercase}
+.chipbtn span{font:700 11px var(--display);letter-spacing:.16em;color:var(--green);text-transform:uppercase;flex:none}
+.chipbtn.on{background:rgba(61,220,151,.22);box-shadow:0 0 12px rgba(61,220,151,.3)}
+.qrow.just .qic svg path{stroke-dasharray:32;stroke-dashoffset:32;animation:tickdraw .55s .1s ease-out forwards}
+@keyframes tickdraw{to{stroke-dashoffset:0}}
+.scene>.scn{inset:-44px 0 0 0;height:calc(100% + 44px);will-change:transform;transform:translateY(min(calc(var(--sy,0px)*.28),44px))}
+.combo2{position:fixed;left:50%;top:30%;z-index:95;pointer-events:none;transform:translateX(-50%);font:700 30px var(--display);letter-spacing:.16em;color:var(--gold);text-shadow:0 0 20px var(--gold);animation:float 1.5s ease-out forwards;white-space:nowrap}
+.combo2 small{display:block;text-align:center;font:600 11px var(--body);letter-spacing:.2em;color:var(--mute)}

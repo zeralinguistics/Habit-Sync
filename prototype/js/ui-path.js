@@ -151,7 +151,7 @@ function renderCampaign(){
     const open=!!sh.open[i];
     return `<div class="rc2${cleared?' cleared':cur?' cur':''}" style="--c:${th.glow}">
       <div class="rch"><b>REALM ${i+1}</b><span>${cleared?'CLEARED':cur?'YOU ARE HERE':'AHEAD'}</span></div>
-      <div class="rcn">${esc(r.name)}</div>
+      <div class="rcn">${esc(r.name||'Realm '+(i+1))}</div>
       <div class="rcw">${r.from} → ${r.to} kg · weeks ${r.w0} to ${r.w1} · ${r.gates} gates</div>
       <div class="rcw">Eat about <b>${r.kcal0}→${r.kcal1} kcal</b> a day · protein ${S.cfg.protein} g</div>
       <div class="rcr">Boss gate at ${r.to} kg unlocks: ${rewards.length?esc(rewards.join(', ')):'new gear'}${i<pl.realms.length-1?' · then a camp week at maintenance':''}</div>
@@ -198,10 +198,16 @@ U.reportSheet=function(){
     ${row('Eaten on average',r.kcalAvg!=null?fmt(r.kcalAvg)+' kcal':'no data')}
     ${row('Trend change',r.rate!=null?(r.rate>=0?'−':'+')+Math.abs(r.rate).toFixed(2)+' kg':'needs 4 weigh-ins')}
     <div class="note">Trend is the smoothed line, not one reading. Honest logging matters more than a perfect week.</div>`,
-    '<button class="btn" data-a="close">Got it</button>');
+    '<button class="btn good" data-a="shareWeek">Share this week</button><button class="btn ghost" data-a="close">Got it</button>');
   E.reviewSeen();
 };
 A.report=function(){F.play('nav');U.reportSheet()};
+A.shareWeek=function(){
+  const S=E.S(),r=E.report(),L=E.lv(),tr=E.trend(),n=S.cfg.name||'Hunter';
+  const t=n+' \u00B7 Level '+L.L+' (rank '+L.rank+') \u00B7 '+tr.toFixed(1)+' kg ('+(tr<=S.startW?'\u2212':'+')+Math.abs(S.startW-tr).toFixed(1)+' since the start)\nThis week: '+r.workouts+' workouts, '+r.rehab+' rehab days, protein hit '+r.protein+' days, water '+r.water+' days.\nClear streak: '+E.streak('clear')+' days. Gates cleared: '+S.gates.length+' of '+E.ladder().length+'.';
+  if(navigator.share){navigator.share({title:'My week on Habit Sync',text:t}).catch(()=>{});return}
+  window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank','noopener');
+};
 
 /* ---------------- goals and streaks ---------------- */
 U.goalsSheet=function(){
