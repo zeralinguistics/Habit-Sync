@@ -23,7 +23,7 @@ const pin = (iso) => {
     if (init) await ctx.addInitScript(init);
     const pg = await ctx.newPage();
     pg.errs = [];
-    pg.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|favicon/.test(m.text())) pg.errs.push(m.text()); });
+    pg.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|favicon|Blocked call to navigator.vibrate/.test(m.text())) pg.errs.push(m.text()); });
     pg.on('pageerror', e => pg.errs.push('PAGEERR ' + e.message));
     return pg;
   };
@@ -350,6 +350,49 @@ const pin = (iso) => {
   const sc = await np.evaluate(() => ({ n: window.__sched.length ? window.__sched[window.__sched.length - 1].length : 0, first: window.__sched.length ? window.__sched[window.__sched.length - 1][0] : null, on: HS.E.S().remind.on }));
   ok(sc.on && sc.n >= 60 && sc.first && sc.first.isExactNotification === false, 'reminders schedule ' + sc.n + ' friendly nudges over 14 days, inexact so no special permission is needed');
   ok(np.errs.length === 0, 'no console errors with reminders ' + JSON.stringify(np.errs));
+
+  /* ---------- an old, damaged or unreadable save still opens ---------- */
+  const tabsOk = pg2 => pg2.evaluate(() => { const o = {}; ['home', 'armory', 'path', 'forge'].forEach(t => { try { HS.ui.tab = t; HS.ui.render(); o[t] = document.querySelector('#screen').textContent.length > 200; } catch (e) { o[t] = 'ERR ' + e.message; } }); return o; });
+  const old = await mk(() => {
+    /* a v0.3 save: schema 4, goal 75 kg, no routine, no equipment, no realm, days without the newer fields */
+    const today = new Date(), k = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const days = {}, weights = {};
+    for (let i = 10; i >= 1; i--) { const d = new Date(today); d.setDate(d.getDate() - i); days[k(d)] = { items: [{ name: 'Plain rice', meal: 'lunch', g: 200 }], done: { lunch: true }, skip: {}, workout: i % 2 ? 'done' : null, pain: null, burn: 0, mins: null, runFree: null, reh: i % 3 ? { items: { b0: true }, day: 0, knee: 2, back: 1, sharp: false, done: true, n: 5 } : null, lift: {}, weighed: true, pAward: i % 2 === 0, closed: true, delta: 100, sugarPen: 0, score: 3, steps: '' }; weights[k(d)] = 84 - (10 - i) * .2; }
+    const st = { v: 4, cfg: { name: 'PLAYER', kcal: 2050, protein: 140, goalW: 75, gateStep: .5, bossEvery: 4, stepGoal: 0, strict: 'standard', theme: 'shadow', volume: .8, haptics: true, sound: true, contract: '', partner: '' }, aura: 2500, stats: { STR: 5, VIT: 6, AGI: 1, SNS: 3 }, startW: 84, start: k(new Date(today.getTime() - 11 * 864e5)), weights: weights, gates: [83.5, 83, 82.5], cycle: { a: k(today), i: 0 }, days: days, custom: {}, rehab: { confirmed: false, next: 0 }, routine: null, last: {}, pr: {}, fatigue: null, pass: { wk: '', used: false }, missStreak: 0, swept: {} };
+    localStorage.setItem('habitsync.proto.v4', JSON.stringify(st));
+  });
+  await old.goto(url); await old.waitForTimeout(900);
+  const og = await old.evaluate(() => { const S = HS.E.S(); return { v: S.v, goal: S.cfg.goalW, theme: S.cfg.theme, gates: S.gates.length, routine: Object.keys(S.routine).join(), push: S.routine.Push.length, aura: S.aura, days: Object.keys(S.days).length, weights: Object.keys(S.weights).length }; });
+  ok(og.v === 5 && og.goal === 70 && og.theme === 'auto' && og.gates === 3 && og.aura >= 2500 && og.days >= 10 && og.weights === 10, 'a v0.3 save is upgraded without losing anything: goal 75 became 70, 3 gates, aura ' + og.aura + ', 10 days');
+  ok(og.routine === 'Push,Pull,Legs' && og.push === 6, 'a missing gym routine falls back to the default');
+  const ot = await tabsOk(old);
+  ok(ot.home === true && ot.armory === true && ot.path === true && ot.forge === true, 'all four tabs open from an old save ' + JSON.stringify(ot));
+  ok(old.errs.length === 0, 'no console errors from an old save ' + JSON.stringify(old.errs));
+
+  const dm = await mk(() => {
+    const k = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const st = { v: 5, cfg: null, aura: 'lots', weights: null, gates: 'x', gateDates: [], days: {}, routine: { Push: 'x', Pull: [{ n: 'Row', g: 'Back', sets: 3, reps: 10 }] }, equip: null, owned: [], health: 7, stats: null, counters: 3, rehab: null, cycle: null };
+    st.days[k(1)] = null; st.days[k(2)] = { items: 'nope', done: null, workout: 'done' }; st.days[k(3)] = [];
+    localStorage.setItem('habitsync.proto.v4', JSON.stringify(st));
+  });
+  await dm.goto(url); await dm.waitForTimeout(900);
+  const dg = await dm.evaluate(() => { const S = HS.E.S(); return { aura: S.aura, gates: Array.isArray(S.gates), push: S.routine.Push.length, pull: S.routine.Pull[0].n, days: Object.keys(S.days).length, items: Array.isArray(Object.values(S.days)[0] && Object.values(S.days)[0].items) }; });
+  ok(dg.aura === 0 && dg.gates && dg.push === 6 && dg.pull === 'Row' && dg.items, 'a damaged save is repaired field by field: bad fields reset, good ones (a custom Pull routine) kept');
+  const dt = await tabsOk(dm);
+  ok(dt.home === true && dt.armory === true && dt.path === true && dt.forge === true, 'all four tabs open from a damaged save ' + JSON.stringify(dt));
+  ok(dm.errs.length === 0, 'no console errors from a damaged save ' + JSON.stringify(dm.errs));
+
+  const un = await mk(() => {
+    const good = { v: 5, cfg: { name: 'BACKUP' }, aura: 321, days: { '2026-10-04': { items: [], done: {}, workout: 'done' }, '2026-10-03': { items: [], done: {} } } };
+    if (!localStorage.getItem('habitsync.proto.v4')) { localStorage.setItem('habitsync.proto.v4', '{"v":5,"cfg":{"name":"HALF'); localStorage.setItem('habitsync.proto.v4.bak', JSON.stringify(good)); }
+  });
+  await un.goto(url); await un.waitForTimeout(1600);
+  ok(await un.evaluate(() => HS.E.unreadable === true && /could not be read/.test(document.querySelector('#sysT').textContent)), 'an unreadable save shows a clear message instead of failing silently');
+  const uk = await un.evaluate(() => { HS.E.save(); return { raw: localStorage.getItem('habitsync.proto.v4.unreadable'), bak: JSON.parse(localStorage.getItem('habitsync.proto.v4.bak')).aura }; });
+  ok(uk.raw === '{"v":5,"cfg":{"name":"HALF' && uk.bak === 321, 'the unreadable text is kept aside and yesterday\'s automatic copy is not overwritten');
+  const ur = await un.evaluate(() => { const n = HS.E.restoreAuto(), S = HS.E.S(); return { n: n, name: S.cfg.name, aura: S.aura, both: !!S.days['2026-10-04'] && !!S.days['2026-10-03'] }; });
+  ok(ur.n >= 2 && ur.both && ur.name === 'BACKUP' && ur.aura === 321, 'restoring the automatic copy brings the last good state back');
+  ok(un.errs.length === 0, 'no console errors around an unreadable save ' + JSON.stringify(un.errs));
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   await b.close();

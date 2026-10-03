@@ -284,6 +284,7 @@ U.boot=function(){
     if(Object.keys(S.weights).length||S.aura>0){S.welcomed=true;E.persist()}
     else setTimeout(()=>U.welcome&&U.welcome(),250);
   }
+  if(E.unreadable)setTimeout(()=>U.sys('Your saved data could not be read, so nothing was changed. In the Forge, “Restore yesterday’s automatic copy” brings back the last good copy.','bad'),900);
   if(sw.length){
     const missed=sw.filter(x=>!x.pass).length,pass=sw.filter(x=>x.pass).length;
     setTimeout(()=>{

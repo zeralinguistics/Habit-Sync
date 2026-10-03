@@ -1804,25 +1804,41 @@ const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,
   equip:Object.assign({},HS.EQUIP_DEFAULT),owned:{},realm:'r1',realmSeen:1,claimed:{},counters:{pr:0,comeback:0,goals:0},prWeeks:{},camp:null,bestStreak:0,
   lastBackup:0,lastAutoBak:'',reviewSeen:'',welcomed:false,newItems:[],health:{on:false,last:0},remind:{on:false}});
 /* bring any saved state up to the current schema without losing anything */
+const DAY0=()=>({items:[],done:{},skip:{},workout:null,pain:null,burn:0,mins:null,runFree:null,reh:null,lift:{},weighed:false,pAward:false,closed:false,calOk:false,delta:0,sugarPen:0,score:0,steps:'',stepsAward:false,water:0,waterHit:false,sleep:null,chest:null});
+const kindOf=v=>v===null?'null':Array.isArray(v)?'array':typeof v;
 function migrate(p){
-  const st=Object.assign(blank(),p||{});
-  st.cfg=Object.assign({},CFG0,(p&&p.cfg)||{});
+  const d=blank(),st=Object.assign({},d,(p&&typeof p==='object')?p:{});
+  /* a saved field that is missing, null or the wrong kind of thing falls back to its default, so an old or damaged save cannot crash a screen */
+  Object.keys(d).forEach(k=>{if(d[k]!==null&&kindOf(st[k])!==kindOf(d[k]))st[k]=d[k]});
+  st.cfg=Object.assign({},CFG0,st.cfg);
   if(!p||(p.v||4)<5){
     if(st.cfg.goalW===75)st.cfg.goalW=70;   /* the goal is 70 kg */
-    if(!p||!p.cfg||p.cfg.theme==='shadow'||!p.cfg.theme)st.cfg.theme='auto';   /* follow the realm */
+    if(st.cfg.theme==='shadow')st.cfg.theme='auto';   /* follow the realm */
     st.v=SCHEMA;
   }
-  st.equip=Object.assign({},HS.EQUIP_DEFAULT,st.equip||{});
-  st.stats=Object.assign({STR:0,VIT:0,AGI:0,SNS:0},st.stats||{});
-  st.counters=Object.assign({pr:0,comeback:0,goals:0},st.counters||{});
-  st.health=Object.assign({on:false,last:0},st.health||{});
-  st.remind=Object.assign({on:false},st.remind||{});
-  if(!Array.isArray(st.newItems))st.newItems=[];
+  ['equip','stats','counters','health','remind','rehab','pass','cycle'].forEach(k=>{st[k]=Object.assign({},d[k],st[k])});
+  st.equip=Object.assign({},HS.EQUIP_DEFAULT,st.equip);
+  ['Push','Pull','Legs'].forEach(t=>{if(!Array.isArray(st.routine[t]))st.routine[t]=clone(HS.ROUTINE_DEFAULT[t])});
+  Object.keys(st.days).forEach(k=>{
+    const x=st.days[k];
+    if(!x||typeof x!=='object'||Array.isArray(x)){delete st.days[k];return}
+    const z=DAY0();
+    Object.keys(z).forEach(f=>{if(x[f]===undefined||(x[f]===null&&z[f]!==null)||(z[f]!==null&&typeof z[f]==='object'&&kindOf(x[f])!==kindOf(z[f])))x[f]=z[f]});
+  });
   return st;
 }
 let S=blank(),mem=null;
 (function load(){
-  try{const r=localStorage.getItem(KEY);if(r){S=migrate(JSON.parse(r));return}}catch(e){}
+  let r=null;
+  try{r=localStorage.getItem(KEY)}catch(e){}
+  if(r){
+    try{S=migrate(JSON.parse(r));return}
+    catch(e){
+      /* the save could not be read: keep the raw text aside, and stop it from replacing yesterday's automatic copy */
+      try{localStorage.setItem(KEY+'.unreadable',r)}catch(_){}
+      E.unreadable=true;S.lastAutoBak=dkey();
+    }
+  }
   if(mem)S=mem;
 })();
 E.setShift(S.cfg.dayStart);
@@ -1854,7 +1870,7 @@ function weekKey(){const d=E.now();d.setDate(d.getDate()-E.di());return dkey(d)}
 E.weekKey=weekKey;
 
 /* ---- days ---- */
-E.day=function(k){k=k||dkey();return S.days[k]||(S.days[k]={items:[],done:{},skip:{},workout:null,pain:null,burn:0,mins:null,runFree:null,reh:null,lift:{},weighed:false,pAward:false,closed:false,calOk:false,delta:0,sugarPen:0,score:0,steps:'',stepsAward:false,water:0,waterHit:false,sleep:null,chest:null})};
+E.day=function(k){k=k||dkey();return S.days[k]||(S.days[k]=DAY0())};
 E.planFor=function(k){k=k||dkey();return ['Push','Pull','Legs','Push','Pull','Legs','Rest'][(((S.cycle.i+E.daysBetween(S.cycle.a,k))%7)+7)%7]};
 E.setSession=function(type){
   const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
@@ -3461,6 +3477,7 @@ U.boot=function(){
     if(Object.keys(S.weights).length||S.aura>0){S.welcomed=true;E.persist()}
     else setTimeout(()=>U.welcome&&U.welcome(),250);
   }
+  if(E.unreadable)setTimeout(()=>U.sys('Your saved data could not be read, so nothing was changed. In the Forge, “Restore yesterday’s automatic copy” brings back the last good copy.','bad'),900);
   if(sw.length){
     const missed=sw.filter(x=>!x.pass).length,pass=sw.filter(x=>x.pass).length;
     setTimeout(()=>{
