@@ -414,14 +414,15 @@ A.rt=function(v){
 A.rconf=function(){const S=E.S();S.rehab.confirmed=!S.rehab.confirmed;E.save();F.play('pick');U.keepScroll(renderRehab)};
 A.rsharp=function(){const r=rehRec();r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
 A.rok=function(){const r=rehRec();r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
+let sliderT=null;
 document.addEventListener('input',e=>{
   const id=e.target.id;if(id!=='kr'&&id!=='br')return;
-  const r=E.day().reh;if(!r)return;
+  const r=rehRec();
   r.checked=true;
   if(id==='kr'){r.knee=+e.target.value;$('#kv').textContent=r.knee}else{r.back=+e.target.value;$('#bv').textContent=r.back}
   F.play('tick',r.knee*20+r.back*20);
   const l=E.light(r),el=$('#rlight');if(el){el.className='light '+l;el.textContent=lightText(l)}
-  E.save();
+  clearTimeout(sliderT);sliderT=setTimeout(()=>E.save(),250);   /* save when the thumb settles, not on every pixel of the drag */
 });
 
 /* ---- the guided session: one move at a time ---- */

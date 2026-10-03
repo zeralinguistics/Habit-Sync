@@ -1829,7 +1829,7 @@ E.emit=(n,d)=>{(bus[n]||[]).forEach(f=>{try{f(d)}catch(e){console.error(e)}})};
 const KEY='habitsync.proto.v4';   /* same key as before, so existing data keeps working; the schema version lives inside */
 const SCHEMA=5;
 /* The day does not end at midnight: it ends at cfg.dayStart (3 am by default), so clearing the day at 1 am still belongs to yesterday. */
-let SHIFT=0;
+let SHIFT=3;   /* the default day end, so even the very first blank() (before settings load) dates the day correctly after midnight */
 E.setShift=h=>{SHIFT=Math.max(0,Math.min(6,+h||0))};
 E.now=()=>SHIFT?new Date(Date.now()-SHIFT*36e5):new Date();
 const dkey=E.dkey=(d)=>{d=d||E.now();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -1952,7 +1952,11 @@ const anchorFor=k=>{let a=S.cycles[0];for(let i=0;i<S.cycles.length;i++){if(S.cy
 E.planFor=function(k){k=k||dkey();const a=anchorFor(k);return SEQ[(((a.i+E.daysBetween(a.a,k))%7)+7)%7]};
 E.setSession=function(type){
   const k=dkey();
-  S.cycles=S.cycles.filter(q=>q.a<=k);   /* an anchor dated in the future (the clock was set back) is dropped */
+  {   /* an anchor dated in the future (the clock was set back) is dropped; if every anchor is in the future, restate the first on today */
+    const kept=S.cycles.filter(q=>q.a<=k);
+    if(kept.length)S.cycles=kept;
+    else{const a0=S.cycles[0];S.cycles=[{a:k,i:(((a0.i+E.daysBetween(a0.a,k))%7)+7)%7}]}
+  }
   const cur=anchorFor(k),c=(((cur.i+E.daysBetween(cur.a,k))%7)+7)%7;
   if(SEQ[c]===type)return;
   const before=S.cycles.filter(q=>q.a<k);
@@ -2065,8 +2069,8 @@ E.logWeight=function(x){
   const lo=S.gates.length?Math.min.apply(null,S.gates):Infinity;
   E.ladder().forEach(g=>{
     if(tr>g.kg+1e-6||S.gates.includes(g.kg))return;
-    S.gates.push(g.kg);S.gateDates[g.kg]=dkey();
-    if(g.kg<lo-1e-6){E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}
+    S.gates.push(g.kg);
+    if(g.kg<lo-1e-6){S.gateDates[g.kg]=dkey();E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}
   });
   /* several gates can fall at once (a big drop after a break): show the most important one, a boss first */
   const cleared=all.length?(all.find(g=>g.boss)||all[all.length-1]):null;
@@ -4138,7 +4142,8 @@ function planChart(){
   for(let w=0;w*7<=span;w+=Math.max(1,Math.round(span/7/5)))g+='<text class="cx" x="'+X(w*7).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">W'+w+'</text>';
   let plan='';for(let d=0;d<=span;d+=2)plan+=(d?'L':'M')+X(d).toFixed(1)+' '+Y(wAt(d)).toFixed(1);
   let tp='',dots='';
-  wk.forEach((k,i)=>{const d=E.daysBetween(S.start,k);if(d<0||d>span)return;tp+=(tp?'L':'M')+X(d).toFixed(1)+' '+Y(E.trendAt(k)).toFixed(1);dots+='<circle class="cd" cx="'+X(d).toFixed(1)+'" cy="'+Y(S.weights[k]).toFixed(1)+'" r="2.4"/>'});
+  const tmap={};{let t=S.startW;wk.forEach(k=>{t=t+.25*(S.weights[k]-t);tmap[k]=Math.round(t*100)/100})}   /* the running trend, computed once instead of once per point */
+  wk.forEach((k,i)=>{const d=E.daysBetween(S.start,k);if(d<0||d>span)return;tp+=(tp?'L':'M')+X(d).toFixed(1)+' '+Y(tmap[k]).toFixed(1);dots+='<circle class="cd" cx="'+X(d).toFixed(1)+'" cy="'+Y(S.weights[k]).toFixed(1)+'" r="2.4"/>'});
   const tx=X(today).toFixed(1);
   return `<svg class="pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight against the plan">${g}
     <path class="cplan" d="${plan}"/>${tp?'<path class="ctrend" d="'+tp+'" pathLength="100"/>':''}${dots}
@@ -5008,14 +5013,15 @@ A.rt=function(v){
 A.rconf=function(){const S=E.S();S.rehab.confirmed=!S.rehab.confirmed;E.save();F.play('pick');U.keepScroll(renderRehab)};
 A.rsharp=function(){const r=rehRec();r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
 A.rok=function(){const r=rehRec();r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
+let sliderT=null;
 document.addEventListener('input',e=>{
   const id=e.target.id;if(id!=='kr'&&id!=='br')return;
-  const r=E.day().reh;if(!r)return;
+  const r=rehRec();
   r.checked=true;
   if(id==='kr'){r.knee=+e.target.value;$('#kv').textContent=r.knee}else{r.back=+e.target.value;$('#bv').textContent=r.back}
   F.play('tick',r.knee*20+r.back*20);
   const l=E.light(r),el=$('#rlight');if(el){el.className='light '+l;el.textContent=lightText(l)}
-  E.save();
+  clearTimeout(sliderT);sliderT=setTimeout(()=>E.save(),250);   /* save when the thumb settles, not on every pixel of the drag */
 });
 
 /* ---- the guided session: one move at a time ---- */

@@ -13,7 +13,7 @@ E.emit=(n,d)=>{(bus[n]||[]).forEach(f=>{try{f(d)}catch(e){console.error(e)}})};
 const KEY='habitsync.proto.v4';   /* same key as before, so existing data keeps working; the schema version lives inside */
 const SCHEMA=5;
 /* The day does not end at midnight: it ends at cfg.dayStart (3 am by default), so clearing the day at 1 am still belongs to yesterday. */
-let SHIFT=0;
+let SHIFT=3;   /* the default day end, so even the very first blank() (before settings load) dates the day correctly after midnight */
 E.setShift=h=>{SHIFT=Math.max(0,Math.min(6,+h||0))};
 E.now=()=>SHIFT?new Date(Date.now()-SHIFT*36e5):new Date();
 const dkey=E.dkey=(d)=>{d=d||E.now();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -136,7 +136,11 @@ const anchorFor=k=>{let a=S.cycles[0];for(let i=0;i<S.cycles.length;i++){if(S.cy
 E.planFor=function(k){k=k||dkey();const a=anchorFor(k);return SEQ[(((a.i+E.daysBetween(a.a,k))%7)+7)%7]};
 E.setSession=function(type){
   const k=dkey();
-  S.cycles=S.cycles.filter(q=>q.a<=k);   /* an anchor dated in the future (the clock was set back) is dropped */
+  {   /* an anchor dated in the future (the clock was set back) is dropped; if every anchor is in the future, restate the first on today */
+    const kept=S.cycles.filter(q=>q.a<=k);
+    if(kept.length)S.cycles=kept;
+    else{const a0=S.cycles[0];S.cycles=[{a:k,i:(((a0.i+E.daysBetween(a0.a,k))%7)+7)%7}]}
+  }
   const cur=anchorFor(k),c=(((cur.i+E.daysBetween(cur.a,k))%7)+7)%7;
   if(SEQ[c]===type)return;
   const before=S.cycles.filter(q=>q.a<k);
@@ -249,8 +253,8 @@ E.logWeight=function(x){
   const lo=S.gates.length?Math.min.apply(null,S.gates):Infinity;
   E.ladder().forEach(g=>{
     if(tr>g.kg+1e-6||S.gates.includes(g.kg))return;
-    S.gates.push(g.kg);S.gateDates[g.kg]=dkey();
-    if(g.kg<lo-1e-6){E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}
+    S.gates.push(g.kg);
+    if(g.kg<lo-1e-6){S.gateDates[g.kg]=dkey();E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}
   });
   /* several gates can fall at once (a big drop after a break): show the most important one, a boss first */
   const cleared=all.length?(all.find(g=>g.boss)||all[all.length-1]):null;

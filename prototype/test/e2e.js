@@ -892,6 +892,48 @@ const pin = (iso) => {
     ok(NQ.length >= 2 && NQ[0][0] === 'schedule' && NQ[0][1].length > 30 && NQ[1][0] === 'cancel' && NQ[1][1].join() === '5,6', 'reminders are scheduled first and only the stale ones are cancelled afterwards, so the phone is never left with none');
   }
 
+  {
+    /* third review: a first install after midnight, silent gates, a slider after the day changed */
+    const nf = await mk(null, '2026-10-06T01:00:00');
+    await nf.goto(url); await nf.waitForTimeout(900);
+    await nf.fill('#wName', 'Rin'); await nf.click('[data-a="wGo"]'); await nf.waitForTimeout(600);
+    await nf.evaluate(() => { HS.ui.clearCele(); });
+    const NF = await nf.evaluate(() => {
+      const E = HS.E; const first = E.planFor(); let thrown = '';
+      try { HS.ui.gymSheet(); HS.ui.act.sess('Pull'); } catch (e) { thrown = e.message; }
+      const after = E.planFor(); let render = ''; try { HS.ui.closeSheet(); HS.ui.render(true); } catch (e) { render = e.message; }
+      return { first: first, after: after, thrown: thrown, render: render, anchors: E.S().cycles.length, day: E.dkey() };
+    });
+    ok(NF.day === '2026-10-05' && NF.first === 'Push' && NF.after === 'Pull' && NF.thrown === '' && NF.render === '' && NF.anchors >= 1, 'a first install at 01:00 belongs to the day before, starts on Push, and correcting the session works (' + NF.first + ' to ' + NF.after + ')');
+    ok(nf.errs.length === 0, 'no console errors on a first install after midnight ' + JSON.stringify(nf.errs));
+    const FA = await nf.evaluate(() => {
+      const E = HS.E, S = E.S(); const k = E.dkey(); S.cycles = [{ a: E.addDays(k, 3), i: 0 }]; S.cycle = { a: E.addDays(k, 3), i: 0 };
+      let thrown = ''; try { E.setSession('Legs'); } catch (e) { thrown = e.message; }
+      return { thrown: thrown, plan: E.planFor(), n: S.cycles.length };
+    });
+    ok(FA.thrown === '' && FA.plan === 'Legs' && FA.n === 1, 'when every training anchor lies in the future (clock set back), a correction restates one on today instead of crashing');
+
+    const SG = await nf.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.startW = 84;
+      for (let i = 1; i <= 20; i++) S.weights[E.addDays(E.dkey(), -i)] = 82.4;
+      E.logWeight(82.4);
+      const aura1 = S.aura, paid1 = Object.keys(S.gateDates).length;
+      S.startW = 86; E.logWeight(82.4);
+      return { aura1: aura1, aura2: S.aura, paid1: paid1, paid2: Object.keys(S.gateDates).length, listed: S.gates.length > paid1 };
+    });
+    ok(SG.aura2 === SG.aura1 && SG.paid2 === SG.paid1 && SG.listed, 'gates invented by editing the start weight pay nothing and carry no clear date, so the weekly "clear a gate" goal cannot be farmed');
+
+    const SL = await nf.evaluate(async () => {
+      const E = HS.E, U = HS.ui; E.reset(); E.S().welcomed = true; U.closeSheet();
+      U.rehabSheet(); E.day().reh = null;   /* the day changed under the open sheet */
+      const kr = document.querySelector('#kr'); kr.value = 7; kr.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 450));
+      const saved = JSON.parse(localStorage.getItem('habitsync.proto.v4')).days[E.dkey()].reh;
+      U.closeSheet(); return { knee: E.day().reh && E.day().reh.knee, saved: saved && saved.knee, light: E.lastLight() };
+    });
+    ok(SL.knee === 7 && SL.saved === 7 && SL.light === 'red', 'a pain slider moved after the day changed is recorded and saved (' + SL.knee + ')');
+  }
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   await b.close();
   process.exit(failed ? 1 : 0);

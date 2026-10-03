@@ -43,7 +43,8 @@ function planChart(){
   for(let w=0;w*7<=span;w+=Math.max(1,Math.round(span/7/5)))g+='<text class="cx" x="'+X(w*7).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">W'+w+'</text>';
   let plan='';for(let d=0;d<=span;d+=2)plan+=(d?'L':'M')+X(d).toFixed(1)+' '+Y(wAt(d)).toFixed(1);
   let tp='',dots='';
-  wk.forEach((k,i)=>{const d=E.daysBetween(S.start,k);if(d<0||d>span)return;tp+=(tp?'L':'M')+X(d).toFixed(1)+' '+Y(E.trendAt(k)).toFixed(1);dots+='<circle class="cd" cx="'+X(d).toFixed(1)+'" cy="'+Y(S.weights[k]).toFixed(1)+'" r="2.4"/>'});
+  const tmap={};{let t=S.startW;wk.forEach(k=>{t=t+.25*(S.weights[k]-t);tmap[k]=Math.round(t*100)/100})}   /* the running trend, computed once instead of once per point */
+  wk.forEach((k,i)=>{const d=E.daysBetween(S.start,k);if(d<0||d>span)return;tp+=(tp?'L':'M')+X(d).toFixed(1)+' '+Y(tmap[k]).toFixed(1);dots+='<circle class="cd" cx="'+X(d).toFixed(1)+'" cy="'+Y(S.weights[k]).toFixed(1)+'" r="2.4"/>'});
   const tx=X(today).toFixed(1);
   return `<svg class="pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight against the plan">${g}
     <path class="cplan" d="${plan}"/>${tp?'<path class="ctrend" d="'+tp+'" pathLength="100"/>':''}${dots}

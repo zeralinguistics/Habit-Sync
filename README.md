@@ -41,7 +41,7 @@ A workflow keeps `docs/` rebuilt after every change, so the page is always curre
 python3 prototype/build.py                  # dist/habit-sync.html and a fragment for sandboxed hosts
 python3 prototype/build.py --pages docs     # the installable web build (CI does this on every push)
 python3 prototype/build.py --native app/www # the folder the Android shell wraps
-node prototype/test/e2e.js /tmp/            # about 170 end-to-end checks (Playwright + Chromium)
+node prototype/test/e2e.js /tmp/            # about 180 end-to-end checks (Playwright + Chromium)
 node prototype/test/pwa.js /tmp/            # offline and install checks
 ```
 
