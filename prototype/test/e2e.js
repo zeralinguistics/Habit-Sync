@@ -46,13 +46,13 @@ const pin = (iso) => {
   const R = await pg.evaluate(() => {
     const E = HS.E, p = E.plan(), lad = E.ladder();
     return { lad: lad.length, bosses: lad.filter(g => g.boss).map(g => g.kg).join(), weeks: p.weeks, camps: p.camps, finish: p.finish, expFinish: E.addDays(E.S().start, 217), exp0: E.expected().expected, k84: E.kcalFor(84), k80: E.kcalFor(80),
-      lv2: E.LVF(2), rkE: E.rankOf(7), rkD: E.rankOf(8), burn: E.burnEst(84, 60, 15, 10), items: HS.ITEMS.length, realms: HS.REALMS.length,
+      lv2: E.LVF(2), rkE: E.rankOf(5), rkD: E.rankOf(6), rkS: E.rankOf(30), rkA: E.rankOf(29), burn: E.burnEst(84, 60, 15, 10), items: HS.ITEMS.length, realms: HS.REALMS.length,
       parse: [E.parsePart('rice 200g').g, E.parsePart('2 chapati').units, E.parsePart('chicken 150').tn, E.parsePart('momos 350 kcal').kc] };
   });
   ok(R.lad === 28 && R.bosses === '80,76,72,70', 'gate ladder to 70 kg: 28 gates, bosses at 80, 76, 72, 70');
   ok(R.weeks === 31 && R.camps === 3 && R.finish === R.expFinish, 'campaign plan: 31 weeks including 3 camp weeks, finish ' + R.finish);
   ok(R.exp0 === 84 && R.k84 === 2050 && R.k80 === 1990, 'plan starts at 84 kg; calories step from 2050 to 1990 at the first boss');
-  ok(R.lv2 === 200 && R.rkE === 'E' && R.rkD === 'D', 'level 2 needs 200 aura, rank D starts at level 8');
+  ok(R.lv2 === 200 && R.rkE === 'E' && R.rkD === 'D' && R.rkS === 'S' && R.rkA === 'A', 'level 2 needs 200 aura, a new rank every six levels (D at 6, S at 30)');
   ok(R.burn >= 555 && R.burn <= 560, 'burn estimate for the default session: ' + R.burn);
   ok(JSON.stringify(R.parse) === '[200,2,150,350]', 'typed input parser: ' + JSON.stringify(R.parse));
   ok(R.items >= 33 && R.realms === 5, 'armory holds ' + R.items + ' items across 7 slots and 5 realms');

@@ -262,7 +262,8 @@ E.logWeight=function(x){
 /* ---- aura, level, rank, stats ---- */
 const LV=a=>Math.floor(Math.sqrt(Math.max(0,a)/200))+1;
 const LVF=L=>200*(L-1)*(L-1);
-const rankOf=L=>L>=61?'S':L>=41?'A':L>=26?'B':L>=16?'C':L>=8?'D':'E';
+/* a new rank every six levels: with steady play that is roughly D in week 2, C by week 6, B by week 15, A around the finish of the 70 kg campaign, S after about a year */
+const rankOf=L=>L>=30?'S':L>=24?'A':L>=18?'B':L>=12?'C':L>=6?'D':'E';
 E.rankOf=rankOf;E.LVF=LVF;
 E.lv=function(){
   const raw=LV(S.aura),locked=!!(S.fatigue&&S.fatigue.on&&raw>S.fatigue.lock),L=locked?S.fatigue.lock:raw;

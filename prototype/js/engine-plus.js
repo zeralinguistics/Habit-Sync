@@ -47,7 +47,7 @@ E.streakInfo=function(kind){
 E.streak=kind=>E.streakInfo(kind).n;
 
 /* ======================== counters, unlocks, realms ======================== */
-E.RANK_LV={E:1,D:8,C:16,B:26,A:41,S:61};
+E.RANK_LV={E:1,D:6,C:12,B:18,A:24,S:30};
 E.bossKgs=()=>E.ladder().filter(g=>g.boss).map(g=>g.kg);
 E.bossCleared=function(){const b=E.bossKgs();return S().gates.filter(kg=>b.indexOf(kg)>=0).length};
 E.counters=function(){

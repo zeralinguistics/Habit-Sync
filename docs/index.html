@@ -2078,7 +2078,8 @@ E.logWeight=function(x){
 /* ---- aura, level, rank, stats ---- */
 const LV=a=>Math.floor(Math.sqrt(Math.max(0,a)/200))+1;
 const LVF=L=>200*(L-1)*(L-1);
-const rankOf=L=>L>=61?'S':L>=41?'A':L>=26?'B':L>=16?'C':L>=8?'D':'E';
+/* a new rank every six levels: with steady play that is roughly D in week 2, C by week 6, B by week 15, A around the finish of the 70 kg campaign, S after about a year */
+const rankOf=L=>L>=30?'S':L>=24?'A':L>=18?'B':L>=12?'C':L>=6?'D':'E';
 E.rankOf=rankOf;E.LVF=LVF;
 E.lv=function(){
   const raw=LV(S.aura),locked=!!(S.fatigue&&S.fatigue.on&&raw>S.fatigue.lock),L=locked?S.fatigue.lock:raw;
@@ -2262,7 +2263,7 @@ E.streakInfo=function(kind){
 E.streak=kind=>E.streakInfo(kind).n;
 
 /* ======================== counters, unlocks, realms ======================== */
-E.RANK_LV={E:1,D:8,C:16,B:26,A:41,S:61};
+E.RANK_LV={E:1,D:6,C:12,B:18,A:24,S:30};
 E.bossKgs=()=>E.ladder().filter(g=>g.boss).map(g=>g.kg);
 E.bossCleared=function(){const b=E.bossKgs();return S().gates.filter(kg=>b.indexOf(kg)>=0).length};
 E.counters=function(){
@@ -4430,7 +4431,7 @@ A.help=function(){
   const S=E.S(),c=S.cfg,pl=E.plan();
   const sec=(t,b)=>`<div class="sec">${t}</div><div class="hp2">${b}</div>`;
   U.openSheet('How it works',
-    sec('Aura and levels','Everything you do earns <b>aura</b>: a weigh-in, a finished plate, a workout, rehab, water, sleep, a cleared day. Aura builds your level. Level 2 needs 200 aura, level 8 (rank D) about 9,800, and each rank after that takes longer. Early levels come fast so you feel progress. Later ones are earned.')+
+    sec('Aura and levels','Everything you do earns <b>aura</b>: a weigh-in, a finished plate, a workout, rehab, water, sleep, a cleared day. Aura builds your level. Level 2 needs 200 aura and every level after that needs a little more. A new <b>rank</b> (E, D, C, B, A, S) arrives every six levels: D at level 6 (about 5,000 aura), then C, B, A, and S at level 30. Steady play reaches A around the end of the campaign. Early levels come fast so you feel progress. Later ones are earned.')+
     sec('Quests and clearing the day','Each day has quests: weigh-in with last night\u2019s sleep, three meals, a workout (or rest), rehab, protein. Four things score the day: <b>protein</b>, <b>calories inside the window</b>, <b>workout</b> and <b>rehab</b>. Three of four is a good day, four of four is a perfect one. Clearing the day pays a calorie bonus and opens a chest: common, rare for 3 of 4, epic for 4 of 4.')+
     sec('Real penalties','Skipping a session with no pain costs aura and gives you <b>fatigue</b>: aura gains are halved and your level is locked until you train. Missing a planned session without opening the app is punished when you come back. <b>Pain days are never punished</b>, and you get <b>one rest pass a week</b>. Strictness (Chill, Standard, Hard) is in the Forge.')+
     sec('Plates and stars','Every finished plate gets up to three stars: one for logging it, one for 25 g of protein or more, one for balance (a veg side, no sugar, not more than half your day\u2019s calories). Stars pay aura. Sugar and outside food cost a little aura, on purpose.')+
