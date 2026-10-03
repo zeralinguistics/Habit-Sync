@@ -35,7 +35,12 @@ jobs:
           npx cap sync android
       - name: Build the APK
         working-directory: app/android
-        run: ./gradlew assembleRelease -PhsVersionCode=${{ github.run_number }} -PhsVersionName=0.5.${{ github.run_number }} --no-daemon --stacktrace
+        run: ./gradlew assembleRelease -PhsVersionCode=${{ github.run_number }} -PhsVersionName=0.5.${{ github.run_number }} --no-daemon --console=plain 2>&1 | tee "$GITHUB_WORKSPACE/gradle.log"
+      - name: Show what went wrong
+        if: failure()
+        run: |
+          grep -n -B3 -A30 "What went wrong" gradle.log | head -150 || true
+          grep -n "error:\|Error:\|FAILED" gradle.log | head -40 || true
       - name: Collect the APK
         run: |
           mkdir -p out
