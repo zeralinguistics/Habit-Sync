@@ -216,6 +216,10 @@ const pin = (iso) => {
 
   /* ---------- forge: customise ---------- */
   await pg.evaluate(() => HS.ui.act.tab('forge')); await pg.waitForTimeout(700);
+  await pg.click('[data-a="help"]'); await pg.waitForTimeout(500);
+  ok(await pg.evaluate(() => /Aura and levels/.test(document.querySelector('#shBody').textContent) && /camp week/i.test(document.querySelector('#shBody').textContent)), 'the Forge explains how the game works in plain words');
+  await pg.screenshot({ path: out + 'b5b-help.png' });
+  await pg.evaluate(() => HS.ui.closeSheet()); await pg.waitForTimeout(300);
   await pg.click('[data-a="roast:off"]'); await pg.waitForTimeout(200);
   ok((await S(pg)).cfg.roast === 'off' && await pg.evaluate(() => HS.say('roast', 'skip', 'off') === ''), 'teasing can be switched off');
   await pg.click('[data-a="roast:playful"]');
@@ -322,6 +326,12 @@ const pin = (iso) => {
   ok(sy.r.ok && sy.steps === '7412' && sy.act === 318 && sy.sleep === 7.5 && sy.hw === 83.6 && sy.work.kcal === 310, 'sync fills steps 7412, 318 active kcal, 7.5 h sleep, weight 83.6 and the workout');
   await hp.evaluate(() => HS.ui.act.tab('forge')); await hp.waitForTimeout(500);
   ok(await hp.evaluate(() => /Reminders/.test(document.querySelector('#screen').textContent)), 'the Forge shows the reminders section in the Android app');
+  const up0 = await hp.evaluate(async () => { let called = 0; window.fetch = async () => { called++; return { ok: false }; }; const r = await HS.native.checkUpdate(); return { r: r, called: called }; });
+  ok(up0.r === null && up0.called === 0, 'a development build never contacts GitHub');
+  const up1 = await hp.evaluate(async () => { HS.BUILD = 5; HS.E.S().update = null; window.fetch = async () => ({ ok: true, json: async () => ({ name: 'Habit Sync for Android (build 9)', assets: [{ name: 'habit-sync.apk', browser_download_url: 'https://example.test/habit-sync.apk' }] }) }); return await HS.native.checkUpdate(); });
+  ok(up1 && up1.latest === 9 && /habit-sync\.apk$/.test(up1.url), 'the Android app notices that build 9 is newer than build 5');
+  const up2 = await hp.evaluate(async () => { HS.ui.update = await HS.native.checkUpdate(); HS.ui.act.tab('forge'); HS.ui.tab = 'forge'; HS.ui.render(); return document.querySelector('#screen').textContent; });
+  ok(/Update ready: download build 9 \(you have 5\)/.test(up2), 'the Forge shows the update card');
   ok(hp.errs.length === 0, 'no console errors in the native mock ' + JSON.stringify(hp.errs));
 
   /* ---------- reminders through a mock local-notifications plugin ---------- */

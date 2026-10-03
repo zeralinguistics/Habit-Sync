@@ -54,6 +54,8 @@ E.on('pwa',()=>{if(U.tab==='forge'&&!U.sh)U.views.forge()});
 U.views.forge=function(){
   const c=E.cfg(),N=HS.native,Hh=HS.health;
   let h='';let i=0;
+  if(U.update)h+=`<a class="btn good rise lnk" style="--i:0;margin:0 0 14px" target="_blank" rel="noopener" href="${esc(U.update.url)}">Update ready: download build ${U.update.latest} (you have ${HS.BUILD})</a>`;
+  h+=`<button class="btn ghost rise" style="--i:0;margin-bottom:14px" data-a="help">How the game works</button>`;i++;
   NUMF.forEach(sec=>{h+=`<div class="win rise" style="--i:${i++}"><div class="wt">[ ${sec[0]} ]</div><div class="wb">${sec[1].map(fieldRow).join('')}
     ${sec[0]==='Profile and goals'?`<div class="fr"><span>Gate size</span><div class="seg2">${[.5,1].map(g=>`<button data-a="gate:${g}" aria-pressed="${c.gateStep===g}">${g} kg</button>`).join('')}</div></div>
       <div class="fr"><span>Camp week after each boss</span>${seg('camp',[[1,'On'],[0,'Off']],c.camp!==false?1:0)}</div>
@@ -92,6 +94,24 @@ U.views.forge=function(){
    <div class="foot">Habit Sync ${HS.VERSION||''}. Every number on this screen stays on this phone. Calories and protein are rough estimates.</div>`;
   $('#screen').innerHTML=h;
   const rf=$('#restoreFile');if(rf)rf.addEventListener('change',onRestoreFile);
+};
+
+/* ---------------- how the game works ---------------- */
+A.help=function(){
+  U.sh={type:'help'};
+  const S=E.S(),c=S.cfg,pl=E.plan();
+  const sec=(t,b)=>`<div class="sec">${t}</div><div class="hp2">${b}</div>`;
+  U.openSheet('How it works',
+    sec('Aura and levels','Everything you do earns <b>aura</b>: a weigh-in, a finished plate, a workout, rehab, water, sleep, a cleared day. Aura builds your level. Level 2 needs 200 aura, level 8 (rank D) about 9,800, and each rank after that takes longer. Early levels come fast so you feel progress. Later ones are earned.')+
+    sec('Quests and clearing the day','Each day has quests: weigh-in with last night\u2019s sleep, three meals, a workout (or rest), rehab, protein. Four things score the day: <b>protein</b>, <b>calories inside the window</b>, <b>workout</b> and <b>rehab</b>. Three of four is a good day, four of four is a perfect one. Clearing the day pays a calorie bonus and opens a chest: common, rare for 3 of 4, epic for 4 of 4.')+
+    sec('Real penalties','Skipping a session with no pain costs aura and gives you <b>fatigue</b>: aura gains are halved and your level is locked until you train. Missing a planned session without opening the app is punished when you come back. <b>Pain days are never punished</b>, and you get <b>one rest pass a week</b>. Strictness (Chill, Standard, Hard) is in the Forge.')+
+    sec('Plates and stars','Every finished plate gets up to three stars: one for logging it, one for 25 g of protein or more, one for balance (a veg side, no sugar, not more than half your day\u2019s calories). Stars pay aura. Sugar and outside food cost a little aura, on purpose.')+
+    sec('Streaks and goals','Five weekly goals are picked fresh every Monday. Streaks pay milestone rewards at 3, 7, 14, 30 and 60 days. Training streaks skip rest days and pain days. The clear streak forgives one off day, because never missing <i>twice</i> is the rule that works.')+
+    sec('Gates, bosses and realms','You are going from '+S.startW+' kg to '+c.goalW+' kg in '+pl.gates.length+' gates of '+c.gateStep+' kg of <i>trend</i>. Every fourth kilo is a <b>boss gate</b>: it opens a new realm that changes the colours, backdrop and weather of the whole app, unlocks gear, lowers your daily calories a little, and starts a <b>camp week</b> at maintenance so you recover before the next push.')+
+    sec('Gear','Gear is never bought. It unlocks when you do the work, and the closest unlock is always shown in the Armory. Wear whatever you have earned.')+
+    sec('Rehab','Rehab comes from your physio\u2019s list, spread over the training cycle. The guided session shows one move at a time with a moving outline and a hold timer. Your pain check-in sets a traffic light: green carries on, amber holds the strength work back, red keeps it gentle and tells you to message your physio.')+
+    sec('Your data','Everything is stored on this phone only. Save a backup file now and then from the Data vault in the Forge. Your day ends at '+(c.dayStart==null?3:c.dayStart)+' am, so clearing it after midnight still counts for yesterday.'),
+    '<button class="btn" data-a="close">Got it</button>');
 };
 
 /* ---------------- settings actions ---------------- */

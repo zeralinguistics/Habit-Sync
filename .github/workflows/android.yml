@@ -27,7 +27,7 @@ jobs:
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager --licenses > /dev/null || true
       - name: Bundle the web app
-        run: python3 prototype/build.py --native app/www
+        run: python3 prototype/build.py --native app/www --build ${{ github.run_number }}
       - name: Install plugins and sync
         working-directory: app
         run: |
@@ -55,7 +55,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
-          name: Habit Sync for Android (latest build)
+          name: Habit Sync for Android (build ${{ github.run_number }})
           body: |
             Latest build of the Android app. Download habit-sync.apk on your phone and open it.
             Every build uses the same signing key, so it installs over the previous one and keeps your data.

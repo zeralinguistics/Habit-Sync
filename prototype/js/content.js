@@ -4,6 +4,8 @@
 'use strict';
 const HS=window.HS=window.HS||{};
 HS.VERSION='0.5';
+HS.BUILD=0;   /* set by build.py --native --build N (the CI run number); 0 means a development or web build */
+HS.REPO='zeralinguistics/Habit-Sync';
 
 /* ---------------- realms: the whole look of the app changes at each boss gate ---------------- */
 HS.REALMS=[

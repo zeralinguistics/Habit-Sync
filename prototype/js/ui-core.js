@@ -143,7 +143,7 @@ U.render=function(anim){
   const idx=TABS.indexOf(U.tab),S=E.S();
   document.querySelectorAll('#dock button').forEach((b,i)=>{b.setAttribute('aria-selected',i===idx)});
   $('#dockInd').style.transform='translateX('+(idx*100)+'%)';
-  const dots={armory:S.newItems.length>0,path:E.reviewDue(),forge:!!(E.backupDue&&E.backupDue())};
+  const dots={armory:S.newItems.length>0,path:E.reviewDue(),forge:!!(E.backupDue&&E.backupDue())||!!U.update};
   TABS.forEach((t,i)=>{const b=document.querySelectorAll('#dock button')[i];if(b)b.classList.toggle('dot',!!dots[t])});
   const sb=$('#sndBtn');sb.innerHTML=E.cfg().sound?IC.on:IC.off;sb.className=E.cfg().sound?'':'off';
   const sc=$('#screen');
@@ -291,6 +291,8 @@ U.boot=function(){
       else if(pass)U.sys('A missed session was covered by your weekly rest pass.','');
     },700);
   }
+  /* the Android app learns when a newer build is out */
+  if(HS.native&&HS.native.checkUpdate)HS.native.checkUpdate().then(u=>{if(u){U.update=u;setTimeout(()=>{U.sys('A newer version is ready (build '+u.latest+'). Open the Forge to download it.','good',true);U.render()},1500)}}).catch(()=>{});
   /* manifest shortcuts: ?go=food | water | weigh */
   const go=(new URLSearchParams(location.search)).get('go');
   if(go)setTimeout(()=>{

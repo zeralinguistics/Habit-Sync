@@ -3,16 +3,19 @@
 
   python3 build.py                 dist/habit-sync.html (full page) + habit-sync.fragment.html (no html/head/body wrapper, for sandboxed hosts)
   python3 build.py --pages DIR     a static PWA site (index, manifest, service worker, icons) for GitHub Pages
-  python3 build.py --native DIR    index.html + privacypolicy.html for the Android shell (www folder)
+  python3 build.py --native DIR [--build N]
+                                   index.html + privacypolicy.html for the Android shell (www folder). N is the CI run number,
+                                   baked in so the app can tell when a newer build is published.
 """
 import hashlib, os, re, shutil, sys
 root = os.path.dirname(os.path.abspath(__file__))
 read = lambda p: open(os.path.join(root, p), encoding='utf-8').read()
 
-def bundle(for_fragment=False):
+def bundle(for_fragment=False, build=0):
     html = read('index.html')
     html = re.sub(r'<link rel="stylesheet" href="(css/[^"]+)">', lambda m: '<style>\n' + read(m.group(1)) + '\n</style>', html)
     html = re.sub(r'<script src="(js/[^"]+)"></script>', lambda m: '<script>\n' + read(m.group(1)) + '\n</script>', html)
+    html = html.replace("HS.BUILD=0;", "HS.BUILD=%d;" % build, 1)
     if for_fragment:
         html = '\n'.join(l for l in html.split('\n') if 'rel="manifest"' not in l and 'rel="apple-touch-icon"' not in l and 'rel="icon"' not in l)
     return html
@@ -40,7 +43,8 @@ if args[:1] == ['--pages']:
     print('pages site', out, build_id, len(html), 'bytes')
 elif args[:1] == ['--native']:
     out = args[1]
-    write(os.path.join(out, 'index.html'), bundle())
+    build = int(args[args.index('--build') + 1]) if '--build' in args else 0
+    write(os.path.join(out, 'index.html'), bundle(build=build))
     shutil.copy(os.path.join(root, 'privacypolicy.html'), os.path.join(out, 'privacypolicy.html'))
     print('native www', out)
 else:
