@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101113">
+<title>Habit Sync</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<style>
+/* Layout: one screen, one path. Rings on top, today's missions as a zigzag path, everything else lives in bottom sheets. */
+:root{
+  --bg:#101113; --panel:#18191c; --panel2:#202227; --line:#2d3036; --fg:#ece7dd; --mute:#8f939b;
+  --ember:#e08a35; --ember-d:#9c5a1c; --ember-l:#f4b868;
+  --good:#7dbb6d; --good-d:#477a3b; --bad:#d9543f; --bad-d:#8a2f22; --steel:#6e8fa8;
+  --display:'Barlow Condensed','Arial Narrow',Impact,sans-serif;
+  --body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:500 16px/1.4 var(--body);overflow-x:hidden;overscroll-behavior:none}
+body.lock{overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ember-l);outline-offset:2px}
+.app{max-width:480px;margin:0 auto;height:100%;display:flex;flex-direction:column}
+.screen{flex:1;min-height:0;overflow-y:auto;padding:16px 16px 28px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.tabbar{display:flex;border-top:1px solid var(--line);background:var(--bg)}
+.tab{flex:1;background:none;border:0;padding:14px 8px;font:700 15px var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.tab[aria-selected="true"]{color:var(--ember-l)}
+
+/* header */
+.hdr{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.rankname{font:800 22px var(--display);letter-spacing:.12em;text-transform:uppercase}
+.aura{font:800 22px var(--display);color:var(--ember-l);font-variant-numeric:tabular-nums}
+.aura small{font:600 12px var(--display);letter-spacing:.16em;color:var(--mute);margin-left:6px}
+.abar{height:6px;border-radius:3px;background:var(--panel2);margin-top:8px;overflow:hidden}
+.abar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ember-d),var(--ember-l));border-radius:3px;transition:width .9s cubic-bezier(.2,.9,.2,1)}
+
+/* rings */
+.hero{position:relative;width:min(212px,58vw);aspect-ratio:1;margin:14px auto 4px}
+.hero svg{width:100%;height:100%;transform:rotate(-90deg)}
+.trk{fill:none;stroke:var(--panel2);stroke-width:13}
+.arc{fill:none;stroke-width:13;stroke-linecap:round;stroke-dasharray:100 100;stroke-dashoffset:100;transition:stroke-dashoffset 1s cubic-bezier(.2,.9,.2,1),stroke .4s}
+.arc.k{stroke:var(--ember)}
+.arc.k.over{stroke:var(--bad)}
+.arc.p{stroke:var(--steel)}
+.arc.p.full{stroke:var(--good)}
+.hero.pulse{animation:pulse .7s ease-out}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.big{font:800 48px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.lbl{font:600 13px var(--display);letter-spacing:.18em;text-transform:uppercase;color:var(--mute);margin-top:4px}
+.psub{font-size:12px;color:var(--steel);margin-top:6px;font-weight:600}
+
+/* path */
+.path{display:flex;flex-direction:column;align-items:center;gap:22px;padding:22px 0 8px}
+.node{display:flex;flex-direction:column;align-items:center;gap:10px;background:none;border:0;padding:0;transform:translateX(var(--x));position:relative;min-width:150px}
+.disc{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--panel2);color:var(--mute);box-shadow:0 6px 0 #0a0b0c;transition:transform .12s}
+.disc svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.node:active .disc{transform:translateY(4px);box-shadow:0 2px 0 #0a0b0c}
+.nl{font:700 16px var(--display);letter-spacing:.1em;text-transform:uppercase;text-align:center;line-height:1.1}
+.nl small{display:block;font:500 13px var(--body);letter-spacing:0;text-transform:none;color:var(--mute);margin-top:3px}
+.n-done .disc{background:var(--ember);color:#1a0f04;box-shadow:0 6px 0 var(--ember-d)}
+.n-done.pain .disc{background:var(--steel);box-shadow:0 6px 0 #3f586b;color:#0c1319}
+.n-skip .disc,.n-late .disc{background:var(--panel);box-shadow:0 6px 0 #0a0b0c;color:#5a5e66}
+.n-miss .disc{background:var(--bad);color:#2a0b06;box-shadow:0 6px 0 var(--bad-d)}
+.n-cur .disc{width:92px;height:92px;background:var(--ember);color:#1a0f04;box-shadow:0 7px 0 var(--ember-d),0 0 0 7px rgba(224,138,53,.18);animation:glow 2.2s ease-in-out infinite}
+.n-cur .disc svg{width:38px;height:38px}
+.n-cur{margin-top:30px}
+.n-cur .nl{color:var(--ember-l)}
+.bubble{position:absolute;top:-30px;left:50%;transform:translateX(-50%);background:var(--fg);color:#14110d;font:800 13px var(--display);letter-spacing:.16em;padding:5px 11px;border-radius:9px;white-space:nowrap;animation:bob 1.6s ease-in-out infinite}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:var(--fg);transform:translateX(-50%) rotate(45deg);border-radius:2px}
+.node.just .disc{animation:pop .55s cubic-bezier(.2,1.6,.4,1)}
+.done-note{text-align:center;color:var(--mute);font-size:14px;padding:6px 0 0}
+.link{background:none;border:0;color:var(--mute);font-size:14px;text-decoration:underline;text-underline-offset:3px;padding:12px;display:block;margin:6px auto 0}
+
+/* chunky buttons */
+.btn{display:block;width:100%;border:0;border-radius:16px;padding:16px;background:var(--ember);color:#1a0f04;font:800 18px var(--display);letter-spacing:.14em;text-transform:uppercase;box-shadow:0 5px 0 var(--ember-d);transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ember-d)}
+.btn.good{background:var(--good);box-shadow:0 5px 0 var(--good-d);color:#10200c}
+.btn.good:active{box-shadow:0 1px 0 var(--good-d)}
+.btn.steel{background:var(--steel);box-shadow:0 5px 0 #3f586b;color:#0c1319}
+.btn.steel:active{box-shadow:0 1px 0 #3f586b}
+.btn.ghost{background:var(--panel2);color:var(--fg);box-shadow:0 5px 0 #0a0b0c}
+.btn.ghost:active{box-shadow:0 1px 0 #0a0b0c}
+.btn.bad{background:transparent;color:var(--bad);box-shadow:none;border:2px solid var(--bad-d)}
+.btn.bad:active{transform:none;background:rgba(217,84,63,.1)}
+.stack{display:flex;flex-direction:column;gap:12px}
+
+/* sheet */
+#scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
+#scrim.on{opacity:1;pointer-events:auto}
+#sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:480px;max-height:92%;display:flex;flex-direction:column;background:var(--panel);border-radius:26px 26px 0 0;border:1px solid var(--line);border-bottom:0;transform:translateY(105%);transition:transform .32s cubic-bezier(.2,.9,.2,1);z-index:30;padding-bottom:env(safe-area-inset-bottom,0px)}
+#sheet.on{transform:none}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--line);margin:10px auto 0}
+.shh{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 4px}
+.shh h2{margin:0;font:800 28px var(--display);letter-spacing:.08em;text-transform:uppercase}
+.x{width:44px;height:44px;border-radius:50%;border:0;background:var(--panel2);font-size:22px;line-height:1;color:var(--mute)}
+#shBody{overflow-y:auto;padding:4px 20px 16px;flex:1;min-height:0}
+#shFoot{padding:12px 20px 18px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.hint{color:var(--mute);font-size:14px;margin:2px 0 14px}
+.sec{font:700 13px var(--display);letter-spacing:.18em;text-transform:uppercase;color:var(--mute);margin:18px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{position:relative;min-height:44px;padding:8px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--panel2);font-size:15px;font-weight:600;transition:transform .08s,border-color .15s}
+.chip:active{transform:scale(.94)}
+.chip small{color:var(--mute);font-weight:500;margin-left:6px}
+.chip.hp{border-color:#3d5a70}
+.chip.out{border-style:dashed;border-color:#5a4a36}
+.chip b{position:absolute;top:-8px;right:-6px;background:var(--ember);color:#1a0f04;border-radius:10px;min-width:22px;height:22px;padding:0 6px;font:800 13px/22px var(--display);text-align:center}
+.inrow{display:flex;gap:8px;margin-top:6px}
+.inrow input{flex:1;min-width:0;height:52px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);padding:0 14px;font:500 17px var(--body)}
+.inrow button{width:76px;border-radius:14px;border:0;background:var(--ember);color:#1a0f04;font:800 16px var(--display);letter-spacing:.12em}
+.sug{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;min-height:0}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row .nm{flex:1;min-width:0}
+.row .nm b{display:block;font-weight:600;font-size:16px}
+.row .nm span{color:var(--mute);font-size:13px}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:40px;height:40px;border-radius:12px;border:0;background:var(--panel2);font-size:20px}
+.step i{font-style:normal;min-width:26px;text-align:center;font:700 17px var(--display)}
+.tot{display:flex;justify-content:space-between;align-items:baseline}
+.tot b{font:800 24px var(--display);letter-spacing:.04em}
+.tot span{color:var(--steel);font-weight:600}
+.seg{display:flex;gap:6px;margin-top:6px}
+.seg button{flex:1;min-height:46px;border-radius:12px;border:1.5px solid var(--line);background:var(--panel2);font-weight:600}
+.seg button[aria-pressed="true"]{border-color:var(--ember);background:rgba(224,138,53,.14);color:var(--ember-l)}
+.seg button[aria-pressed="true"].sharp{border-color:var(--bad);background:rgba(217,84,63,.14);color:var(--bad)}
+.warn{background:rgba(217,84,63,.1);border:1px solid var(--bad-d);border-radius:12px;padding:12px;font-size:14px;margin-top:12px}
+.note{background:var(--panel2);border-radius:12px;padding:12px;font-size:14px;color:var(--mute);margin-top:12px}
+.wnum{display:flex;align-items:center;justify-content:center;gap:14px;margin:18px 0 6px}
+.wnum input{width:170px;text-align:center;height:84px;border:0;background:transparent;color:var(--fg);font:800 64px var(--display);font-variant-numeric:tabular-nums}
+.wnum button{width:56px;height:56px;border-radius:50%;border:0;background:var(--panel2);font-size:28px}
+.q{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-weight:600}
+.q span:last-child{font-family:var(--display);font-weight:800;letter-spacing:.06em}
+.q .ok{color:var(--good)} .q .no{color:var(--mute)}
+
+/* journey */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:14px}
+.card h3{margin:0 0 4px;font:700 13px var(--display);letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+.bignum{font:800 72px/1 var(--display);font-variant-numeric:tabular-nums}
+.bignum small{font-size:24px;color:var(--mute);margin-left:6px;letter-spacing:.06em}
+.ladder{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
+.step-n{flex:1 0 20%;min-width:62px;text-align:center;padding:10px 0;border-radius:12px;background:var(--panel2);font:700 16px var(--display);color:var(--mute);letter-spacing:.04em}
+.step-n.got{background:var(--ember);color:#1a0f04}
+.step-n.next{border:2px solid var(--ember);color:var(--ember-l);animation:glow 2.2s ease-in-out infinite}
+.goal{flex:1 0 100%;text-align:center;padding:10px 0;border-radius:12px;border:1.5px dashed var(--line);font:700 15px var(--display);letter-spacing:.14em;color:var(--mute)}
+.ranks{display:flex;gap:6px;margin-top:12px}
+.ranks span{flex:1;text-align:center;font:700 11px var(--display);letter-spacing:.06em;text-transform:uppercase;padding:8px 0;border-radius:9px;background:var(--panel2);color:#5a5e66}
+.ranks span.on{background:var(--ember);color:#1a0f04}
+.week{display:flex;gap:8px;margin-top:12px}
+.week div{flex:1;text-align:center;font:700 12px var(--display);letter-spacing:.1em;color:var(--mute)}
+.week i{display:block;width:100%;aspect-ratio:1;border-radius:50%;background:var(--panel2);margin-bottom:6px}
+.week i.on{background:var(--ember)} .week i.half{background:var(--ember-d)} .week i.today{box-shadow:inset 0 0 0 2px var(--ember-l)}
+.field{display:flex;gap:8px;margin-top:10px}
+.field input{flex:1;min-width:0;height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);padding:0 12px;font:500 17px var(--body)}
+.field button{padding:0 18px;border-radius:12px;border:0;background:var(--panel2);font-weight:700}
+.small{color:var(--mute);font-size:13px;margin-top:10px}
+.foot{text-align:center;color:#62666e;font-size:12px;padding:6px 16px 0}
+
+/* feedback */
+#toast{position:fixed;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 10px);max-width:448px;margin:0 auto;background:var(--fg);color:#14110d;border-radius:14px;padding:13px 16px;font-weight:600;font-size:15px;transform:translateY(-30px);opacity:0;pointer-events:none;transition:all .28s cubic-bezier(.2,.9,.2,1);z-index:60}
+#toast.show{transform:none;opacity:1}
+#toast.bad{background:var(--bad);color:#fff}
+#toast.good{background:var(--good);color:#10200c}
+.apop{position:fixed;left:50%;top:16%;transform:translateX(-50%);font:800 44px var(--display);letter-spacing:.1em;z-index:70;pointer-events:none;animation:float 1.3s ease-out forwards;text-shadow:0 4px 0 rgba(0,0,0,.4)}
+.apop.pos{color:var(--ember-l)} .apop.neg{color:var(--bad)}
+@keyframes float{0%{opacity:0;transform:translate(-50%,20px) scale(.8)}20%{opacity:1;transform:translate(-50%,0) scale(1.08)}100%{opacity:0;transform:translate(-50%,-70px) scale(1)}}
+@keyframes pop{0%{transform:scale(.8)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes pulse{0%{transform:scale(1)}35%{transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes glow{0%,100%{box-shadow:0 7px 0 var(--ember-d),0 0 0 6px rgba(224,138,53,.12)}50%{box-shadow:0 7px 0 var(--ember-d),0 0 0 14px rgba(224,138,53,.22)}}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="screen" id="screen"></main>
+  <nav class="tabbar" role="tablist">
+    <button class="tab" role="tab" id="tabToday" data-a="tab:today" aria-selected="true">Today</button>
+    <button class="tab" role="tab" id="tabJourney" data-a="tab:journey" aria-selected="false">Journey</button>
+  </nav>
+</div>
+<div id="scrim" data-a="close"></div>
+<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="shT">
+  <div class="grab"></div>
+  <div class="shh"><h2 id="shT"></h2><button class="x" data-a="close" aria-label="Close">&times;</button></div>
+  <div id="shBody"></div>
+  <div id="shFoot"></div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- targets (estimates, adjusted later by the weight trend) ---------- */
+const T={kcal:2050,protein:140,lo:1750,hi:2150};
+const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
+const RANKS=[['Recruit',0],['Soldier',300],['Gladiator',800],['Centurion',1600],['Spartan',2800],['Titan',4500]];
+const WIN={breakfast:[480,570],lunch:[780,870],dinner:[1200,1290]};
+const MEALS=['breakfast','lunch','dinner'];
+const ORDER=['weigh','breakfast','lunch','gym','mobility','dinner','close'];
+const OFFS=[0,42,60,42,0,-42,-60];
+const LADDER=[83.5,83,82.5,82,81.5,81,80.5,80];
+const GOAL=75;
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+/* ---------- food database: name|kcal|protein g|unit|flags (s=sugar, o=outside the mess). All numbers are rough estimates. ---------- */
+const RAW=`Idli|58|2|pc
+Medu vada|130|4|pc
+Sambar|80|4|katori
+Coconut chutney|60|1|2 tbsp
+Methi paratha|180|5|pc
+Pongal|230|6|katori
+Aloo matar sabji|130|3|katori
+Masala dosa|330|6|pc
+Veg poha|250|5|plate
+Coriander mint chutney|20|0|2 tbsp
+Kallappam|120|2|pc
+Dal pakwana|300|8|plate
+Upma|200|5|plate
+Vegetable stew|130|3|katori
+Aloo paratha|260|6|pc
+Veg wheat upma|190|6|plate
+Curd|60|3|katori
+Uttapam|190|5|pc
+Semeya|200|4|plate
+Pav|110|3|pc
+Bhaaji|150|3|katori
+Ragi dosa|130|3|pc
+Red chutney|40|1|2 tbsp
+Omelette|150|10|pc
+Boiled egg|78|6|pc
+Chocos|115|2|bowl|s
+Corn flakes|110|2|bowl|s
+Boiled pulses|120|8|katori
+Banana|105|1|pc
+Papaya|60|1|cup
+Watermelon|90|2|2 cups
+Mixed fruits|80|1|katori
+Bread, butter, jam|220|5|2 slices|s
+Tea (sugar)|50|1|cup|s
+Tea (no sugar)|5|0|cup
+Coffee (sugar)|50|1|cup|s
+Coffee (no sugar)|5|0|cup
+Milk|120|6|glass
+Veg salad|25|1|bowl
+Chapati|100|3|pc
+Plain rice|195|4|katori
+Ash gourd dal|110|6|katori
+Palak dal|120|7|katori
+Dal tadka|130|7|katori
+Bengal gram dal fry|140|8|katori
+Dal makkani|200|8|katori
+Yellow dal|120|7|katori
+Arhar dal|120|7|katori
+Masala dal|130|7|katori
+Moong dal thadka|120|8|katori
+Chana dal|140|8|katori
+Tomato pappu|120|6|katori
+Dal maharani|200|8|katori
+Broad beans aloo|120|3|katori
+Alu gobhi dry|120|3|katori
+Guthi vangai|140|3|katori
+Dum aloo banaras|180|3|katori
+Corn palak|130|4|katori
+Kadai veg dry|120|3|katori
+Honey chilli potato|250|3|katori|s
+Golden corn gobhi dry|120|3|katori
+Bhindi kurkure|150|3|katori
+Snake gourd chenna dal dry|110|5|katori
+Lowki tomatar|80|2|katori
+Mix veg poriyal|90|2|katori
+Mirchi ka salan|130|3|katori
+Chole masala|180|8|katori
+Aloo methi dry|120|3|katori
+Aalu bhindi|120|3|katori
+Punjabi chole|190|9|katori
+Kadhi pakoda|200|6|katori
+Veg kofta curry|220|5|katori
+Rajma raseela|180|8|katori
+Dondakai dum fry|110|2|katori
+Paneer lababdar|290|13|katori
+Soya capsicum|170|13|katori
+Rajma masala|180|8|katori
+Soya curry|170|13|katori
+Besan gatte|220|8|katori
+Lobia masala|170|8|katori
+Veg manchurian|250|4|katori
+Kadala curry|180|8|katori
+Mutter masala|150|6|katori
+White peas kuruma|160|7|katori
+Peanut masala|230|7|katori
+Lemon rice|300|6|plate
+Curry leaves rice|300|6|plate
+Tomato rice|300|6|plate
+Ghee rice (pulao)|340|6|plate
+Corn pulao|320|7|plate
+Tamarind rice|310|6|plate
+Tawa pulao|320|7|plate
+Basanti pulao|320|6|plate
+Schezuan fried rice|380|8|plate
+Veg biryani|400|9|plate
+Jeera rice|280|5|plate
+Hyd paneer dum biryani|520|17|plate
+Hyd chicken dum biryani|560|28|plate
+Bhagara rice|320|6|plate
+Veg pulao|320|7|plate
+Rasam|40|1|katori
+Buttermilk|40|2|glass
+Jeera buttermilk|40|2|glass
+Masala buttermilk|45|2|glass
+Pappad|35|1|pc
+Fryums|60|1|handful
+Halwa (dal/carrot)|250|3|katori|s
+Sweet boondi|160|1|handful|s
+Gulab jamun|150|2|pc|s
+Ice-cream|140|2|pc|s
+Semiya kheer|220|5|katori|s
+Fruit custard|160|4|katori|s
+Balushahi|280|3|pc|s
+Boondi raitha|90|3|katori
+Onion cucumber raitha|60|3|katori
+Egg pepper roast|230|13|2 eggs
+Fish curry|190|18|piece
+Egg tikka masala|260|14|2 eggs
+Fish curry (Nellore)|190|18|piece
+Egg curry|240|13|2 eggs
+Kerala fish curry|200|18|piece
+Kadai chicken|280|26|katori
+Kadai paneer|290|14|katori
+Palak paneer|260|13|katori
+Pahdi chicken|270|26|katori
+Shahi paneer|330|14|katori
+Chicken kolhapuri|280|26|katori
+Egg kolhapuri|250|13|2 eggs
+Paneer tikka masala|310|15|katori
+Chicken tikka masala|300|27|katori
+Egg white|17|4|pc
+Soya chunks (60 g)|195|32|serving
+Boiled chicken (100 g)|116|22|serving
+Shawarma (full)|700|40|pc|o
+Alfaham (half)|650|50|half|o
+Shake|450|12|glass|so
+Parotta|300|6|pc|o
+Beef fry|290|26|katori|o
+Fried chicken (2 pc)|450|28|2 pc|o
+Biscuits|100|1|2 pc|so
+Soft drink|140|0|can|so
+Chai + biscuits|120|2|plate|so`;
+const DB={};
+RAW.trim().split('\n').forEach(l=>{const [n,k,p,u,fl]=l.split('|');DB[n]={name:n,kcal:+k,p:+p,unit:u,sugar:(fl||'').includes('s'),out:(fl||'').includes('o')};});
+
+/* ---------- IIM Kozhikode mess menu, October 2026 (one weekly rotation, Mon-Sun) ---------- */
+const FRUIT=['Banana','Papaya','Watermelon','Mixed fruits','Banana','Watermelon','Papaya'];
+const CEREAL=['Chocos','Corn flakes','Chocos','Corn flakes','Chocos','Corn flakes','Chocos'];
+const MENU=[
+ {b:['Idli','Medu vada','Coconut chutney','Sambar'],
+  l:['Ash gourd dal','Broad beans aloo','Punjabi chole','Lemon rice','Rasam','Buttermilk','Golden corn gobhi dry','Egg pepper roast'],
+  d:['Chapati','Basanti pulao','Masala dal','Fryums','Gulab jamun','Kadai chicken','Kadai paneer']},
+ {b:['Methi paratha','Pongal','Aloo matar sabji','Coconut chutney'],
+  l:['Palak dal','Alu gobhi dry','Kadhi pakoda','Curry leaves rice','Sambar','Jeera buttermilk','Rajma masala','Fish curry'],
+  d:['Chapati','Veg manchurian','Snake gourd chenna dal dry','Schezuan fried rice','Moong dal thadka','Boondi raitha','Fryums','Ice-cream']},
+ {b:['Masala dosa','Veg poha','Sambar','Coriander mint chutney'],
+  l:['Dal tadka','Guthi vangai','Veg kofta curry','Tomato rice','Rasam','Buttermilk','Soya curry','Egg tikka masala','Halwa (dal/carrot)'],
+  d:['Chapati','Kadala curry','Lowki tomatar','Veg biryani','Chana dal','Curd','Fryums','Palak paneer','Pahdi chicken']},
+ {b:['Kallappam','Dal pakwana','Upma','Coriander mint chutney','Vegetable stew'],
+  l:['Bengal gram dal fry','Dum aloo banaras','Rajma raseela','Ghee rice (pulao)','Sambar','Buttermilk','Besan gatte','Fish curry (Nellore)'],
+  d:['Chapati','Mutter masala','Mix veg poriyal','Jeera rice','Tomato pappu','Jeera buttermilk','Fryums','Semiya kheer','Shahi paneer','Chicken kolhapuri']},
+ {b:['Aloo paratha','Veg wheat upma','Curd','Coriander mint chutney'],
+  l:['Dal makkani','Corn palak','Dondakai dum fry','Corn pulao','Rasam','Buttermilk','Bhindi kurkure','Egg curry'],
+  d:['Mirchi ka salan','Hyd paneer dum biryani','Hyd chicken dum biryani','Onion cucumber raitha','Fruit custard']},
+ {b:['Uttapam','Semeya','Coriander mint chutney','Coconut chutney'],
+  l:['Yellow dal','Kadai veg dry','Paneer lababdar','Tamarind rice','Sambar','Masala buttermilk','Sweet boondi'],
+  d:['Chapati','Aloo methi dry','Chole masala','Bhagara rice','Dal tadka','Curd','Fryums','Peanut masala','Egg kolhapuri']},
+ {b:['Pav','Ragi dosa','Bhaaji','Red chutney'],
+  l:['Arhar dal','Honey chilli potato','Soya capsicum','Tawa pulao','Rasam','Jeera buttermilk','Lobia masala','Kerala fish curry'],
+  d:['Chapati','White peas kuruma','Aalu bhindi','Veg pulao','Dal maharani','Buttermilk','Fryums','Balushahi','Paneer tikka masala','Chicken tikka masala']}
+];
+function menuFor(meal,di){
+  if(meal==='snack')return [];
+  const m=MENU[di];
+  if(meal==='breakfast')return m.b.concat([di===6?'Omelette':'Boiled egg',CEREAL[di],'Boiled pulses',FRUIT[di],'Bread, butter, jam','Milk']);
+  if(meal==='lunch')return ['Veg salad','Chapati','Plain rice','Pappad'].concat(m.l);
+  return ['Veg salad','Plain rice'].concat(m.d);
+}
+const STAPLES=['Boiled egg','Egg white','Soya chunks (60 g)','Boiled chicken (100 g)','Banana','Milk','Tea (no sugar)','Tea (sugar)'];
+const OUTSIDE=['Shawarma (full)','Alfaham (half)','Shake','Parotta','Beef fry','Fried chicken (2 pc)','Biscuits','Soft drink','Chai + biscuits'];
+
+/* ---------- state ---------- */
+const KEY='habitsync.proto.v2';
+const dkey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const blank=()=>({aura:0,startW:84,start:dkey(),weights:{},ladder:[],cycle:{a:dkey(),i:0},days:{},custom:{},sound:false});
+let S=blank(), mem=null;
+function load(){try{const r=localStorage.getItem(KEY);if(r){S=Object.assign(blank(),JSON.parse(r));return}}catch(e){}if(mem)S=mem}
+function save(){mem=S;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+load();
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const food=n=>DB[n]||S.custom[n];
+const allFoods=()=>Object.values(DB).concat(Object.values(S.custom));
+function dayObj(k){k=k||dkey();return S.days[k]||(S.days[k]={items:[],done:{},skip:{},workout:null,pain:null,mobility:false,weighed:false,pAward:false,closed:false,delta:0,sugarPen:0,score:0,steps:''})}
+const di=()=>(new Date().getDay()+6)%7;
+const nowMin=()=>{const n=new Date();return n.getHours()*60+n.getMinutes()};
+function daysBetween(a,b){const f=s=>{const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)/864e5};return Math.round(f(b)-f(a))}
+function planFor(k){k=k||dkey();return SEQ[(((S.cycle.i+daysBetween(S.cycle.a,k))%7)+7)%7]}
+function setSession(type){
+  const c=(((S.cycle.i+daysBetween(S.cycle.a,dkey()))%7)+7)%7;
+  if(SEQ[c]===type)return;
+  for(let j=0;j<7;j++){const x=(c+j)%7;if(SEQ[x]===type){S.cycle={a:dkey(),i:x};break}}
+}
+function totals(d){let k=0,p=0;d.items.forEach(i=>{const f=food(i.name);if(f){k+=f.kcal*i.qty;p+=f.p*i.qty}});return{k,p}}
+function mealKcal(d,m){let k=0;d.items.forEach(i=>{if(i.meal===m){const f=food(i.name);if(f)k+=f.kcal*i.qty}});return k}
+function rankInfo(){let r=0;RANKS.forEach((x,i)=>{if(S.aura>=x[1])r=i});const nx=RANKS[r+1];return{i:r,name:RANKS[r][0],next:nx,pct:nx?(S.aura-RANKS[r][1])/(nx[1]-RANKS[r][1]):1}}
+function trendNow(){let t=S.startW;Object.keys(S.weights).sort().forEach(k=>{t=t+0.25*(S.weights[k]-t)});return Math.round(t*100)/100}
+
+/* ---------- feedback ---------- */
+let tT,ac;
+function toast(msg,kind){const t=$('#toast');t.textContent=msg;t.className='show '+(kind||'');clearTimeout(tT);tT=setTimeout(()=>{t.className=''},3800)}
+function buzz(ms){try{navigator.vibrate&&navigator.vibrate(ms||12)}catch(e){}}
+function blip(f,dur){if(!S.sound)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=f||660;g.gain.value=.07;o.connect(g);g.connect(ac.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(dur||.1));o.stop(ac.currentTime+(dur||.1))}catch(e){}}
+function auraPop(n){const e=document.createElement('div');e.className='apop '+(n<0?'neg':'pos');e.textContent=(n>0?'+':'−')+Math.abs(n)+' AURA';document.body.appendChild(e);setTimeout(()=>e.remove(),1400)}
+function addAura(n){
+  const before=rankInfo().i;
+  const d=dayObj();const real=Math.max(-S.aura,n);
+  S.aura+=real;d.delta+=real;
+  if(real!==0)auraPop(real);
+  const after=rankInfo();
+  if(after.i>before){setTimeout(()=>toast('RANK UP. You are now a '+after.name+'.','good'),600);buzz(40);blip(880,.25)}
+  else if(real>0){blip(740,.12)}
+  else if(real<0){blip(200,.18)}
+}
+
+/* ---------- today screen ---------- */
+let tab='today', justDone=null, pulseHero=false;
+const ICON={
+  weigh:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10a4 4 0 0 1 8 0"/><path d="M12 10l2-2"/></svg>',
+  meal:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>',
+  gym:'<svg viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/></svg>',
+  mob:'<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 8v6M6 11l6-1 6 1M9 21l3-7 3 7"/></svg>',
+  moon:'<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
+  check:'<svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  dash:'<svg viewBox="0 0 24 24"><path d="M7 12h10"/></svg>',
+  x:'<svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M7 7l10 10M17 7L7 17"/></svg>'
+};
+const hhmm=m=>{const h=Math.floor(m/60),mm=m%60,ap=h>=12?'pm':'am';return ((h+11)%12+1)+(mm?':'+String(mm).padStart(2,'0'):'')+ap};
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+
+function nodeInfo(id,d,plan,t){
+  if(id==='weigh')return d.weighed?{st:'done',label:'Weigh-in',sub:S.weights[dkey()].toFixed(1)+' kg',ic:'check'}:{st:'todo',label:'Weigh-in',sub:'Before food',ic:'weigh',bub:'WEIGH IN'};
+  if(MEALS.includes(id)){
+    const k=mealKcal(d,id),n=d.items.filter(i=>i.meal===id).length,w=WIN[id];
+    if(d.done[id])return{st:'done',label:cap(id),sub:fmt(k)+' kcal',ic:'check'};
+    if(d.skip[id])return{st:'skip',label:cap(id),sub:'Skipped',ic:'dash'};
+    if(!n&&t>w[1]+120)return{st:'late',label:cap(id),sub:'Window missed',ic:'dash'};
+    return{st:'todo',label:cap(id),sub:n?fmt(k)+' kcal so far':hhmm(w[0])+' to '+hhmm(w[1]),ic:'meal',bub:'LOG IT'};
+  }
+  if(id==='gym'){
+    if(plan==='Rest')return{st:'done',label:'Rest day',sub:'Recovery counts',ic:'moon'};
+    if(d.workout==='done')return{st:'done',label:plan,sub:'Done',ic:'check'};
+    if(d.workout==='pain')return{st:'done',cls:'pain',label:plan,sub:'Pain day, no penalty',ic:'check'};
+    if(d.workout==='lazy')return{st:'miss',label:plan,sub:'Skipped',ic:'x'};
+    return{st:'todo',label:plan+' day',sub:'Gym',ic:'gym',bub:'TRAIN'};
+  }
+  if(id==='mobility')return d.mobility?{st:'done',label:'Mobility',sub:'Physio block done',ic:'check'}:{st:'todo',label:'Mobility',sub:'Physio block',ic:'mob',bub:'DO IT'};
+  return d.closed?{st:'done',label:'Day locked',sub:(d.delta>=0?'+':'−')+Math.abs(d.delta)+' aura',ic:'check'}:{st:'todo',label:'Lock the day',sub:'Final tally',ic:'moon',bub:'LOCK IT'};
+}
+function renderToday(){
+  const d=dayObj(),plan=planFor(),t=nowMin(),tot=totals(d);
+  const ri=rankInfo();
+  const kpct=Math.min(100,tot.k/T.kcal*100),ppct=Math.min(100,tot.p/T.protein*100);
+  const left=T.kcal-tot.k;
+  const infos=ORDER.map(id=>Object.assign({id},nodeInfo(id,d,plan,t)));
+  const cur=infos.find(n=>n.st==='todo');
+  let h=`<div class="hdr"><div class="rankname">${ri.name}</div><div class="aura">${fmt(S.aura)}<small>AURA</small></div></div>
+  <div class="abar"><i style="width:${(ri.pct*100).toFixed(1)}%"></i></div>
+  <div class="hero${pulseHero?' pulse':''}" aria-label="Calories and protein today">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <circle class="trk" cx="100" cy="100" r="86"/><circle class="arc k${tot.k>T.hi?' over':''}" cx="100" cy="100" r="86" pathLength="100" style="stroke-dashoffset:${100-kpct}"/>
+      <circle class="trk" cx="100" cy="100" r="66"/><circle class="arc p${tot.p>=T.protein?' full':''}" cx="100" cy="100" r="66" pathLength="100" style="stroke-dashoffset:${100-ppct}"/>
+    </svg>
+    <div class="center"><div class="big">${left>=0?fmt(left):'+'+fmt(-left)}</div><div class="lbl">${left>=0?'kcal left':'kcal over'}</div>
+    <div class="psub">${tot.p>=T.protein?'Protein locked in':fmt(T.protein-tot.p)+' g protein to go'}</div></div>
+  </div>
+  <div class="path" style="padding-top:34px">`;
+  infos.forEach((n,i)=>{
+    const isCur=cur&&cur.id===n.id;
+    const cls=isCur?'n-cur':'n-'+n.st;
+    h+=`<button class="node ${cls}${n.cls?' '+n.cls:''}${justDone===n.id?' just':''}" style="--x:${OFFS[i]}px" data-a="node:${n.id}" aria-label="${esc(n.label+', '+n.sub)}">
+      ${isCur&&n.bub?`<span class="bubble">${n.bub}</span>`:''}
+      <span class="disc">${ICON[isCur?n.ic:n.ic]}</span>
+      <span class="nl">${esc(n.label)}<small>${esc(n.sub)}</small></span></button>`;
+  });
+  h+=`</div>`;
+  if(d.closed)h+=`<div class="done-note">Day locked. ${d.score}/4 quests. See you tomorrow.</div>`;
+  h+=`<button class="link" data-a="snack">Ate something else? Log a snack</button>`;
+  $('#screen').innerHTML=h;
+  justDone=null;pulseHero=false;
+}
+
+/* ---------- journey screen ---------- */
+function weekDots(){
+  const now=new Date(),mon=new Date(now);mon.setDate(now.getDate()-di());
+  let out='',on=0;
+  for(let i=0;i<7;i++){const x=new Date(mon);x.setDate(mon.getDate()+i);const k=dkey(x),d=S.days[k];
+    let c='';if(d&&d.closed){if(d.score>=3){c='on';on++}else c='half'}
+    if(k===dkey())c+=' today';
+    out+=`<div><i class="${c}"></i>${DAYS[i]}</div>`}
+  return{html:out,on};
+}
+function renderJourney(){
+  const ri=rankInfo(),tr=trendNow(),wk=weekDots(),d=dayObj();
+  const next=LADDER.find(s=>!S.ladder.includes(s));
+  let h=`<div class="card"><h3>Rank</h3><div class="bignum" style="font-size:54px">${ri.name}</div>
+    <div class="abar" style="height:8px;margin-top:12px"><i style="width:${(ri.pct*100).toFixed(1)}%"></i></div>
+    <div class="small">${ri.next?fmt(ri.next[1]-S.aura)+' aura to '+ri.next[0]:'Top rank. Stay there.'}</div>
+    <div class="ranks">${RANKS.map((r,i)=>`<span class="${i<=ri.i?'on':''}">${r[0]}</span>`).join('')}</div></div>
+  <div class="card"><h3>Weight trend</h3><div class="bignum">${tr.toFixed(1)}<small>KG</small></div>
+    <div class="small">Trend, not today's scale. One reading moves it by a quarter at most.</div>
+    <div class="ladder">${LADDER.map(s=>`<div class="step-n ${S.ladder.includes(s)?'got':(s===next?'next':'')}">${s}</div>`).join('')}<div class="goal">LONG GAME ${GOAL} KG</div></div>
+    <div class="small">Start ${S.startW.toFixed(1)} kg. ${next?'Next step '+next+' kg, '+Math.max(0,tr-next).toFixed(1)+' kg to go.':'All steps cleared.'}</div></div>
+  <div class="card"><h3>This week</h3><div class="week">${wk.html}</div><div class="small">${wk.on} of 7 days on track. A day counts at 3 of 4 quests. Miss one day, never two.</div></div>
+  <div class="card"><h3>Steps today</h3>
+    <div class="field"><input id="stepsIn" type="number" inputmode="numeric" min="0" placeholder="e.g. 7400" value="${esc(d.steps||'')}"><button data-a="saveSteps">Save</button></div>
+    <div class="small">Log it for two weeks. Your goal will come from your real median. Samsung Health sync comes later.</div></div>
+  <div class="card"><h3>Settings</h3>
+    <div class="field"><button data-a="sound" style="flex:1;height:48px">Sound: ${S.sound?'on':'off'}</button><button data-a="reset" id="resetBtn" style="flex:1">Reset data</button></div></div>
+  <div class="foot">Prototype. Calories and protein are rough estimates. Data stays on this device.</div>`;
+  $('#screen').innerHTML=h;
+}
+function render(){tab==='today'?renderToday():renderJourney();$('#tabToday').setAttribute('aria-selected',tab==='today');$('#tabJourney').setAttribute('aria-selected',tab==='journey')}
+
+/* ---------- sheets ---------- */
+let sh=null; // {type, meal}
+function openSheet(title,body,foot){
+  $('#shT').textContent=title;$('#shBody').innerHTML=body;$('#shFoot').innerHTML=foot||'';
+  $('#scrim').classList.add('on');$('#sheet').classList.add('on');document.body.classList.add('lock');$('#shBody').scrollTop=0;
+}
+function closeSheet(){
+  $('#scrim').classList.remove('on');$('#sheet').classList.remove('on');document.body.classList.remove('lock');sh=null;render();
+}
+function openNode(id){
+  if(id==='weigh')return weighSheet();
+  if(MEALS.includes(id))return mealSheet(id);
+  if(id==='gym')return gymSheet();
+  if(id==='mobility')return mobSheet();
+  return closeSheet2();
+}
+
+/* meal sheet */
+function chipHtml(name,cls,d,meal){
+  const f=food(name);if(!f)return'';
+  const q=d.items.filter(i=>i.name===name&&i.meal===meal).reduce((a,i)=>a+i.qty,0);
+  return `<button class="chip ${cls}${f.p>=12?' hp':''}" data-a="add:${esc(name)}">${esc(name)}<small>${f.kcal}</small>${q?`<b>${q}</b>`:''}</button>`;
+}
+function mealSheet(meal){
+  sh={type:'meal',meal};
+  const d=dayObj(),w=WIN[meal];
+  const menu=menuFor(meal,di()).filter(n=>DB[n]).sort((a,b)=>DB[b].p-DB[a].p);
+  const title=meal==='snack'?'Snack':cap(meal);
+  const body=`<div class="hint">${w?hhmm(w[0])+' to '+hhmm(w[1])+'. ':''}Tap to add. Tap again for more. Blue outline means high protein.</div>
+    <div class="inrow"><input id="mIn" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" placeholder="Type: 2 chapati, fish curry"><button data-a="mAdd">ADD</button></div>
+    <div class="sug" id="mSug"></div>
+    <div id="mBody"></div>`;
+  openSheet(title,body,'<div class="tot"><b id="mTot"></b><span id="mTotP"></span></div><button class="btn" data-a="mealDone">Done</button><button class="link" data-a="mealSkip" id="mSkip">Skip this meal</button>');
+  updateMeal();
+}
+function updateMeal(){
+  if(!sh||sh.type!=='meal')return;
+  const d=dayObj(),meal=sh.meal;
+  const menu=menuFor(meal,di()).filter(n=>DB[n]).sort((a,b)=>DB[b].p-DB[a].p);
+  const items=d.items.map((it,ix)=>({it,ix})).filter(o=>o.it.meal===meal);
+  let h='';
+  if(items.length){
+    h+=`<div class="sec">Logged</div>`;
+    items.forEach(o=>{const f=food(o.it.name);const stp=(f.unit==='pc'||f.unit==='half'||f.unit==='serving')?1:.5;
+      h+=`<div class="row"><div class="nm"><b>${esc(o.it.name)}</b><span>${o.it.qty} ${esc(f.unit)} · ${fmt(f.kcal*o.it.qty)} kcal · ${Math.round(f.p*o.it.qty)} g protein</span></div>
+      <div class="step"><button data-a="dec:${o.ix}" aria-label="Less">−</button><i>${o.it.qty}</i><button data-a="inc:${o.ix}" aria-label="More">+</button></div></div>`});
+  }
+  if(menu.length)h+=`<div class="sec">${DAYS[di()]} mess menu, high protein first</div><div class="chips">${menu.map(n=>chipHtml(n,'',d,meal)).join('')}</div>`;
+  h+=`<div class="sec">Your staples</div><div class="chips">${STAPLES.map(n=>chipHtml(n,'',d,meal)).join('')}</div>
+      <div class="sec">Outside the mess</div><div class="chips">${OUTSIDE.map(n=>chipHtml(n,'out',d,meal)).join('')}</div>`;
+  $('#mBody').innerHTML=h;
+  const mk=mealKcal(d,meal);let mp=0;d.items.forEach(i=>{if(i.meal===meal){const f=food(i.name);mp+=f.p*i.qty}});
+  $('#mTot').textContent=fmt(mk)+' kcal';$('#mTotP').textContent=Math.round(mp)+' g protein';
+  $('#mSkip').hidden=meal==='snack';
+}
+function checkProtein(){
+  const d=dayObj();if(d.pAward)return;
+  if(totals(d).p>=T.protein){d.pAward=true;addAura(60);pulseHero=true;buzz(40);toast('Protein target hit. Ring is full.','good')}
+}
+function applyAdd(name,q,meal){
+  const f=food(name);if(!f)return false;
+  const d=dayObj();q=q||1;
+  const ex=d.items.find(i=>i.name===name&&i.meal===meal);
+  if(ex)ex.qty=Math.round((ex.qty+q)*10)/10;else d.items.push({name,meal,qty:q});
+  buzz(10);blip(600+Math.min(300,f.kcal/3),.07);
+  if(f.sugar){const pen=Math.min(10,20-d.sugarPen);if(pen>0){d.sugarPen+=pen;addAura(-pen)}
+    toast(f.name+': '+Math.round(f.kcal*q)+' kcal, '+Math.round(f.kcal*q/T.kcal*100)+'% of today. Sugar costs aura.','bad')}
+  else if(f.out)toast(f.name+': '+Math.round(f.kcal*q)+' kcal, '+Math.round(f.kcal*q/T.kcal*100)+'% of today.','')
+  save();checkProtein();return true;
+}
+const NUMW={half:.5,one:1,two:2,three:3,four:4,five:5};
+function scoreFoods(q,meal){
+  q=q.toLowerCase().trim();if(!q)return[];
+  const qs=[q];if(q.endsWith('es'))qs.push(q.slice(0,-2));if(q.endsWith('s'))qs.push(q.slice(0,-1));
+  const menu=new Set(menuFor(meal,di()));const out=[];
+  allFoods().forEach(f=>{const n=f.name.toLowerCase();let best=-1;
+    qs.forEach(x=>{const tk=x.split(/\s+/);if(tk.every(t=>n.includes(t))){const s=(menu.has(f.name)?100:0)+(n.startsWith(x)?20:0)+(n.split(/\W+/).includes(x)?10:0)-n.length/50;if(s>best)best=s}});
+    if(best>-1)out.push({f,s:best})});
+  return out.sort((a,b)=>b.s-a.s).map(o=>o.f);
+}
+function addTyped(){
+  const inp=$('#mIn');const txt=inp.value.trim();if(!txt)return;
+  const parts=txt.split(/,|\+|\band\b/i).map(s=>s.trim()).filter(Boolean);
+  let added=0,miss=[];
+  parts.forEach(p=>{
+    const m=p.match(/^(\d+(?:\.\d+)?|half|one|two|three|four|five)\s*(?:x\s*)?(.*)$/i);
+    let q=1,name=p;if(m){q=isNaN(m[1])?NUMW[m[1].toLowerCase()]:parseFloat(m[1]);name=m[2]||''}
+    name=name.trim();if(!name){return}
+    const r=scoreFoods(name,sh.meal)[0];
+    if(r){applyAdd(r.name,q,sh.meal);added++;return}
+    const c=name.match(/^(.*?)\s*(\d{2,4})\s*(?:kcal|cal)?$/i);
+    if(c&&c[1].trim().length>1){const nm=c[1].trim();S.custom[nm]={name:nm,kcal:+c[2],p:0,unit:'serving',sugar:false,out:true,custom:true};applyAdd(nm,q,sh.meal);added++;return}
+    miss.push(name);
+  });
+  inp.value='';$('#mSug').innerHTML='';
+  if(miss.length)toast('Not found: '+miss.join(', ')+'. Type a name and kcal, like "momos 350".','bad');
+  updateMeal();
+}
+
+/* gym sheet */
+let gymStep='choose';
+function seg(group,opts,cur){return `<div class="seg">${opts.map(o=>`<button data-a="${group}:${o[0]}" aria-pressed="${cur===o[0]}" class="${o[0]==='sharp'?'sharp':''}">${o[1]}</button>`).join('')}</div>`}
+function gymSheet(){
+  const d=dayObj(),plan=planFor();
+  sh={type:'gym'};gymStep=d.workout==='done'?'pain':'choose';renderGym();
+}
+function renderGym(){
+  const d=dayObj(),plan=planFor();
+  if(plan==='Rest'){openSheet('Rest day','<div class="hint">Recovery is part of the plan. Do your mobility block and walk.</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs'],['Rest','Rest']],plan)+'<div class="small">Wrong day? Pick today\'s real session. The cycle follows from there.</div>','<button class="btn ghost" data-a="close">Got it</button>');return}
+  if(gymStep==='pain'){
+    const p=d.pain||{knee:'none',back:'none'};
+    openSheet(plan+' done','<div class="hint">How did it feel? This goes in your pain log for the physio.</div>'+
+      '<div class="sec">Right knee</div>'+seg('pk',[['none','None'],['mild','Mild'],['sharp','Sharp']],p.knee)+
+      '<div class="sec">Lower back</div>'+seg('pb',[['none','None'],['mild','Mild'],['sharp','Sharp']],p.back)+
+      (p.knee==='sharp'||p.back==='sharp'?'<div class="warn">Sharp pain is a stop signal for that movement. Note which exercise caused it and tell your physio at the next visit.</div>':''),
+      '<button class="btn good" data-a="gymFinish">Finish</button>');
+    return;
+  }
+  if(d.workout==='pain'||d.workout==='lazy'){openSheet(plan+(d.workout==='pain'?': pain day':': skipped'),'<div class="hint">'+(d.workout==='pain'?'No penalty. Tell your physio what hurt.':'Logged. Tomorrow you show up.')+'</div>','<button class="btn ghost" data-a="close">Close</button>');return}
+  const cap2=plan==='Legs'?'<div class="note">Your own cap: 30 to 40 kg on squats and deadlifts until your physio says otherwise.</div>':'';
+  openSheet(plan+' day','<div class="hint">Did you train?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs'],['Rest','Rest']],plan)+cap2+'<div class="small">Wrong session? Pick the right one. The cycle follows from there.</div>',
+    '<button class="btn" data-a="gym:done">Done</button><button class="btn steel" data-a="gym:pain">Pain day, could not train</button><button class="btn bad" data-a="gym:lazy">Skipped</button>');
+}
+
+/* mobility, weigh-in, close */
+function mobSheet(){
+  sh={type:'mob'};const d=dayObj();
+  openSheet('Mobility','<div class="hint">Your physio\'s daily mobility block: hip, knee, lumbar and thoracic rotation work.</div><div class="note">Stop anything that gives sharp pain. The exact exercises will load here once your current physio plan is confirmed.</div>',
+    d.mobility?'<button class="btn ghost" data-a="close">Already done</button>':'<button class="btn good" data-a="mobDone">Done</button>');
+}
+let wVal=84;
+function weighSheet(){
+  sh={type:'weigh'};const d=dayObj();
+  const ks=Object.keys(S.weights).sort();wVal=S.weights[dkey()]||(ks.length?S.weights[ks[ks.length-1]]:S.startW);
+  openSheet('Weigh-in','<div class="hint">Before food, after the toilet. Same scale every day.</div><div class="wnum"><button data-a="wd" aria-label="Down 0.1">−</button><input id="wIn" type="number" step="0.1" inputmode="decimal" value="'+wVal.toFixed(1)+'" aria-label="Weight in kg"><button data-a="wu" aria-label="Up 0.1">+</button></div><div class="lbl" style="text-align:center">kg</div><div class="note">One reading never moves your trend by more than a quarter. Water weight is noise.</div>','<button class="btn" data-a="wSave">Save</button>');
+}
+function closeSheet2(){
+  sh={type:'close'};const d=dayObj(),plan=planFor(),t=nowMin();
+  if(d.closed){openSheet('Day locked','<div class="hint">'+d.score+' of 4 quests. Aura today: '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+'.</div>','<button class="btn ghost" data-a="close">Close</button>');return}
+  const open=[];
+  MEALS.forEach(m=>{const n=nodeInfo(m,d,plan,t);if(n.st==='todo')open.push('Log or skip '+m)});
+  if(plan!=='Rest'&&!d.workout)open.push('Log your workout');
+  if(open.length){openSheet('Not yet','<div class="hint">Finish these first, so the tally is honest.</div>'+open.map(o=>'<div class="q"><span>'+esc(o)+'</span><span class="no">OPEN</span></div>').join(''),'<button class="btn ghost" data-a="close">Back</button>');return}
+  const tot=totals(d),calOk=tot.k>=T.lo&&tot.k<=T.hi,gymOk=plan==='Rest'||d.workout==='done'||d.workout==='pain';
+  const q=[['Protein '+T.protein+' g',d.pAward,Math.round(tot.p)+' g'],['Calories '+fmt(T.lo)+' to '+fmt(T.hi),calOk,fmt(tot.k)],['Workout',gymOk,plan==='Rest'?'Rest day':(d.workout==='done'?'Done':d.workout==='pain'?'Pain day':'Skipped')],['Mobility',d.mobility,d.mobility?'Done':'Missed']];
+  openSheet('Lock the day','<div class="hint">Last look. Locking adds your calorie reward.</div>'+q.map(x=>'<div class="q"><span>'+esc(x[0])+'</span><span class="'+(x[1]?'ok':'no')+'">'+(x[1]?'✓ ':'')+esc(x[2])+'</span></div>').join('')+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal doesn\'t count. Eating too little costs muscle. If you forgot to log something, go back and add it.</div>':''),
+    '<button class="btn" data-a="lock">Lock it</button>');
+}
+function lockDay(){
+  const d=dayObj(),plan=planFor(),tot=totals(d);
+  if(d.closed)return;
+  const calOk=tot.k>=T.lo&&tot.k<=T.hi,gymOk=plan==='Rest'||d.workout==='done'||d.workout==='pain';
+  d.calOk=calOk;d.closed=true;d.score=(d.pAward?1:0)+(calOk?1:0)+(gymOk?1:0)+(d.mobility?1:0);
+  if(calOk)addAura(80);
+  save();justDone='close';buzz(50);
+  closeSheet();
+  toast(d.score+' of 4 quests. '+(d.score>=3?'Day on track.':'Tomorrow, no excuses. Never miss twice.'),d.score>=3?'good':'');
+}
+
+/* ---------- actions ---------- */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  const a=b.dataset.a,[k,v]=[a.split(':')[0],a.slice(a.indexOf(':')+1)];
+  const d=dayObj();
+  switch(k){
+    case 'tab':tab=v;render();break;
+    case 'node':openNode(v);break;
+    case 'snack':mealSheet('snack');break;
+    case 'close':closeSheet();break;
+    case 'add':applyAdd(v,1,sh.meal);updateMeal();break;
+    case 'mAdd':addTyped();break;
+    case 'inc':{const it=d.items[+v];if(it){const f=food(it.name);it.qty=Math.round((it.qty+((f.unit==='pc'||f.unit==='half'||f.unit==='serving')?1:.5))*10)/10;buzz(8);save();checkProtein();updateMeal()}break}
+    case 'dec':{const it=d.items[+v];if(it){const f=food(it.name);const s=(f.unit==='pc'||f.unit==='half'||f.unit==='serving')?1:.5;it.qty=Math.round((it.qty-s)*10)/10;
+      if(f.sugar&&d.sugarPen>0&&it.qty<=0){const r=Math.min(10,d.sugarPen);d.sugarPen-=r;S.aura+=r;d.delta+=r}
+      if(it.qty<=0)d.items.splice(+v,1);save();updateMeal()}break}
+    case 'mealDone':{
+      const m=sh.meal;if(m==='snack'){closeSheet();break}
+      if(!d.items.some(i=>i.meal===m)){toast('Add something first, or skip the meal.','bad');break}
+      d.done[m]=true;delete d.skip[m];save();justDone=m;buzz(30);blip(780,.14);closeSheet();break}
+    case 'mealSkip':{const m=sh.meal;d.skip[m]=true;save();closeSheet();toast('Skipped. Your calories will show it.','');break}
+    case 'sess':setSession(v);save();gymStep='choose';renderGym();break;
+    case 'gym':{
+      const plan=planFor();
+      if(v==='done'){
+        if(d.workout!=='done'){const yk=dkey(new Date(Date.now()-864e5));const y=S.days[yk];
+          addAura(100);if(y&&y.workout==='lazy'){addAura(40);toast('Comeback bonus. You showed up after a skip.','good')}}
+        d.workout='done';d.pain=d.pain||null;save();justDone='gym';buzz(40);gymStep='pain';renderGym();
+      }else if(v==='pain'){d.workout='pain';save();justDone='gym';closeSheet();toast('Good call. No penalty. Log what hurt and tell your physio.','')}
+      else if(v==='lazy'){d.workout='lazy';addAura(-60);save();closeSheet();buzz([30,40,30]);toast('Skipped '+plan+'. −60 aura. Tomorrow you owe it.','bad')}
+      break}
+    case 'pk':case 'pb':{d.pain=d.pain||{knee:'none',back:'none'};if(k==='pk')d.pain.knee=v;else d.pain.back=v;save();renderGym();break}
+    case 'gymFinish':{d.pain=d.pain||{knee:'none',back:'none'};save();closeSheet();break}
+    case 'mobDone':{if(!d.mobility){d.mobility=true;addAura(50);save();justDone='mobility';buzz(30)}closeSheet();break}
+    case 'wd':case 'wu':{const i=$('#wIn');let x=parseFloat(i.value)||wVal;x=Math.round((x+(k==='wu'?.1:-.1))*10)/10;i.value=x.toFixed(1);buzz(6);break}
+    case 'wSave':{
+      const x=parseFloat($('#wIn').value);if(!(x>30&&x<250)){toast('Enter your weight in kg.','bad');break}
+      const first=!d.weighed;S.weights[dkey()]=Math.round(x*10)/10;d.weighed=true;
+      if(first)addAura(15);
+      const tr=trendNow();LADDER.forEach(s=>{if(tr<=s+1e-6&&!S.ladder.includes(s)){S.ladder.push(s);addAura(150);setTimeout(()=>toast('Step cleared: trend is under '+s+' kg.','good'),700)}});
+      save();justDone='weigh';buzz(30);closeSheet();
+      setTimeout(()=>{if(!$('#toast').classList.contains('show'))toast('Logged '+x.toFixed(1)+' kg. Trend '+tr.toFixed(1)+' kg.','')},400);
+      break}
+    case 'closeDay':closeSheet2();break;
+    case 'lock':lockDay();break;
+    case 'saveSteps':{const v2=$('#stepsIn').value;d.steps=v2;save();toast(v2?'Steps saved: '+fmt(+v2)+'.':'Cleared.','good');break}
+    case 'sound':S.sound=!S.sound;save();if(S.sound)blip(660,.12);render();break;
+    case 'reset':{
+      if(b.dataset.armed){S=blank();save();tab='today';render();toast('Prototype data cleared.','')}
+      else{b.dataset.armed='1';b.textContent='Tap again to erase';b.style.color='var(--bad)';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='Reset data';b.style.color=''}},3000)}
+      break}
+  }
+});
+document.addEventListener('input',e=>{
+  if(e.target.id!=='mIn'||!sh)return;
+  const last=e.target.value.split(/,|\+|\band\b/i).pop().replace(/^\s*(\d+(?:\.\d+)?|half|one|two|three|four|five)\s*(?:x\s*)?/i,'').trim();
+  const list=last?scoreFoods(last,sh.meal).slice(0,6):[];
+  $('#mSug').innerHTML=list.map(f=>`<button class="chip ${f.out?'out':''}" data-a="sug:${esc(f.name)}">${esc(f.name)}<small>${f.kcal}</small></button>`).join('');
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a^="sug:"]');if(!b||!sh)return;
+  const name=b.dataset.a.slice(4);
+  const inp=$('#mIn');const parts=inp.value.split(/(,|\+|\band\b)/i);
+  const lastRaw=parts.pop();const m=lastRaw.match(/^\s*(\d+(?:\.\d+)?|half|one|two|three|four|five)/i);
+  const q=m?(isNaN(m[1])?NUMW[m[1].toLowerCase()]:parseFloat(m[1])):1;
+  applyAdd(name,q,sh.meal);
+  inp.value=parts.join('').replace(/[,+]\s*$/,'').trim();
+  $('#mSug').innerHTML='';updateMeal();inp.focus();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target.id==='mIn'){e.preventDefault();addTyped()}
+  if(e.key==='Escape'&&sh)closeSheet();
+});
+
+render();
+})();
+</script>
+</body>
+</html>
