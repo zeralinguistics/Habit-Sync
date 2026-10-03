@@ -24,7 +24,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager --licenses > /dev/null || true
       - name: Bundle the web app
         run: python3 prototype/build.py --native app/www
       - name: Install plugins and sync
