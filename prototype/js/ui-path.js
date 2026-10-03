@@ -70,7 +70,7 @@ U.views.path=function(){
     <div class="gtxt"><div class="gname">SHADOW MONARCH</div><div class="gbig"><b id="syncNum">0</b><span>% SYNC</span></div>
       <div class="gline2">${S.startW.toFixed(1)} → <b>${tr.toFixed(1)}</b> → ${cfg.goalW.toFixed(1)} kg</div>
       <div class="pace ${pace.c}">${esc(pace.t)}</div></div></div>
-    <div class="camp"><div class="campl"><span>CAMPAIGN</span><b>WEEK ${wkNo} / ${pl.weeks}</b></div><div class="xp"><i style="width:${wkNo/pl.weeks*100}%"></i></div>
+    <div class="camp"><div class="campl"><span>CAMPAIGN</span><b>${pl.weeks?'WEEK '+wkNo+' / '+pl.weeks:'NO GATES LEFT'}</b></div><div class="xp"><i style="width:${pl.weeks?wkNo/pl.weeks*100:100}%"></i></div>
       <div class="gsmall">At plan pace you finish around <b>${U.dateY(pl.finish)}</b>${eta.real?'. At your recent pace: '+U.dateY(eta.date)+'.':'.'} Plans bend. The habit is what counts.</div></div></div>
   <div class="win rise" style="--i:1"><div class="wt">[ Next up ]</div><div class="wb"><div class="duo">
     <div class="tile2"><span>NEXT GATE</span><b>${ng.next?ng.next.kg+' kg':'Done'}</b><small>${ng.next?ng.toNext.toFixed(1)+' kg to go':'Every gate cleared'}</small></div>

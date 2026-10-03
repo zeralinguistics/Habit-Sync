@@ -41,7 +41,8 @@ function vaultHtml(){
    <div class="stack2"><button class="btn good" data-a="bkSave">${IC.down.replace('<svg','<svg class="bi"')}Save a backup file</button>
     <button class="btn ghost" data-a="bkCopy">Copy backup text</button>
     <label class="btn ghost filebtn">Restore from a backup file<input type="file" accept=".json,application/json,text/plain" id="restoreFile" hidden></label>
-    <button class="btn ghost" data-a="bkAuto">Restore yesterday’s automatic copy</button></div>
+    <button class="btn ghost" data-a="bkAuto">Restore yesterday’s automatic copy</button>
+    ${E.undoInfo()?'<button class="btn ghost" data-a="undo">Undo the last reset or restore ('+E.undoInfo().days+' days kept)</button>':''}</div>
    <div class="small">${P.persisted===true?'Storage is protected: the browser will not clear it when space runs low.':P.persisted===false?'The browser may clear storage if the phone runs very low on space. Install the app or save backups.':'Storage protection status is unknown here.'}
      ${P.native?' You are using the Android app, which keeps its data in private app storage.':P.standalone?' Installed as an app.':''}</div>
    ${P.deferred?'<div class="stack2"><button class="btn vio" data-a="install">Install on this phone</button></div>':''}
@@ -148,10 +149,11 @@ A.bkSave=async function(){
   const txt=E.backupText(),name='habit-sync-backup-'+stamp()+'.json';
   const showText=(why)=>{$('#exWrap').innerHTML='<div class="small">'+why+'</div><textarea class="ta" id="bkText" readonly aria-label="Backup text">'+esc(txt)+'</textarea>'};
   try{
-    if(HS.native&&HS.native.native()&&await HS.native.saveFile(name,txt)){U.sys('Backup ready. Choose where to keep it: Drive, WhatsApp, Files.','good');U.render();return}
+    if(HS.native&&HS.native.native()&&await HS.native.saveFile(name,txt)){E.markBackup();U.sys('Backup ready. Choose where to keep it: Drive, WhatsApp, Files.','good');U.render();return}
     const blob=new Blob([txt],{type:'application/json'}),a=document.createElement('a');
     a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+    E.markBackup();
     U.sys('Backup file requested: '+name+'.','good');
     /* some embedded viewers silently block downloads, so the text is always shown as a fallback */
     showText('If no file appeared in your downloads, copy this text and keep it somewhere safe. It is the same backup.');
@@ -161,11 +163,14 @@ A.bkSave=async function(){
   E.dataInfo();
 };
 A.bkCopy=function(){
-  const txt=E.backupText();let ok=false;
-  try{ok=!!(navigator.clipboard&&navigator.clipboard.writeText(txt))}catch(e){}
-  $('#exWrap').innerHTML='<div class="small">'+(ok?'Copied to the clipboard. Paste it into a note or message to yourself.':'Select all of this text and copy it:')+'</div><textarea class="ta" id="bkText" readonly aria-label="Backup text">'+esc(txt)+'</textarea>';
-  if(!ok){const t=$('#bkText');t.focus();t.select()}
-  U.sys(ok?'Backup text copied.':'Select and copy the text below.','good');
+  const txt=E.backupText();
+  $('#exWrap').innerHTML='<div class="small" id="bkMsg">Select all of this text and copy it:</div><textarea class="ta" id="bkText" readonly aria-label="Backup text">'+esc(txt)+'</textarea>';
+  const ta=$('#bkText');
+  U.copyText(txt,ta).then(ok=>{
+    const m=$('#bkMsg');if(!m)return;
+    if(ok){E.markBackup();m.textContent='Copied to the clipboard. Paste it into a note or message to yourself.';U.sys('Backup text copied.','good')}
+    else{ta.focus();ta.select();U.sys('Select and copy the text below.','good')}
+  });
 };
 function onRestoreFile(e){
   const f=e.target.files&&e.target.files[0];if(!f)return;
@@ -176,13 +181,25 @@ function onRestoreFile(e){
   };
   r.readAsText(f);
 }
+/* a destructive button needs a deliberate second tap: not an instant double tap, and not after it has timed out */
+function armed(el,label,again){
+  const now=Date.now();
+  if(el.dataset.armed){if(now-(+el.dataset.at||0)<800)return false;return true}
+  el.dataset.armed='1';el.dataset.at=now;el.textContent=again;
+  setTimeout(()=>{if(el.isConnected){delete el.dataset.armed;delete el.dataset.at;el.textContent=label}},3500);
+  return false;
+}
 A.bkAuto=function(b,el){
-  if(!el.dataset.armed){el.dataset.armed='1';el.textContent='Tap again to replace everything with the automatic copy';setTimeout(()=>{if(el.isConnected){delete el.dataset.armed;el.textContent='Restore yesterday’s automatic copy'}},3500);return}
-  try{const n=E.restoreAuto();U.sys('Restored '+n+' days from the automatic copy.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
+  if(!armed(el,'Restore yesterday’s automatic copy','Tap again to replace everything with the automatic copy'))return;
+  try{const n=E.restoreAuto();U.sys('Restored '+n+' days from the automatic copy. You can undo this in the Data vault.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
+};
+A.undo=function(b,el){
+  if(!armed(el,el.textContent,'Tap again to bring back what you had before'))return;
+  try{const n=E.undoLast();U.sys('Back to '+n+' days, as before.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
 };
 A.reset=function(v,b){
-  if(b.dataset.armed){E.reset();U.tab='home';F.applyTheme();U.render(true);U.sys('Everything cleared.','')}
-  else{b.dataset.armed='1';b.textContent='Tap again to erase everything';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='Reset everything'}},3000)}
+  if(!armed(b,'Reset everything','Tap again to erase everything'))return;
+  E.reset();U.tab='home';F.applyTheme();U.render(true);U.sys('Everything cleared. You can undo this in the Data vault.','');
 };
 document.addEventListener('input',e=>{
   const t=e.target;

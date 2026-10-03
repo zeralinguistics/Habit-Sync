@@ -57,6 +57,15 @@ U.flame=function(n){
   return '<svg class="flame f-'+t+'" viewBox="-14 -44 28 46" aria-hidden="true"><path class="fl1" d="M0 0 C-10 -4 -12 -16 -4 -24 C-3 -18 0 -16 1 -20 C2 -28 -2 -32 2 -40 C10 -30 14 -14 8 -4 C6 -1 3 0 0 0 Z"/><path class="fl2" d="M0 -2 C-5 -5 -5 -12 -1 -16 C0 -12 2 -11 3 -14 C6 -9 5 -4 0 -2Z"/></svg>';
 };
 
+/* copy text to the clipboard; resolves true only when it really worked (a rejected write must not claim success) */
+U.copyText=function(text,fallbackEl){
+  const viaExec=()=>{try{if(fallbackEl){fallbackEl.focus();fallbackEl.select();return!!document.execCommand('copy')}}catch(e){}return false};
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text).then(()=>true,()=>viaExec());
+  }catch(e){}
+  return Promise.resolve(viaExec());
+};
+
 /* ---------------- toasts ---------------- */
 let tSys;
 U.sys=function(msg,kind,silent){
@@ -93,26 +102,31 @@ function nextCele(){
   if(c.fx)try{c.fx()}catch(e){}
   clearTimeout(tOv);tOv=setTimeout(closeCele,c.ms||2800);
 }
+let closing=false;
 function closeCele(){
-  clearTimeout(tOv);$('#ov').className='';
-  setTimeout(nextCele,260);
+  if(closing)return;   /* two quick taps must close one card, not skip the next one unseen */
+  closing=true;clearTimeout(tOv);$('#ov').className='';
+  setTimeout(()=>{closing=false;nextCele()},260);
 }
 U.act.ovClose=closeCele;
-U.clearCele=function(){Q.length=0;freshGear=[];clearTimeout(tOv);clearTimeout(kick);$('#ov').className='';showing=false};
+U.clearCele=function(){Q.length=0;freshGear=[];clearTimeout(tOv);clearTimeout(kick);$('#ov').className='';showing=false;closing=false};
 U.overlay=function(kind,h,big,p,ms){U.cele({kind:kind||'',h:h,big:big,p:p,ms:ms})};
 
 /* ---------------- sheets ---------------- */
 /* One history entry per open sheet, so the phone's Back button closes the sheet instead of leaving the app.
    The "pop" is delayed a moment: if another sheet opens straight away it reuses the same entry. */
-let histOpen=false,backT=null,skipPop=0;
+let histOpen=false,backT=null,skipPop=0,pushWait=false;
+const doPush=()=>{try{history.pushState({hs:1},'');histOpen=true}catch(e){}};
 function pushHist(){
   if(backT){clearTimeout(backT);backT=null;histOpen=true;return}
-  if(!histOpen){try{history.pushState({hs:1},'');histOpen=true}catch(e){}}
+  if(histOpen)return;
+  if(skipPop>0){pushWait=true;return}   /* our own Back is still landing: push right after it, never in the middle of it */
+  doPush();
 }
 function popHist(){
-  if(!histOpen)return;
+  if(!histOpen){pushWait=false;return}
   histOpen=false;
-  backT=setTimeout(()=>{backT=null;skipPop++;try{history.back()}catch(e){skipPop--}setTimeout(()=>{skipPop=Math.max(0,skipPop-1)},700)},120);
+  backT=setTimeout(()=>{backT=null;skipPop++;try{history.back()}catch(e){skipPop--}setTimeout(()=>{skipPop=Math.max(0,skipPop-1);if(!skipPop&&pushWait){pushWait=false;doPush()}},700)},120);
 }
 U.openSheet=function(title,body,foot,opts){
   opts=opts||{};
@@ -129,7 +143,7 @@ U.hideSheet=function(){
 U.closeSheet=function(){U.hideSheet();U.render();popHist()};
 U.closeSheetQuiet=function(){U.hideSheet();popHist()};
 window.addEventListener('popstate',()=>{
-  if(skipPop>0){skipPop--;return}
+  if(skipPop>0){skipPop--;if(!skipPop&&pushWait){pushWait=false;doPush()}return}
   if(backT){clearTimeout(backT);backT=null;return}
   if(histOpen){histOpen=false;U.hideSheet();U.render()}
 });
@@ -258,6 +272,9 @@ E.on('clear',st=>{
     html:ray+'<h1>DAY CLEARED</h1><div class="big">'+st.score+' / 4</div><p>'+esc(line)+'</p><button class="btn ovbtn" data-a="chestOpen">Open today\'s chest</button>'});
 });
 E.on('reset',()=>{F.applyTheme();U.render(true)});
+/* another copy of the app saved something: show it, but never rebuild the screen under an open sheet */
+E.on('external',()=>{F.applyTheme();if(!U.sh)U.render()});
+E.on('storagefail',()=>U.sys('This phone refused to save. Storage may be full or blocked. Save a backup file now (Forge, Data vault).','bad'));
 E.on('pwa-update',()=>U.sys('A new version is ready. Close and reopen the app to get it.','',true));
 
 /* quest combo: finishing quests back to back builds a combo with a rising note */
@@ -295,7 +312,10 @@ U.boot=function(){
     if(Object.keys(S.weights).length||S.aura>0){S.welcomed=true;E.persist()}
     else setTimeout(()=>U.welcome&&U.welcome(),250);
   }
-  if(E.unreadable)setTimeout(()=>U.sys('Your saved data could not be read, so nothing was changed. In the Forge, “Restore yesterday’s automatic copy” brings back the last good copy.','bad'),900);
+  /* Samsung Health: a quiet refresh when the app opens and whenever it comes back to the front (at most every 10 minutes) */
+  const hAuto=()=>{if(HS.health&&HS.health.auto)HS.health.auto().then(r=>{if(r&&r.ok&&U.tab==='home'&&!U.sh)U.render()}).catch(()=>{})};
+  hAuto();document.addEventListener('visibilitychange',()=>{if(!document.hidden)hAuto()});
+  if(E.unreadable)setTimeout(()=>U.sys(E.recovered?'Your saved data could not be read, so yesterday\u2019s automatic copy was restored. The unreadable text is kept aside.':'Your saved data could not be read. The text is kept aside and nothing was overwritten. In the Forge, \u201cRestore yesterday\u2019s automatic copy\u201d may help.','bad'),900);
   if(sw.length){
     const missed=sw.filter(x=>!x.pass).length,pass=sw.filter(x=>x.pass).length;
     setTimeout(()=>{

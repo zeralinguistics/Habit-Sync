@@ -20,7 +20,7 @@ const dkey=E.dkey=(d)=>{d=d||E.now();return d.getFullYear()+'-'+String(d.getMont
 const CFG0={name:'PLAYER',kcal:2050,protein:140,goalW:70,gateStep:.5,bossEvery:4,stepGoal:0,strict:'standard',theme:'auto',volume:.8,haptics:true,sound:true,contract:'',partner:'',
   height:166,age:21,deficit:530,water:3000,roast:'playful',camp:true,autoKcal:true,dayStart:3};
 const clone=o=>JSON.parse(JSON.stringify(o));
-const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],gateDates:{},cycle:{a:dkey(),i:0},days:{},custom:{},
+const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],gateDates:{},cycle:{a:dkey(),i:0},cycles:[{a:dkey(),i:0}],passUsed:{},days:{},custom:{},
   rehab:{confirmed:false,next:0},routine:clone(HS.ROUTINE_DEFAULT),last:{},pr:{},fatigue:null,pass:{wk:'',used:false},missStreak:0,swept:{},
   equip:Object.assign({},HS.EQUIP_DEFAULT),owned:{},realm:'r1',realmSeen:1,claimed:{},counters:{pr:0,comeback:0,goals:0,bonus:0},prWeeks:{},camp:null,bestStreak:0,
   lastBackup:0,lastAutoBak:'',reviewSeen:'',welcomed:false,newItems:[],health:{on:false,last:0},remind:{on:false}});
@@ -39,6 +39,11 @@ function migrate(p){
   }
   ['equip','stats','counters','health','remind','rehab','pass','cycle'].forEach(k=>{st[k]=Object.assign({},d[k],st[k])});
   st.equip=Object.assign({},HS.EQUIP_DEFAULT,st.equip);
+  /* the training cycle keeps every anchor, so correcting today's session never rewrites past days */
+  if(!Array.isArray(st.cycles)||!st.cycles.length||!st.cycles.every(c=>c&&typeof c.a==='string'&&typeof c.i==='number'))st.cycles=[Object.assign({},st.cycle)];
+  st.cycles.sort((a,b)=>a.a<b.a?-1:a.a>b.a?1:0);
+  st.cycle=Object.assign({},st.cycles[st.cycles.length-1]);
+  if(st.pass&&st.pass.used&&st.pass.wk&&!st.passUsed[st.pass.wk])st.passUsed[st.pass.wk]=1;
   ['Push','Pull','Legs'].forEach(t=>{if(!Array.isArray(st.routine[t]))st.routine[t]=clone(HS.ROUTINE_DEFAULT[t])});
   Object.keys(st.days).forEach(k=>{
     const x=st.days[k];
@@ -49,15 +54,18 @@ function migrate(p){
   return st;
 }
 let S=blank(),mem=null;
+const readable=t=>{try{JSON.parse(t);return true}catch(e){return false}};
 (function load(){
   let r=null;
   try{r=localStorage.getItem(KEY)}catch(e){}
   if(r){
     try{S=migrate(JSON.parse(r));return}
     catch(e){
-      /* the save could not be read: keep the raw text aside, and stop it from replacing yesterday's automatic copy */
+      /* the save could not be read: keep the raw text aside and fall back to yesterday's automatic copy if there is one */
       try{localStorage.setItem(KEY+'.unreadable',r)}catch(_){}
-      E.unreadable=true;S.lastAutoBak=dkey();
+      E.unreadable=true;
+      let bak=null;try{bak=localStorage.getItem(KEY+'.bak')}catch(_){}
+      if(bak){try{S=migrate(JSON.parse(bak));E.recovered=true;return}catch(_){}}
     }
   }
   if(mem)S=mem;
@@ -65,16 +73,42 @@ let S=blank(),mem=null;
 E.setShift(S.cfg.dayStart);
 E.blank=blank;E.migrate=migrate;E.KEY=KEY;E._set=function(x){S=x;E.setShift(S.cfg.dayStart)};
 E.S=()=>S;
+let warned=false;
 E.persist=function(){
   mem=S;
+  const today=dkey();
+  if(S.lastAutoBak!==today){
+    /* once a day the previous save becomes the automatic copy, unless it cannot be read: then the older good copy stays */
+    try{const prev=localStorage.getItem(KEY);if(prev&&readable(prev))localStorage.setItem(KEY+'.bak',prev)}catch(e){}
+    S.lastAutoBak=today;
+  }
+  try{localStorage.setItem(KEY,JSON.stringify(S));warned=false}
+  catch(e){if(!warned){warned=true;E.emit('storagefail')}}
+};
+/* a second copy of the app (installed app plus a browser tab) must not overwrite this one with stale data: adopt what the other copy saved */
+try{window.addEventListener('storage',e=>{
+  if(e.key!==KEY||!e.newValue)return;
+  try{S=migrate(JSON.parse(e.newValue));E.setShift(S.cfg.dayStart);E.emit('external')}catch(_){}
+})}catch(_){}
+/* before anything destructive, a real save is kept aside once under .undo. It is never rotated, and an empty state never replaces it. */
+E.snapshot=function(){
   try{
-    const today=dkey();
-    if(S.lastAutoBak!==today){const prev=localStorage.getItem(KEY);if(prev)localStorage.setItem(KEY+'.bak',prev);S.lastAutoBak=today}
-    localStorage.setItem(KEY,JSON.stringify(S));
+    const has=Object.keys(S.weights).length>0||S.aura>0||Object.keys(S.days).length>2;
+    if(has)localStorage.setItem(KEY+'.undo',JSON.stringify(S));
   }catch(e){}
 };
+E.undoInfo=function(){
+  try{const t=localStorage.getItem(KEY+'.undo');if(!t)return null;const o=JSON.parse(t);return{days:Object.keys(o.days||{}).length,aura:o.aura||0}}catch(e){return null}
+};
+E.undoLast=function(){
+  let t=null;try{t=localStorage.getItem(KEY+'.undo')}catch(e){}
+  if(!t)throw new Error('There is nothing to undo.');
+  const st=migrate(JSON.parse(t));
+  E.snapshot();S=st;E.setShift(S.cfg.dayStart);E.ensureOwned&&E.ensureOwned();E.persist();E.emit('reset');
+  return Object.keys(S.days).length;
+};
 E.save=function(){E.persist();if(E.afterSave)E.afterSave()};
-E.reset=function(){S=blank();E.setShift(S.cfg.dayStart);E.ensureOwned&&E.ensureOwned();E.save();E.emit('reset')};
+E.reset=function(){E.snapshot();S=blank();E.setShift(S.cfg.dayStart);E.ensureOwned&&E.ensureOwned();E.save();E.emit('reset')};
 E.cfg=()=>S.cfg;
 E.T=function(){
   const camp=E.campInfo&&E.campInfo();
@@ -86,18 +120,29 @@ E.T=function(){
 E.daysBetween=function(a,b){const f=s=>{const x=s.split('-').map(Number);return Date.UTC(x[0],x[1]-1,x[2])/864e5};return Math.round(f(b)-f(a))};
 E.di=()=>(E.now().getDay()+6)%7;
 /* minutes since midnight of the current (shifted) day; past midnight but before the day ends this is above 1440 */
-E.nowMin=()=>{const n=new Date(),sh=E.now(),mid=new Date(sh.getFullYear(),sh.getMonth(),sh.getDate());return Math.floor((n-mid)/60000)};
+E.nowMin=()=>{const n=new Date(),sh=E.now();return n.getHours()*60+n.getMinutes()+(dkey(n)===dkey(sh)?0:1440)};   /* wall-clock minutes, so a daylight-saving change cannot shift them */
 function weekKey(){const d=E.now();d.setDate(d.getDate()-E.di());return dkey(d)}
 E.weekKey=weekKey;
 
 /* ---- days ---- */
 E.day=function(k){k=k||dkey();return S.days[k]||(S.days[k]=DAY0())};
-E.planFor=function(k){k=k||dkey();return ['Push','Pull','Legs','Push','Pull','Legs','Rest'][(((S.cycle.i+E.daysBetween(S.cycle.a,k))%7)+7)%7]};
+const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
+/* each correction starts a new anchor from that day; days before it keep the plan they had */
+const anchorFor=k=>{let a=S.cycles[0];for(let i=0;i<S.cycles.length;i++){if(S.cycles[i].a<=k)a=S.cycles[i];else break}return a};
+E.planFor=function(k){k=k||dkey();const a=anchorFor(k);return SEQ[(((a.i+E.daysBetween(a.a,k))%7)+7)%7]};
 E.setSession=function(type){
-  const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
-  const c=(((S.cycle.i+E.daysBetween(S.cycle.a,dkey()))%7)+7)%7;
+  const k=dkey(),a=anchorFor(k),c=(((a.i+E.daysBetween(a.a,k))%7)+7)%7;
   if(SEQ[c]===type)return;
-  for(let j=0;j<7;j++){const x=(c+j)%7;if(SEQ[x]===type){S.cycle={a:dkey(),i:x};break}}
+  for(let j=0;j<7;j++){
+    const x=(c+j)%7;
+    if(SEQ[x]===type){
+      const ix=S.cycles.findIndex(q=>q.a===k);
+      if(ix>=0)S.cycles[ix]={a:k,i:x};else S.cycles.push({a:k,i:x});
+      S.cycles.sort((p,q)=>p.a<q.a?-1:p.a>q.a?1:0);
+      S.cycle=Object.assign({},S.cycles[S.cycles.length-1]);
+      break;
+    }
+  }
 };
 
 /* ---- nutrition ---- */
@@ -168,11 +213,13 @@ E.checkProtein=function(){
 
 /* ---- weight, gates, journey ---- */
 E.trend=function(){let t=S.startW;Object.keys(S.weights).sort().forEach(k=>{t=t+.25*(S.weights[k]-t)});return Math.round(t*100)/100};
+/* The ladder is anchored on the goal weight, so the last gate is always the goal even if the starting weight is 83.6 or 84.3. */
 E.ladder=function(){
-  const c=S.cfg,step=c.gateStep||.5,out=[],n=Math.max(0,Math.round((S.startW-c.goalW)/step));
-  for(let i=1;i<=n;i++){const kg=Math.round((S.startW-i*step)*10)/10;
-    const boss=kg===c.goalW||(c.bossEvery>0&&Math.abs((S.startW-kg)/c.bossEvery-Math.round((S.startW-kg)/c.bossEvery))<1e-6);
-    out.push({kg:kg,boss:boss})}
+  const c=S.cfg,step=c.gateStep||.5,out=[],n=Math.max(0,Math.ceil((S.startW-c.goalW)/step-1e-9)),base=c.goalW+n*step;
+  for(let i=1;i<=n;i++){
+    const kg=Math.round((c.goalW+(n-i)*step)*10)/10,q=(base-kg)/c.bossEvery;
+    out.push({kg:kg,boss:i===n||(c.bossEvery>0&&Math.abs(q-Math.round(q))<1e-6)});
+  }
   return out;
 };
 E.progress=function(){
@@ -186,7 +233,13 @@ E.logWeight=function(x){
   S.weights[dkey()]=Math.round(x*10)/10;d.weighed=true;
   if(first){E.addAura(15);E.stat('SNS',1)}
   const tr=E.trend(),all=[];
-  E.ladder().forEach(g=>{if(tr<=g.kg+1e-6&&!S.gates.includes(g.kg)){S.gates.push(g.kg);S.gateDates[g.kg]=dkey();E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}});
+  /* gates are a high-water mark: only ground lower than anything cleared before pays, so changing the start weight or the gate size can never pay a gate twice */
+  const lo=S.gates.length?Math.min.apply(null,S.gates):Infinity;
+  E.ladder().forEach(g=>{
+    if(tr>g.kg+1e-6||S.gates.includes(g.kg))return;
+    S.gates.push(g.kg);S.gateDates[g.kg]=dkey();
+    if(g.kg<lo-1e-6){E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}
+  });
   /* several gates can fall at once (a big drop after a break): show the most important one, a boss first */
   const cleared=all.length?(all.find(g=>g.boss)||all[all.length-1]):null;
   E.save();E.emit('weigh',{kg:x,trend:tr});
@@ -231,8 +284,9 @@ E.clearFatigue=function(){
   if(after.L>before.L)E.emit('level',{from:before,to:after,rankUp:after.rank!==before.rank});
   return true;
 };
-E.passLeft=function(){const w=weekKey();if(S.pass.wk!==w)S.pass={wk:w,used:false};return !S.pass.used};
-E.usePass=function(){if(!E.passLeft())return false;S.pass.used=true;E.save();return true};
+const weekOf=k=>{const p=k.split('-').map(Number),d=new Date(p[0],p[1]-1,p[2]);d.setDate(d.getDate()-(d.getDay()+6)%7);return dkey(d)};
+E.passLeft=function(k){return!S.passUsed[k?weekOf(k):weekKey()]};
+E.usePass=function(k){const w=k?weekOf(k):weekKey();if(S.passUsed[w])return false;S.passUsed[w]=1;if(w===weekKey())S.pass={wk:w,used:true};E.save();return true};
 /* A skipped session without pain. Chill: aura only. Standard: aura plus fatigue (half aura, no level-ups until you train).
    Hard: bigger loss, a strength point, and a second miss in a row hits twice. */
 E.penalty=function(why){
@@ -244,24 +298,25 @@ E.penalty=function(why){
   E.save();
   E.emit('penalty',{base:base,extra:extra,strict:st,why:why,streak:S.missStreak});
 };
-E.skipWorkout=function(){const d=E.day();d.workout='lazy';E.penalty('skipped');E.save()};
-E.painDay=function(){const d=E.day();d.workout='pain';E.stat('SNS',1);E.save()};
-E.restPass=function(){if(!E.usePass())return false;const d=E.day();d.workout='pass';E.save();return true};
+/* a day is settled once: a second tap on any of these (or a different one right after) must not change it or cost anything twice */
+E.skipWorkout=function(){const d=E.day();if(d.workout)return;d.workout='lazy';E.penalty('skipped');E.save()};
+E.painDay=function(){const d=E.day();if(d.workout)return;d.workout='pain';E.stat('SNS',1);E.save()};
+E.restPass=function(){const d=E.day();if(d.workout||!E.usePass())return false;d.workout='pass';E.save();return true};
 /* On open: any planned session in the last 3 days with nothing logged is an absence. A rest pass covers one per week. */
 E.sweep=function(){
-  if(S.cfg.strict==='chill')return[];
-  const out=[];
+  const out=[],chill=S.cfg.strict==='chill';let touched=false;
   for(let i=3;i>=1;i--){
     const dt=E.now();dt.setDate(dt.getDate()-i);const k=dkey(dt);
     if(k<=S.start||S.swept[k])continue;
-    S.swept[k]=1;
+    S.swept[k]=1;touched=true;
+    if(chill)continue;   /* Chill never punishes an absence, but the day is still settled so switching to Standard later cannot punish it */
     if(E.planFor(k)==='Rest')continue;
     const d=S.days[k];if(d&&d.workout)continue;
     const dd=E.day(k);
-    if(E.usePass()){dd.workout='pass';out.push({k:k,pass:true})}
+    if(E.usePass(k)){dd.workout='pass';out.push({k:k,pass:true})}
     else{dd.workout='lazy';E.penalty('absent');out.push({k:k,pass:false})}
   }
-  if(out.length)E.save();
+  if(out.length)E.save();else if(touched)E.persist();
   return out;
 };
 E.contractMessage=function(why){
@@ -318,10 +373,12 @@ E.burnEst=function(kg,lift,walkMin,runMin){
 /* ---- rehab and pain ---- */
 E.painDays=function(n){
   const out=[];
-  for(let i=n-1;i>=0;i--){const x=E.now();x.setDate(x.getDate()-i);const k=dkey(x),d=S.days[k];out.push({k:k,r:d&&d.reh&&d.reh.done?d.reh:null,run:d&&d.runFree!=null&&d.workout==='done'?d.runFree:null,d:d})}
+  for(let i=n-1;i>=0;i--){const x=E.now();x.setDate(x.getDate()-i);const k=dkey(x),d=S.days[k];out.push({k:k,r:d&&E.checkedIn(d.reh)?d.reh:null,run:d&&d.runFree!=null&&d.workout==='done'?d.runFree:null,d:d})}
   return out;
 };
 /* proposed pain traffic light, to be confirmed by the physio: green 0-3, amber 4-5, red 6+ or any sharp pain */
+/* a rehab record counts as a pain check-in only when the player really entered something. A finished session with untouched sliders is not "green". */
+E.checkedIn=r=>!!r&&(r.checked===true||r.knee>0||r.back>0||!!r.sharp||(r.checked===undefined&&!!r.done));
 E.light=function(r){if(!r)return null;const m=Math.max(r.knee,r.back);return r.sharp||m>=6?'red':m>=4?'amber':'green'};
 E.exportJSON=()=>JSON.stringify(S,null,1);
 })();

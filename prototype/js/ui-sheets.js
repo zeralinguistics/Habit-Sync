@@ -23,7 +23,7 @@ U.plateSheet=function(meal){
         <div class="sd r"><b id="sP">0</b><span>G PROTEIN</span><em id="sPL"></em></div>
       </div>
       <div class="plate" id="plate"></div><div id="ed"></div>
-      <div class="inrow"><input id="mIn" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" aria-label="Type what you ate" placeholder="Type: 2 chapati, rice 200g, shake 400"><button data-a="mAdd">ADD</button></div>
+      <div class="inrow"><input id="mIn" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" aria-label="Type what you ate" placeholder="Type: 2 chapati, rice 200g, shake 400 kcal"><button data-a="mAdd">ADD</button></div>
       <div class="sug" id="mSug"></div>
       <div class="rows" id="rows"></div></div>`,
     `<button class="btn" data-a="mealDone">Done</button><button class="link" data-a="mealSkip" id="mSkip">Skip this meal</button>`,{full:true,col:true});
@@ -160,7 +160,11 @@ A.mAdd=function(){
   txt.split(/,|\+|\band\b/i).forEach(p=>{
     const r=E.parsePart(p);if(!r||!r.name)return;
     const hit=E.scoreFoods(r.name,sh.meal)[0];
-    if(hit){E.addFood(hit.name,r.g!=null?r.g:r.units!=null?r.units*hit.ug:r.tn!=null?r.tn:null,sh.meal);afterAdd(hit.name,inp,1);return}
+    if(hit){
+      let amt=r.g!=null?r.g:r.units!=null?r.units*hit.ug:r.tn!=null?r.tn:null;
+      if(r.kc!=null&&r.g==null&&hit.k100>0)amt=Math.round(r.kc/hit.k100*100);   /* "momos 500 kcal" means 500 kcal of momos */
+      E.addFood(hit.name,amt,sh.meal);afterAdd(hit.name,inp,1);return;
+    }
     const kc=r.kc!=null?r.kc:r.tn;
     if(kc){E.customFood(r.name,kc);E.addFood(r.name,r.g!=null?r.g:100,sh.meal);afterAdd(r.name,inp,1);return}
     miss.push(r.name);
@@ -197,14 +201,15 @@ function starsOverlay(r){
     html:'<div class="kicker">PLATE RATING</div><div class="stars">'+filled+'</div><p>'+esc(r.stars===3?'Three stars. Protein and a balanced plate.':r.stars===2?'Solid plate. '+(r.notes[0]||''):'Logged. '+(r.notes[0]||''))+'</p><p class="sub">'+r.k+' kcal \u00B7 '+r.p+' g protein \u00B7 +'+(r.stars*4)+' aura</p>'});
 }
 A.mealDone=function(){
-  const sh=U.sh,d=E.day(),m=sh.meal;
+  const sh=U.sh;if(!sh||sh.type!=='plate')return;
+  const d=E.day(),m=sh.meal;
   if(m==='snack'){U.closeSheet();return}
   if(!d.items.some(i=>i.meal===m)){U.sys('Add something first, or skip the meal.','bad');return}
   const r=E.finishMeal(m);
   U.justRow=m;F.play('plate');F.vib([20,30,30]);F.burstCenter(34);U.closeSheet();
   if(r.first)setTimeout(()=>starsOverlay(r),380);
 };
-A.mealSkip=function(){E.day().skip[U.sh.meal]=true;E.save();U.closeSheet();U.sys('Meal skipped. Your calories will show it.','')};
+A.mealSkip=function(){if(!U.sh||U.sh.type!=='plate')return;E.day().skip[U.sh.meal]=true;E.save();U.closeSheet();U.sys('Meal skipped. Your calories will show it.','')};
 document.addEventListener('input',e=>{
   const sh=U.sh;if(!sh||sh.type!=='plate'||e.target.id!=='mIn')return;
   const last=e.target.value.split(/,|\+|\band\b/i).pop(),r=E.parsePart(last);
@@ -256,10 +261,11 @@ function renderGym(){
   }
   const capn=plan==='Legs'?'<div class="note">Your own cap: 30 to 40 kg on squats and deadlifts until your physio says otherwise.</div>':'';
   const fat=E.fatigued()?'<div class="warn" style="margin-top:0">You are fatigued. Finishing this workout is your comeback quest: it lifts the level lock and the aura penalty.</div>':'';
-  U.openSheet(plan+' day',fat+'<div class="hint">Ready?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs'],['Rest','Rest']],plan)+capn+'<div class="small">Wrong session? Pick the right one. The cycle follows from there.</div><div class="small pen">'+penaltyLine()+'</div>',
+  U.openSheet(plan+' day',fat+'<div class="hint">Ready?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+capn+'<div class="small">Wrong session? Pick the right one. The cycle follows from there.</div><div class="small pen">'+penaltyLine()+'</div>',
     '<button class="btn" data-a="liftStart">Start workout</button><button class="btn vio" data-a="gym:pain">Pain day, could not train</button>'+(E.passLeft()?'<button class="btn ghost" data-a="gym:pass">Use my weekly rest pass</button>':'')+'<button class="btn bad" data-a="gym:lazy">Skip with no excuse</button>');
 }
-A.sess=function(v){E.setSession(v);E.save();U.sh.step='choose';renderGym()};
+A.sess=function(v){if(v==='Rest'&&E.planFor()!=='Rest')return;   /* a rest day on demand is the rest pass or a pain day, not a relabel */
+  E.setSession(v);E.save();U.sh.step='choose';renderGym()};
 A.liftStart=function(){U.sh.step='lift';F.play('pick');renderGym()};
 A.gym=function(v){
   const plan=E.planFor();
@@ -306,7 +312,7 @@ function startRest(){
   restTimer=setInterval(()=>{
     const r=U.sh&&U.sh.rest,e=$('#rest');if(!r||!e){stopRest();return}
     const left=Math.max(0,r.end-Date.now());e.hidden=false;
-    $('#restT').textContent=Math.floor(left/60000)+':'+String(Math.ceil(left%60000/1000)%60).padStart(2,'0');
+    const secs=Math.ceil(left/1000);$('#restT').textContent=Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0');
     $('#restR').style.strokeDashoffset=100-left/75000*100;
     if(left<=0){F.play('timer');F.vib([100,80,100,80,200]);stopRest();e.hidden=true}
   },250);
@@ -355,7 +361,7 @@ function parseRx(rx){
 }
 U.rehabSheet=function(tab){
   const d=E.day();
-  if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0};
+  if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0,checked:false};
   stopHold();
   U.sh={type:'rehab',tab:tab||'today',g:null};renderRehab();
 };
@@ -388,7 +394,7 @@ function renderRehab(){
     <div class="sec" id="checkin">Check-in</div>
     <div class="rngl"><span>RIGHT KNEE</span><b id="kv">${r.knee}</b></div><input class="rng" id="kr" type="range" min="0" max="10" value="${r.knee}" aria-label="Right knee pain 0 to 10">
     <div class="rngl"><span>LOWER BACK</span><b id="bv">${r.back}</b></div><input class="rng" id="br" type="range" min="0" max="10" value="${r.back}" aria-label="Lower back pain 0 to 10">
-    <div class="tg"><button data-a="rsharp" aria-pressed="${r.sharp}">Sharp pain on any exercise today</button></div>
+    <div class="tg"><button data-a="rok" aria-pressed="${!!r.checked&&!r.knee&&!r.back&&!r.sharp}">No pain today</button><button data-a="rsharp" aria-pressed="${r.sharp}">Sharp pain on any exercise today</button></div>
     <div class="light ${green}" id="rlight">${lightText(green)}</div>
     ${r.sharp?'<div class="warn">Stop that exercise. Write down which one and tell your physio.</div>':''}`,
     '<button class="btn good" data-a="rehabFinish">Finish rehab</button>');
@@ -400,10 +406,12 @@ A.rt=function(v){
   U.keepScroll(renderRehab);
 };
 A.rconf=function(){const S=E.S();S.rehab.confirmed=!S.rehab.confirmed;E.save();F.play('pick');U.keepScroll(renderRehab)};
-A.rsharp=function(){const r=E.day().reh;r.sharp=!r.sharp;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
+A.rsharp=function(){const r=E.day().reh;r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
+A.rok=function(){const r=E.day().reh;r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
 document.addEventListener('input',e=>{
   const id=e.target.id;if(id!=='kr'&&id!=='br')return;
   const r=E.day().reh;if(!r)return;
+  r.checked=true;
   if(id==='kr'){r.knee=+e.target.value;$('#kv').textContent=r.knee}else{r.back=+e.target.value;$('#bv').textContent=r.back}
   F.play('tick',r.knee*20+r.back*20);
   const l=E.light(r),el=$('#rlight');if(el){el.className='light '+l;el.textContent=lightText(l)}
@@ -419,7 +427,7 @@ A.rguide=function(){
 };
 function renderGuide(){
   const sh=U.sh,g=sh.g,it=g.list[g.i],px=parseRx(it.rx),total=px.sets||1;
-  stopHold();
+  stopHold();g.busy=false;
   const label=px.secs?'Start hold · '+px.secs+' s'+(total>1?' (set '+(g.set+1)+' of '+total+')':''):total>1?'Set '+(g.set+1)+' of '+total+' done':'Done';
   U.openSheet('Guided rehab',
     `<div class="gd"><div class="gtop"><div class="xp"><i style="width:${g.i/g.list.length*100}%"></i></div><span>${g.i+1} / ${g.list.length}</span></div>
@@ -444,27 +452,29 @@ function guideNext(){
   renderGuide();
 }
 A.gset=function(){
-  const sh=U.sh,g=sh.g;if(!g)return;
+  const sh=U.sh,g=sh&&sh.g;if(!g||g.busy)return;   /* busy: the move is finished and the next one is about to be drawn */
   if(g.t){stopHold();renderGuide();return}
   const it=g.list[g.i],px=parseRx(it.rx),total=px.sets||1;
   const finishSet=()=>{
     g.set++;F.play('set');F.vib(18);
     if(g.set>=total){
+      g.busy=true;const i0=g.i;
       E.day().reh.items[it.key]=true;E.save();F.play('quest');F.burstAt($('.gfig'),16);
-      setTimeout(guideNext,350);
+      setTimeout(()=>{if(U.sh&&U.sh.g===g&&g.i===i0)guideNext()},350);
     }else renderGuide();
   };
   if(px.secs){
     const end=Date.now()+px.secs*1000,ring=$('#holdr'),arc=$('#holdArc'),tt=$('#holdT'),btn=$('#gsetBtn');
     ring.hidden=false;btn.textContent='Stop';let lastSec=px.secs;
-    g.t={iv:setInterval(()=>{
-      if(!U.sh||U.sh.g!==g||!g.t){return}
+    const iv=setInterval(()=>{
+      if(!U.sh||U.sh.g!==g||!g.t){clearInterval(iv);return}   /* the sheet closed or moved on: stop ticking */
       const left=Math.max(0,end-Date.now()),s=Math.ceil(left/1000);
       arc.style.strokeDashoffset=100-left/(px.secs*1000)*100;
       tt.textContent=s;
       if(s!==lastSec){lastSec=s;F.play('tick',200+s*10)}
-      if(left<=0){clearInterval(g.t.iv);g.t=null;F.play('timer');F.vib([60,50,60]);finishSet()}
-    },100)};
+      if(left<=0){clearInterval(iv);g.t=null;F.play('timer');F.vib([60,50,60]);finishSet()}
+    },100);
+    g.t={iv:iv};
   }else finishSet();
 };
 A.gprev=function(){const g=U.sh.g;stopHold();g.i=Math.max(0,g.i-1);g.set=0;F.play('tap');renderGuide()};
@@ -526,10 +536,8 @@ A.physio=function(){
   U.openSheet('Physio sheet','<div class="hint">Built only from what you logged. Show it at your next visit.</div><textarea class="ta" id="phT" readonly aria-label="Physio sheet text">'+esc(physioText())+'</textarea>','<button class="btn" data-a="copy">Copy text</button>');
 };
 A.copy=function(){
-  const t=$('#phT');t.select();let ok=false;
-  try{ok=navigator.clipboard&&navigator.clipboard.writeText(t.value)}catch(err){}
-  try{if(!ok)document.execCommand('copy')}catch(err){}
-  U.sys('Copied. Paste it into a message to your physio.','good');
+  const t=$('#phT');
+  U.copyText(t.value,t).then(ok=>U.sys(ok?'Copied. Paste it into a message to your physio.':'Select the text and copy it from the box.','good'));
 };
 
 /* =====================================================================

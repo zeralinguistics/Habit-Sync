@@ -462,6 +462,8 @@ svg.fig{display:block;margin:0 auto;height:118px;width:auto;max-width:100%;backg
 @keyframes radarin{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
+#sheet:not(.on){pointer-events:none}   /* a closing sheet must not catch a second tap while it slides away */
+
 </style>
 <style>
 /* The hunter, his gear, his companions, his auras, and the five realm backdrops. Colours come from theme variables, so a new realm re-tints everything. */
@@ -1828,7 +1830,7 @@ const dkey=E.dkey=(d)=>{d=d||E.now();return d.getFullYear()+'-'+String(d.getMont
 const CFG0={name:'PLAYER',kcal:2050,protein:140,goalW:70,gateStep:.5,bossEvery:4,stepGoal:0,strict:'standard',theme:'auto',volume:.8,haptics:true,sound:true,contract:'',partner:'',
   height:166,age:21,deficit:530,water:3000,roast:'playful',camp:true,autoKcal:true,dayStart:3};
 const clone=o=>JSON.parse(JSON.stringify(o));
-const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],gateDates:{},cycle:{a:dkey(),i:0},days:{},custom:{},
+const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],gateDates:{},cycle:{a:dkey(),i:0},cycles:[{a:dkey(),i:0}],passUsed:{},days:{},custom:{},
   rehab:{confirmed:false,next:0},routine:clone(HS.ROUTINE_DEFAULT),last:{},pr:{},fatigue:null,pass:{wk:'',used:false},missStreak:0,swept:{},
   equip:Object.assign({},HS.EQUIP_DEFAULT),owned:{},realm:'r1',realmSeen:1,claimed:{},counters:{pr:0,comeback:0,goals:0,bonus:0},prWeeks:{},camp:null,bestStreak:0,
   lastBackup:0,lastAutoBak:'',reviewSeen:'',welcomed:false,newItems:[],health:{on:false,last:0},remind:{on:false}});
@@ -1847,6 +1849,11 @@ function migrate(p){
   }
   ['equip','stats','counters','health','remind','rehab','pass','cycle'].forEach(k=>{st[k]=Object.assign({},d[k],st[k])});
   st.equip=Object.assign({},HS.EQUIP_DEFAULT,st.equip);
+  /* the training cycle keeps every anchor, so correcting today's session never rewrites past days */
+  if(!Array.isArray(st.cycles)||!st.cycles.length||!st.cycles.every(c=>c&&typeof c.a==='string'&&typeof c.i==='number'))st.cycles=[Object.assign({},st.cycle)];
+  st.cycles.sort((a,b)=>a.a<b.a?-1:a.a>b.a?1:0);
+  st.cycle=Object.assign({},st.cycles[st.cycles.length-1]);
+  if(st.pass&&st.pass.used&&st.pass.wk&&!st.passUsed[st.pass.wk])st.passUsed[st.pass.wk]=1;
   ['Push','Pull','Legs'].forEach(t=>{if(!Array.isArray(st.routine[t]))st.routine[t]=clone(HS.ROUTINE_DEFAULT[t])});
   Object.keys(st.days).forEach(k=>{
     const x=st.days[k];
@@ -1857,15 +1864,18 @@ function migrate(p){
   return st;
 }
 let S=blank(),mem=null;
+const readable=t=>{try{JSON.parse(t);return true}catch(e){return false}};
 (function load(){
   let r=null;
   try{r=localStorage.getItem(KEY)}catch(e){}
   if(r){
     try{S=migrate(JSON.parse(r));return}
     catch(e){
-      /* the save could not be read: keep the raw text aside, and stop it from replacing yesterday's automatic copy */
+      /* the save could not be read: keep the raw text aside and fall back to yesterday's automatic copy if there is one */
       try{localStorage.setItem(KEY+'.unreadable',r)}catch(_){}
-      E.unreadable=true;S.lastAutoBak=dkey();
+      E.unreadable=true;
+      let bak=null;try{bak=localStorage.getItem(KEY+'.bak')}catch(_){}
+      if(bak){try{S=migrate(JSON.parse(bak));E.recovered=true;return}catch(_){}}
     }
   }
   if(mem)S=mem;
@@ -1873,16 +1883,42 @@ let S=blank(),mem=null;
 E.setShift(S.cfg.dayStart);
 E.blank=blank;E.migrate=migrate;E.KEY=KEY;E._set=function(x){S=x;E.setShift(S.cfg.dayStart)};
 E.S=()=>S;
+let warned=false;
 E.persist=function(){
   mem=S;
+  const today=dkey();
+  if(S.lastAutoBak!==today){
+    /* once a day the previous save becomes the automatic copy, unless it cannot be read: then the older good copy stays */
+    try{const prev=localStorage.getItem(KEY);if(prev&&readable(prev))localStorage.setItem(KEY+'.bak',prev)}catch(e){}
+    S.lastAutoBak=today;
+  }
+  try{localStorage.setItem(KEY,JSON.stringify(S));warned=false}
+  catch(e){if(!warned){warned=true;E.emit('storagefail')}}
+};
+/* a second copy of the app (installed app plus a browser tab) must not overwrite this one with stale data: adopt what the other copy saved */
+try{window.addEventListener('storage',e=>{
+  if(e.key!==KEY||!e.newValue)return;
+  try{S=migrate(JSON.parse(e.newValue));E.setShift(S.cfg.dayStart);E.emit('external')}catch(_){}
+})}catch(_){}
+/* before anything destructive, a real save is kept aside once under .undo. It is never rotated, and an empty state never replaces it. */
+E.snapshot=function(){
   try{
-    const today=dkey();
-    if(S.lastAutoBak!==today){const prev=localStorage.getItem(KEY);if(prev)localStorage.setItem(KEY+'.bak',prev);S.lastAutoBak=today}
-    localStorage.setItem(KEY,JSON.stringify(S));
+    const has=Object.keys(S.weights).length>0||S.aura>0||Object.keys(S.days).length>2;
+    if(has)localStorage.setItem(KEY+'.undo',JSON.stringify(S));
   }catch(e){}
 };
+E.undoInfo=function(){
+  try{const t=localStorage.getItem(KEY+'.undo');if(!t)return null;const o=JSON.parse(t);return{days:Object.keys(o.days||{}).length,aura:o.aura||0}}catch(e){return null}
+};
+E.undoLast=function(){
+  let t=null;try{t=localStorage.getItem(KEY+'.undo')}catch(e){}
+  if(!t)throw new Error('There is nothing to undo.');
+  const st=migrate(JSON.parse(t));
+  E.snapshot();S=st;E.setShift(S.cfg.dayStart);E.ensureOwned&&E.ensureOwned();E.persist();E.emit('reset');
+  return Object.keys(S.days).length;
+};
 E.save=function(){E.persist();if(E.afterSave)E.afterSave()};
-E.reset=function(){S=blank();E.setShift(S.cfg.dayStart);E.ensureOwned&&E.ensureOwned();E.save();E.emit('reset')};
+E.reset=function(){E.snapshot();S=blank();E.setShift(S.cfg.dayStart);E.ensureOwned&&E.ensureOwned();E.save();E.emit('reset')};
 E.cfg=()=>S.cfg;
 E.T=function(){
   const camp=E.campInfo&&E.campInfo();
@@ -1894,18 +1930,29 @@ E.T=function(){
 E.daysBetween=function(a,b){const f=s=>{const x=s.split('-').map(Number);return Date.UTC(x[0],x[1]-1,x[2])/864e5};return Math.round(f(b)-f(a))};
 E.di=()=>(E.now().getDay()+6)%7;
 /* minutes since midnight of the current (shifted) day; past midnight but before the day ends this is above 1440 */
-E.nowMin=()=>{const n=new Date(),sh=E.now(),mid=new Date(sh.getFullYear(),sh.getMonth(),sh.getDate());return Math.floor((n-mid)/60000)};
+E.nowMin=()=>{const n=new Date(),sh=E.now();return n.getHours()*60+n.getMinutes()+(dkey(n)===dkey(sh)?0:1440)};   /* wall-clock minutes, so a daylight-saving change cannot shift them */
 function weekKey(){const d=E.now();d.setDate(d.getDate()-E.di());return dkey(d)}
 E.weekKey=weekKey;
 
 /* ---- days ---- */
 E.day=function(k){k=k||dkey();return S.days[k]||(S.days[k]=DAY0())};
-E.planFor=function(k){k=k||dkey();return ['Push','Pull','Legs','Push','Pull','Legs','Rest'][(((S.cycle.i+E.daysBetween(S.cycle.a,k))%7)+7)%7]};
+const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
+/* each correction starts a new anchor from that day; days before it keep the plan they had */
+const anchorFor=k=>{let a=S.cycles[0];for(let i=0;i<S.cycles.length;i++){if(S.cycles[i].a<=k)a=S.cycles[i];else break}return a};
+E.planFor=function(k){k=k||dkey();const a=anchorFor(k);return SEQ[(((a.i+E.daysBetween(a.a,k))%7)+7)%7]};
 E.setSession=function(type){
-  const SEQ=['Push','Pull','Legs','Push','Pull','Legs','Rest'];
-  const c=(((S.cycle.i+E.daysBetween(S.cycle.a,dkey()))%7)+7)%7;
+  const k=dkey(),a=anchorFor(k),c=(((a.i+E.daysBetween(a.a,k))%7)+7)%7;
   if(SEQ[c]===type)return;
-  for(let j=0;j<7;j++){const x=(c+j)%7;if(SEQ[x]===type){S.cycle={a:dkey(),i:x};break}}
+  for(let j=0;j<7;j++){
+    const x=(c+j)%7;
+    if(SEQ[x]===type){
+      const ix=S.cycles.findIndex(q=>q.a===k);
+      if(ix>=0)S.cycles[ix]={a:k,i:x};else S.cycles.push({a:k,i:x});
+      S.cycles.sort((p,q)=>p.a<q.a?-1:p.a>q.a?1:0);
+      S.cycle=Object.assign({},S.cycles[S.cycles.length-1]);
+      break;
+    }
+  }
 };
 
 /* ---- nutrition ---- */
@@ -1976,11 +2023,13 @@ E.checkProtein=function(){
 
 /* ---- weight, gates, journey ---- */
 E.trend=function(){let t=S.startW;Object.keys(S.weights).sort().forEach(k=>{t=t+.25*(S.weights[k]-t)});return Math.round(t*100)/100};
+/* The ladder is anchored on the goal weight, so the last gate is always the goal even if the starting weight is 83.6 or 84.3. */
 E.ladder=function(){
-  const c=S.cfg,step=c.gateStep||.5,out=[],n=Math.max(0,Math.round((S.startW-c.goalW)/step));
-  for(let i=1;i<=n;i++){const kg=Math.round((S.startW-i*step)*10)/10;
-    const boss=kg===c.goalW||(c.bossEvery>0&&Math.abs((S.startW-kg)/c.bossEvery-Math.round((S.startW-kg)/c.bossEvery))<1e-6);
-    out.push({kg:kg,boss:boss})}
+  const c=S.cfg,step=c.gateStep||.5,out=[],n=Math.max(0,Math.ceil((S.startW-c.goalW)/step-1e-9)),base=c.goalW+n*step;
+  for(let i=1;i<=n;i++){
+    const kg=Math.round((c.goalW+(n-i)*step)*10)/10,q=(base-kg)/c.bossEvery;
+    out.push({kg:kg,boss:i===n||(c.bossEvery>0&&Math.abs(q-Math.round(q))<1e-6)});
+  }
   return out;
 };
 E.progress=function(){
@@ -1994,7 +2043,13 @@ E.logWeight=function(x){
   S.weights[dkey()]=Math.round(x*10)/10;d.weighed=true;
   if(first){E.addAura(15);E.stat('SNS',1)}
   const tr=E.trend(),all=[];
-  E.ladder().forEach(g=>{if(tr<=g.kg+1e-6&&!S.gates.includes(g.kg)){S.gates.push(g.kg);S.gateDates[g.kg]=dkey();E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}});
+  /* gates are a high-water mark: only ground lower than anything cleared before pays, so changing the start weight or the gate size can never pay a gate twice */
+  const lo=S.gates.length?Math.min.apply(null,S.gates):Infinity;
+  E.ladder().forEach(g=>{
+    if(tr>g.kg+1e-6||S.gates.includes(g.kg))return;
+    S.gates.push(g.kg);S.gateDates[g.kg]=dkey();
+    if(g.kg<lo-1e-6){E.addAura(150);all.push(g);if(E.onGate)E.onGate(g)}
+  });
   /* several gates can fall at once (a big drop after a break): show the most important one, a boss first */
   const cleared=all.length?(all.find(g=>g.boss)||all[all.length-1]):null;
   E.save();E.emit('weigh',{kg:x,trend:tr});
@@ -2039,8 +2094,9 @@ E.clearFatigue=function(){
   if(after.L>before.L)E.emit('level',{from:before,to:after,rankUp:after.rank!==before.rank});
   return true;
 };
-E.passLeft=function(){const w=weekKey();if(S.pass.wk!==w)S.pass={wk:w,used:false};return !S.pass.used};
-E.usePass=function(){if(!E.passLeft())return false;S.pass.used=true;E.save();return true};
+const weekOf=k=>{const p=k.split('-').map(Number),d=new Date(p[0],p[1]-1,p[2]);d.setDate(d.getDate()-(d.getDay()+6)%7);return dkey(d)};
+E.passLeft=function(k){return!S.passUsed[k?weekOf(k):weekKey()]};
+E.usePass=function(k){const w=k?weekOf(k):weekKey();if(S.passUsed[w])return false;S.passUsed[w]=1;if(w===weekKey())S.pass={wk:w,used:true};E.save();return true};
 /* A skipped session without pain. Chill: aura only. Standard: aura plus fatigue (half aura, no level-ups until you train).
    Hard: bigger loss, a strength point, and a second miss in a row hits twice. */
 E.penalty=function(why){
@@ -2052,24 +2108,25 @@ E.penalty=function(why){
   E.save();
   E.emit('penalty',{base:base,extra:extra,strict:st,why:why,streak:S.missStreak});
 };
-E.skipWorkout=function(){const d=E.day();d.workout='lazy';E.penalty('skipped');E.save()};
-E.painDay=function(){const d=E.day();d.workout='pain';E.stat('SNS',1);E.save()};
-E.restPass=function(){if(!E.usePass())return false;const d=E.day();d.workout='pass';E.save();return true};
+/* a day is settled once: a second tap on any of these (or a different one right after) must not change it or cost anything twice */
+E.skipWorkout=function(){const d=E.day();if(d.workout)return;d.workout='lazy';E.penalty('skipped');E.save()};
+E.painDay=function(){const d=E.day();if(d.workout)return;d.workout='pain';E.stat('SNS',1);E.save()};
+E.restPass=function(){const d=E.day();if(d.workout||!E.usePass())return false;d.workout='pass';E.save();return true};
 /* On open: any planned session in the last 3 days with nothing logged is an absence. A rest pass covers one per week. */
 E.sweep=function(){
-  if(S.cfg.strict==='chill')return[];
-  const out=[];
+  const out=[],chill=S.cfg.strict==='chill';let touched=false;
   for(let i=3;i>=1;i--){
     const dt=E.now();dt.setDate(dt.getDate()-i);const k=dkey(dt);
     if(k<=S.start||S.swept[k])continue;
-    S.swept[k]=1;
+    S.swept[k]=1;touched=true;
+    if(chill)continue;   /* Chill never punishes an absence, but the day is still settled so switching to Standard later cannot punish it */
     if(E.planFor(k)==='Rest')continue;
     const d=S.days[k];if(d&&d.workout)continue;
     const dd=E.day(k);
-    if(E.usePass()){dd.workout='pass';out.push({k:k,pass:true})}
+    if(E.usePass(k)){dd.workout='pass';out.push({k:k,pass:true})}
     else{dd.workout='lazy';E.penalty('absent');out.push({k:k,pass:false})}
   }
-  if(out.length)E.save();
+  if(out.length)E.save();else if(touched)E.persist();
   return out;
 };
 E.contractMessage=function(why){
@@ -2126,10 +2183,12 @@ E.burnEst=function(kg,lift,walkMin,runMin){
 /* ---- rehab and pain ---- */
 E.painDays=function(n){
   const out=[];
-  for(let i=n-1;i>=0;i--){const x=E.now();x.setDate(x.getDate()-i);const k=dkey(x),d=S.days[k];out.push({k:k,r:d&&d.reh&&d.reh.done?d.reh:null,run:d&&d.runFree!=null&&d.workout==='done'?d.runFree:null,d:d})}
+  for(let i=n-1;i>=0;i--){const x=E.now();x.setDate(x.getDate()-i);const k=dkey(x),d=S.days[k];out.push({k:k,r:d&&E.checkedIn(d.reh)?d.reh:null,run:d&&d.runFree!=null&&d.workout==='done'?d.runFree:null,d:d})}
   return out;
 };
 /* proposed pain traffic light, to be confirmed by the physio: green 0-3, amber 4-5, red 6+ or any sharp pain */
+/* a rehab record counts as a pain check-in only when the player really entered something. A finished session with untouched sliders is not "green". */
+E.checkedIn=r=>!!r&&(r.checked===true||r.knee>0||r.back>0||!!r.sharp||(r.checked===undefined&&!!r.done));
 E.light=function(r){if(!r)return null;const m=Math.max(r.knee,r.back);return r.sharp||m>=6?'red':m>=4?'amber':'green'};
 E.exportJSON=()=>JSON.stringify(S,null,1);
 })();
@@ -2169,7 +2228,8 @@ function dayPred(kind,d,k){
 /* a pain day, a rest pass and a rest day never break a training streak. The clear streak forgives one gap: never miss twice. */
 E.streakInfo=function(kind){
   const s=S();let n=0,gap=0,start=null;
-  for(let i=0;i<500;i++){
+  const span=Math.max(0,E.daysBetween(s.start,dkey()))+1;   /* the whole history: a streak must not slide after a year and a half */
+  for(let i=0;i<=span;i++){
     const k=keyOffset(-i);
     if(k<s.start&&i>0)break;
     const v=dayPred(kind,s.days[k],k);
@@ -2358,11 +2418,12 @@ E.campInfo=function(){
   return{left:left+1,kcal:s.camp.kcal};
 };
 /* called from logWeight for every gate crossed */
+/* the automatic calorie step only ever lowers the target: one you set lower yourself stays */
 E.onGate=function(g){
   const s=S();
   if(!g.boss)return;
   const n=E.bossKgs().indexOf(g.kg)+1,last=g.kg===s.cfg.goalW;
-  if(s.cfg.autoKcal&&!last){const to=E.kcalFor(g.kg);if(to&&to!==s.cfg.kcal){const from=s.cfg.kcal;s.cfg.kcal=to;E.emit('kcal',{from:from,to:to})}}
+  if(s.cfg.autoKcal&&!last){const to=E.kcalFor(g.kg);if(to&&to<s.cfg.kcal){const from=s.cfg.kcal;s.cfg.kcal=to;E.emit('kcal',{from:from,to:to})}}
   if(s.cfg.camp!==false&&!last){s.camp={from:dkey(),until:addDays(dkey(),6),kcal:E.maint(E.trend())};E.emit('camp',s.camp)}
   E.emit('boss',{kg:g.kg,n:n,last:last});
 };
@@ -2439,7 +2500,7 @@ E.report=function(){
    rest days get the block, aerobic and optional extras. The pain traffic light holds the strength work back when the knee or back is amber or red. */
 E.lastLight=function(){
   const s=S();
-  for(let i=0;i<2;i++){const d=s.days[keyOffset(-i)];if(d&&d.reh&&(d.reh.done||d.reh.knee||d.reh.back||d.reh.sharp))return E.light(d.reh)}
+  for(let i=0;i<2;i++){const d=s.days[keyOffset(-i)];if(d&&E.checkedIn(d.reh))return E.light(d.reh)}
   return null;
 };
 E.rehabToday=function(k,noHold){
@@ -2625,20 +2686,22 @@ E.mood=function(){
 
 /* ======================== data vault: backup, restore, compaction ======================== */
 E.backupText=function(){
-  const s=S();s.lastBackup=Date.now();E.persist();
+  const s=S();
   return JSON.stringify({app:'habit-sync',version:s.v,exported:new Date().toISOString(),state:s});
 };
+/* the backup reminder is silenced only once the backup has really been handed over (saved, shared or copied) */
+E.markBackup=function(){S().lastBackup=Date.now();E.persist()};
 E.importText=function(txt){
   let obj;
   try{obj=JSON.parse(txt)}catch(e){throw new Error('That is not a Habit Sync backup (could not read it).')}
   const st=obj&&obj.app==='habit-sync'?obj.state:(obj&&obj.days&&obj.cfg?obj:null);
   if(!st||!st.days||!st.cfg)throw new Error('That file is not a Habit Sync backup.');
-  E._set(E.migrate(st));E.ensureOwned();E.persist();E.emit('reset');
+  const next=E.migrate(st);E.snapshot();E._set(next);E.ensureOwned();E.persist();E.emit('reset');
   return Object.keys(S().days).length;
 };
 E.restoreAuto=function(){
   const t=localStorage.getItem(E.KEY+'.bak');if(!t)throw new Error('No automatic backup yet. One is made on the first save of each day.');
-  E._set(E.migrate(JSON.parse(t)));E.ensureOwned();E.persist();E.emit('reset');
+  const next=E.migrate(JSON.parse(t));E.snapshot();E._set(next);E.ensureOwned();E.persist();E.emit('reset');
   return Object.keys(S().days).length;
 };
 E.dataInfo=function(){
@@ -3329,6 +3392,15 @@ U.flame=function(n){
   return '<svg class="flame f-'+t+'" viewBox="-14 -44 28 46" aria-hidden="true"><path class="fl1" d="M0 0 C-10 -4 -12 -16 -4 -24 C-3 -18 0 -16 1 -20 C2 -28 -2 -32 2 -40 C10 -30 14 -14 8 -4 C6 -1 3 0 0 0 Z"/><path class="fl2" d="M0 -2 C-5 -5 -5 -12 -1 -16 C0 -12 2 -11 3 -14 C6 -9 5 -4 0 -2Z"/></svg>';
 };
 
+/* copy text to the clipboard; resolves true only when it really worked (a rejected write must not claim success) */
+U.copyText=function(text,fallbackEl){
+  const viaExec=()=>{try{if(fallbackEl){fallbackEl.focus();fallbackEl.select();return!!document.execCommand('copy')}}catch(e){}return false};
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text).then(()=>true,()=>viaExec());
+  }catch(e){}
+  return Promise.resolve(viaExec());
+};
+
 /* ---------------- toasts ---------------- */
 let tSys;
 U.sys=function(msg,kind,silent){
@@ -3365,26 +3437,31 @@ function nextCele(){
   if(c.fx)try{c.fx()}catch(e){}
   clearTimeout(tOv);tOv=setTimeout(closeCele,c.ms||2800);
 }
+let closing=false;
 function closeCele(){
-  clearTimeout(tOv);$('#ov').className='';
-  setTimeout(nextCele,260);
+  if(closing)return;   /* two quick taps must close one card, not skip the next one unseen */
+  closing=true;clearTimeout(tOv);$('#ov').className='';
+  setTimeout(()=>{closing=false;nextCele()},260);
 }
 U.act.ovClose=closeCele;
-U.clearCele=function(){Q.length=0;freshGear=[];clearTimeout(tOv);clearTimeout(kick);$('#ov').className='';showing=false};
+U.clearCele=function(){Q.length=0;freshGear=[];clearTimeout(tOv);clearTimeout(kick);$('#ov').className='';showing=false;closing=false};
 U.overlay=function(kind,h,big,p,ms){U.cele({kind:kind||'',h:h,big:big,p:p,ms:ms})};
 
 /* ---------------- sheets ---------------- */
 /* One history entry per open sheet, so the phone's Back button closes the sheet instead of leaving the app.
    The "pop" is delayed a moment: if another sheet opens straight away it reuses the same entry. */
-let histOpen=false,backT=null,skipPop=0;
+let histOpen=false,backT=null,skipPop=0,pushWait=false;
+const doPush=()=>{try{history.pushState({hs:1},'');histOpen=true}catch(e){}};
 function pushHist(){
   if(backT){clearTimeout(backT);backT=null;histOpen=true;return}
-  if(!histOpen){try{history.pushState({hs:1},'');histOpen=true}catch(e){}}
+  if(histOpen)return;
+  if(skipPop>0){pushWait=true;return}   /* our own Back is still landing: push right after it, never in the middle of it */
+  doPush();
 }
 function popHist(){
-  if(!histOpen)return;
+  if(!histOpen){pushWait=false;return}
   histOpen=false;
-  backT=setTimeout(()=>{backT=null;skipPop++;try{history.back()}catch(e){skipPop--}setTimeout(()=>{skipPop=Math.max(0,skipPop-1)},700)},120);
+  backT=setTimeout(()=>{backT=null;skipPop++;try{history.back()}catch(e){skipPop--}setTimeout(()=>{skipPop=Math.max(0,skipPop-1);if(!skipPop&&pushWait){pushWait=false;doPush()}},700)},120);
 }
 U.openSheet=function(title,body,foot,opts){
   opts=opts||{};
@@ -3401,7 +3478,7 @@ U.hideSheet=function(){
 U.closeSheet=function(){U.hideSheet();U.render();popHist()};
 U.closeSheetQuiet=function(){U.hideSheet();popHist()};
 window.addEventListener('popstate',()=>{
-  if(skipPop>0){skipPop--;return}
+  if(skipPop>0){skipPop--;if(!skipPop&&pushWait){pushWait=false;doPush()}return}
   if(backT){clearTimeout(backT);backT=null;return}
   if(histOpen){histOpen=false;U.hideSheet();U.render()}
 });
@@ -3530,6 +3607,9 @@ E.on('clear',st=>{
     html:ray+'<h1>DAY CLEARED</h1><div class="big">'+st.score+' / 4</div><p>'+esc(line)+'</p><button class="btn ovbtn" data-a="chestOpen">Open today\'s chest</button>'});
 });
 E.on('reset',()=>{F.applyTheme();U.render(true)});
+/* another copy of the app saved something: show it, but never rebuild the screen under an open sheet */
+E.on('external',()=>{F.applyTheme();if(!U.sh)U.render()});
+E.on('storagefail',()=>U.sys('This phone refused to save. Storage may be full or blocked. Save a backup file now (Forge, Data vault).','bad'));
 E.on('pwa-update',()=>U.sys('A new version is ready. Close and reopen the app to get it.','',true));
 
 /* quest combo: finishing quests back to back builds a combo with a rising note */
@@ -3567,7 +3647,10 @@ U.boot=function(){
     if(Object.keys(S.weights).length||S.aura>0){S.welcomed=true;E.persist()}
     else setTimeout(()=>U.welcome&&U.welcome(),250);
   }
-  if(E.unreadable)setTimeout(()=>U.sys('Your saved data could not be read, so nothing was changed. In the Forge, “Restore yesterday’s automatic copy” brings back the last good copy.','bad'),900);
+  /* Samsung Health: a quiet refresh when the app opens and whenever it comes back to the front (at most every 10 minutes) */
+  const hAuto=()=>{if(HS.health&&HS.health.auto)HS.health.auto().then(r=>{if(r&&r.ok&&U.tab==='home'&&!U.sh)U.render()}).catch(()=>{})};
+  hAuto();document.addEventListener('visibilitychange',()=>{if(!document.hidden)hAuto()});
+  if(E.unreadable)setTimeout(()=>U.sys(E.recovered?'Your saved data could not be read, so yesterday\u2019s automatic copy was restored. The unreadable text is kept aside.':'Your saved data could not be read. The text is kept aside and nothing was overwritten. In the Forge, \u201cRestore yesterday\u2019s automatic copy\u201d may help.','bad'),900);
   if(sw.length){
     const missed=sw.filter(x=>!x.pass).length,pass=sw.filter(x=>x.pass).length;
     setTimeout(()=>{
@@ -4049,7 +4132,7 @@ U.views.path=function(){
     <div class="gtxt"><div class="gname">SHADOW MONARCH</div><div class="gbig"><b id="syncNum">0</b><span>% SYNC</span></div>
       <div class="gline2">${S.startW.toFixed(1)} → <b>${tr.toFixed(1)}</b> → ${cfg.goalW.toFixed(1)} kg</div>
       <div class="pace ${pace.c}">${esc(pace.t)}</div></div></div>
-    <div class="camp"><div class="campl"><span>CAMPAIGN</span><b>WEEK ${wkNo} / ${pl.weeks}</b></div><div class="xp"><i style="width:${wkNo/pl.weeks*100}%"></i></div>
+    <div class="camp"><div class="campl"><span>CAMPAIGN</span><b>${pl.weeks?'WEEK '+wkNo+' / '+pl.weeks:'NO GATES LEFT'}</b></div><div class="xp"><i style="width:${pl.weeks?wkNo/pl.weeks*100:100}%"></i></div>
       <div class="gsmall">At plan pace you finish around <b>${U.dateY(pl.finish)}</b>${eta.real?'. At your recent pace: '+U.dateY(eta.date)+'.':'.'} Plans bend. The habit is what counts.</div></div></div>
   <div class="win rise" style="--i:1"><div class="wt">[ Next up ]</div><div class="wb"><div class="duo">
     <div class="tile2"><span>NEXT GATE</span><b>${ng.next?ng.next.kg+' kg':'Done'}</b><small>${ng.next?ng.toNext.toFixed(1)+' kg to go':'Every gate cleared'}</small></div>
@@ -4252,7 +4335,8 @@ function vaultHtml(){
    <div class="stack2"><button class="btn good" data-a="bkSave">${IC.down.replace('<svg','<svg class="bi"')}Save a backup file</button>
     <button class="btn ghost" data-a="bkCopy">Copy backup text</button>
     <label class="btn ghost filebtn">Restore from a backup file<input type="file" accept=".json,application/json,text/plain" id="restoreFile" hidden></label>
-    <button class="btn ghost" data-a="bkAuto">Restore yesterday’s automatic copy</button></div>
+    <button class="btn ghost" data-a="bkAuto">Restore yesterday’s automatic copy</button>
+    ${E.undoInfo()?'<button class="btn ghost" data-a="undo">Undo the last reset or restore ('+E.undoInfo().days+' days kept)</button>':''}</div>
    <div class="small">${P.persisted===true?'Storage is protected: the browser will not clear it when space runs low.':P.persisted===false?'The browser may clear storage if the phone runs very low on space. Install the app or save backups.':'Storage protection status is unknown here.'}
      ${P.native?' You are using the Android app, which keeps its data in private app storage.':P.standalone?' Installed as an app.':''}</div>
    ${P.deferred?'<div class="stack2"><button class="btn vio" data-a="install">Install on this phone</button></div>':''}
@@ -4359,10 +4443,11 @@ A.bkSave=async function(){
   const txt=E.backupText(),name='habit-sync-backup-'+stamp()+'.json';
   const showText=(why)=>{$('#exWrap').innerHTML='<div class="small">'+why+'</div><textarea class="ta" id="bkText" readonly aria-label="Backup text">'+esc(txt)+'</textarea>'};
   try{
-    if(HS.native&&HS.native.native()&&await HS.native.saveFile(name,txt)){U.sys('Backup ready. Choose where to keep it: Drive, WhatsApp, Files.','good');U.render();return}
+    if(HS.native&&HS.native.native()&&await HS.native.saveFile(name,txt)){E.markBackup();U.sys('Backup ready. Choose where to keep it: Drive, WhatsApp, Files.','good');U.render();return}
     const blob=new Blob([txt],{type:'application/json'}),a=document.createElement('a');
     a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+    E.markBackup();
     U.sys('Backup file requested: '+name+'.','good');
     /* some embedded viewers silently block downloads, so the text is always shown as a fallback */
     showText('If no file appeared in your downloads, copy this text and keep it somewhere safe. It is the same backup.');
@@ -4372,11 +4457,14 @@ A.bkSave=async function(){
   E.dataInfo();
 };
 A.bkCopy=function(){
-  const txt=E.backupText();let ok=false;
-  try{ok=!!(navigator.clipboard&&navigator.clipboard.writeText(txt))}catch(e){}
-  $('#exWrap').innerHTML='<div class="small">'+(ok?'Copied to the clipboard. Paste it into a note or message to yourself.':'Select all of this text and copy it:')+'</div><textarea class="ta" id="bkText" readonly aria-label="Backup text">'+esc(txt)+'</textarea>';
-  if(!ok){const t=$('#bkText');t.focus();t.select()}
-  U.sys(ok?'Backup text copied.':'Select and copy the text below.','good');
+  const txt=E.backupText();
+  $('#exWrap').innerHTML='<div class="small" id="bkMsg">Select all of this text and copy it:</div><textarea class="ta" id="bkText" readonly aria-label="Backup text">'+esc(txt)+'</textarea>';
+  const ta=$('#bkText');
+  U.copyText(txt,ta).then(ok=>{
+    const m=$('#bkMsg');if(!m)return;
+    if(ok){E.markBackup();m.textContent='Copied to the clipboard. Paste it into a note or message to yourself.';U.sys('Backup text copied.','good')}
+    else{ta.focus();ta.select();U.sys('Select and copy the text below.','good')}
+  });
 };
 function onRestoreFile(e){
   const f=e.target.files&&e.target.files[0];if(!f)return;
@@ -4387,13 +4475,25 @@ function onRestoreFile(e){
   };
   r.readAsText(f);
 }
+/* a destructive button needs a deliberate second tap: not an instant double tap, and not after it has timed out */
+function armed(el,label,again){
+  const now=Date.now();
+  if(el.dataset.armed){if(now-(+el.dataset.at||0)<800)return false;return true}
+  el.dataset.armed='1';el.dataset.at=now;el.textContent=again;
+  setTimeout(()=>{if(el.isConnected){delete el.dataset.armed;delete el.dataset.at;el.textContent=label}},3500);
+  return false;
+}
 A.bkAuto=function(b,el){
-  if(!el.dataset.armed){el.dataset.armed='1';el.textContent='Tap again to replace everything with the automatic copy';setTimeout(()=>{if(el.isConnected){delete el.dataset.armed;el.textContent='Restore yesterday’s automatic copy'}},3500);return}
-  try{const n=E.restoreAuto();U.sys('Restored '+n+' days from the automatic copy.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
+  if(!armed(el,'Restore yesterday’s automatic copy','Tap again to replace everything with the automatic copy'))return;
+  try{const n=E.restoreAuto();U.sys('Restored '+n+' days from the automatic copy. You can undo this in the Data vault.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
+};
+A.undo=function(b,el){
+  if(!armed(el,el.textContent,'Tap again to bring back what you had before'))return;
+  try{const n=E.undoLast();U.sys('Back to '+n+' days, as before.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
 };
 A.reset=function(v,b){
-  if(b.dataset.armed){E.reset();U.tab='home';F.applyTheme();U.render(true);U.sys('Everything cleared.','')}
-  else{b.dataset.armed='1';b.textContent='Tap again to erase everything';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='Reset everything'}},3000)}
+  if(!armed(b,'Reset everything','Tap again to erase everything'))return;
+  E.reset();U.tab='home';F.applyTheme();U.render(true);U.sys('Everything cleared. You can undo this in the Data vault.','');
 };
 document.addEventListener('input',e=>{
   const t=e.target;
@@ -4468,7 +4568,7 @@ U.plateSheet=function(meal){
         <div class="sd r"><b id="sP">0</b><span>G PROTEIN</span><em id="sPL"></em></div>
       </div>
       <div class="plate" id="plate"></div><div id="ed"></div>
-      <div class="inrow"><input id="mIn" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" aria-label="Type what you ate" placeholder="Type: 2 chapati, rice 200g, shake 400"><button data-a="mAdd">ADD</button></div>
+      <div class="inrow"><input id="mIn" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" aria-label="Type what you ate" placeholder="Type: 2 chapati, rice 200g, shake 400 kcal"><button data-a="mAdd">ADD</button></div>
       <div class="sug" id="mSug"></div>
       <div class="rows" id="rows"></div></div>`,
     `<button class="btn" data-a="mealDone">Done</button><button class="link" data-a="mealSkip" id="mSkip">Skip this meal</button>`,{full:true,col:true});
@@ -4605,7 +4705,11 @@ A.mAdd=function(){
   txt.split(/,|\+|\band\b/i).forEach(p=>{
     const r=E.parsePart(p);if(!r||!r.name)return;
     const hit=E.scoreFoods(r.name,sh.meal)[0];
-    if(hit){E.addFood(hit.name,r.g!=null?r.g:r.units!=null?r.units*hit.ug:r.tn!=null?r.tn:null,sh.meal);afterAdd(hit.name,inp,1);return}
+    if(hit){
+      let amt=r.g!=null?r.g:r.units!=null?r.units*hit.ug:r.tn!=null?r.tn:null;
+      if(r.kc!=null&&r.g==null&&hit.k100>0)amt=Math.round(r.kc/hit.k100*100);   /* "momos 500 kcal" means 500 kcal of momos */
+      E.addFood(hit.name,amt,sh.meal);afterAdd(hit.name,inp,1);return;
+    }
     const kc=r.kc!=null?r.kc:r.tn;
     if(kc){E.customFood(r.name,kc);E.addFood(r.name,r.g!=null?r.g:100,sh.meal);afterAdd(r.name,inp,1);return}
     miss.push(r.name);
@@ -4642,14 +4746,15 @@ function starsOverlay(r){
     html:'<div class="kicker">PLATE RATING</div><div class="stars">'+filled+'</div><p>'+esc(r.stars===3?'Three stars. Protein and a balanced plate.':r.stars===2?'Solid plate. '+(r.notes[0]||''):'Logged. '+(r.notes[0]||''))+'</p><p class="sub">'+r.k+' kcal \u00B7 '+r.p+' g protein \u00B7 +'+(r.stars*4)+' aura</p>'});
 }
 A.mealDone=function(){
-  const sh=U.sh,d=E.day(),m=sh.meal;
+  const sh=U.sh;if(!sh||sh.type!=='plate')return;
+  const d=E.day(),m=sh.meal;
   if(m==='snack'){U.closeSheet();return}
   if(!d.items.some(i=>i.meal===m)){U.sys('Add something first, or skip the meal.','bad');return}
   const r=E.finishMeal(m);
   U.justRow=m;F.play('plate');F.vib([20,30,30]);F.burstCenter(34);U.closeSheet();
   if(r.first)setTimeout(()=>starsOverlay(r),380);
 };
-A.mealSkip=function(){E.day().skip[U.sh.meal]=true;E.save();U.closeSheet();U.sys('Meal skipped. Your calories will show it.','')};
+A.mealSkip=function(){if(!U.sh||U.sh.type!=='plate')return;E.day().skip[U.sh.meal]=true;E.save();U.closeSheet();U.sys('Meal skipped. Your calories will show it.','')};
 document.addEventListener('input',e=>{
   const sh=U.sh;if(!sh||sh.type!=='plate'||e.target.id!=='mIn')return;
   const last=e.target.value.split(/,|\+|\band\b/i).pop(),r=E.parsePart(last);
@@ -4701,10 +4806,11 @@ function renderGym(){
   }
   const capn=plan==='Legs'?'<div class="note">Your own cap: 30 to 40 kg on squats and deadlifts until your physio says otherwise.</div>':'';
   const fat=E.fatigued()?'<div class="warn" style="margin-top:0">You are fatigued. Finishing this workout is your comeback quest: it lifts the level lock and the aura penalty.</div>':'';
-  U.openSheet(plan+' day',fat+'<div class="hint">Ready?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs'],['Rest','Rest']],plan)+capn+'<div class="small">Wrong session? Pick the right one. The cycle follows from there.</div><div class="small pen">'+penaltyLine()+'</div>',
+  U.openSheet(plan+' day',fat+'<div class="hint">Ready?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+capn+'<div class="small">Wrong session? Pick the right one. The cycle follows from there.</div><div class="small pen">'+penaltyLine()+'</div>',
     '<button class="btn" data-a="liftStart">Start workout</button><button class="btn vio" data-a="gym:pain">Pain day, could not train</button>'+(E.passLeft()?'<button class="btn ghost" data-a="gym:pass">Use my weekly rest pass</button>':'')+'<button class="btn bad" data-a="gym:lazy">Skip with no excuse</button>');
 }
-A.sess=function(v){E.setSession(v);E.save();U.sh.step='choose';renderGym()};
+A.sess=function(v){if(v==='Rest'&&E.planFor()!=='Rest')return;   /* a rest day on demand is the rest pass or a pain day, not a relabel */
+  E.setSession(v);E.save();U.sh.step='choose';renderGym()};
 A.liftStart=function(){U.sh.step='lift';F.play('pick');renderGym()};
 A.gym=function(v){
   const plan=E.planFor();
@@ -4751,7 +4857,7 @@ function startRest(){
   restTimer=setInterval(()=>{
     const r=U.sh&&U.sh.rest,e=$('#rest');if(!r||!e){stopRest();return}
     const left=Math.max(0,r.end-Date.now());e.hidden=false;
-    $('#restT').textContent=Math.floor(left/60000)+':'+String(Math.ceil(left%60000/1000)%60).padStart(2,'0');
+    const secs=Math.ceil(left/1000);$('#restT').textContent=Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0');
     $('#restR').style.strokeDashoffset=100-left/75000*100;
     if(left<=0){F.play('timer');F.vib([100,80,100,80,200]);stopRest();e.hidden=true}
   },250);
@@ -4800,7 +4906,7 @@ function parseRx(rx){
 }
 U.rehabSheet=function(tab){
   const d=E.day();
-  if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0};
+  if(!d.reh)d.reh={items:{},day:0,knee:0,back:0,sharp:false,done:false,n:0,checked:false};
   stopHold();
   U.sh={type:'rehab',tab:tab||'today',g:null};renderRehab();
 };
@@ -4833,7 +4939,7 @@ function renderRehab(){
     <div class="sec" id="checkin">Check-in</div>
     <div class="rngl"><span>RIGHT KNEE</span><b id="kv">${r.knee}</b></div><input class="rng" id="kr" type="range" min="0" max="10" value="${r.knee}" aria-label="Right knee pain 0 to 10">
     <div class="rngl"><span>LOWER BACK</span><b id="bv">${r.back}</b></div><input class="rng" id="br" type="range" min="0" max="10" value="${r.back}" aria-label="Lower back pain 0 to 10">
-    <div class="tg"><button data-a="rsharp" aria-pressed="${r.sharp}">Sharp pain on any exercise today</button></div>
+    <div class="tg"><button data-a="rok" aria-pressed="${!!r.checked&&!r.knee&&!r.back&&!r.sharp}">No pain today</button><button data-a="rsharp" aria-pressed="${r.sharp}">Sharp pain on any exercise today</button></div>
     <div class="light ${green}" id="rlight">${lightText(green)}</div>
     ${r.sharp?'<div class="warn">Stop that exercise. Write down which one and tell your physio.</div>':''}`,
     '<button class="btn good" data-a="rehabFinish">Finish rehab</button>');
@@ -4845,10 +4951,12 @@ A.rt=function(v){
   U.keepScroll(renderRehab);
 };
 A.rconf=function(){const S=E.S();S.rehab.confirmed=!S.rehab.confirmed;E.save();F.play('pick');U.keepScroll(renderRehab)};
-A.rsharp=function(){const r=E.day().reh;r.sharp=!r.sharp;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
+A.rsharp=function(){const r=E.day().reh;r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
+A.rok=function(){const r=E.day().reh;r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
 document.addEventListener('input',e=>{
   const id=e.target.id;if(id!=='kr'&&id!=='br')return;
   const r=E.day().reh;if(!r)return;
+  r.checked=true;
   if(id==='kr'){r.knee=+e.target.value;$('#kv').textContent=r.knee}else{r.back=+e.target.value;$('#bv').textContent=r.back}
   F.play('tick',r.knee*20+r.back*20);
   const l=E.light(r),el=$('#rlight');if(el){el.className='light '+l;el.textContent=lightText(l)}
@@ -4864,7 +4972,7 @@ A.rguide=function(){
 };
 function renderGuide(){
   const sh=U.sh,g=sh.g,it=g.list[g.i],px=parseRx(it.rx),total=px.sets||1;
-  stopHold();
+  stopHold();g.busy=false;
   const label=px.secs?'Start hold · '+px.secs+' s'+(total>1?' (set '+(g.set+1)+' of '+total+')':''):total>1?'Set '+(g.set+1)+' of '+total+' done':'Done';
   U.openSheet('Guided rehab',
     `<div class="gd"><div class="gtop"><div class="xp"><i style="width:${g.i/g.list.length*100}%"></i></div><span>${g.i+1} / ${g.list.length}</span></div>
@@ -4889,27 +4997,29 @@ function guideNext(){
   renderGuide();
 }
 A.gset=function(){
-  const sh=U.sh,g=sh.g;if(!g)return;
+  const sh=U.sh,g=sh&&sh.g;if(!g||g.busy)return;   /* busy: the move is finished and the next one is about to be drawn */
   if(g.t){stopHold();renderGuide();return}
   const it=g.list[g.i],px=parseRx(it.rx),total=px.sets||1;
   const finishSet=()=>{
     g.set++;F.play('set');F.vib(18);
     if(g.set>=total){
+      g.busy=true;const i0=g.i;
       E.day().reh.items[it.key]=true;E.save();F.play('quest');F.burstAt($('.gfig'),16);
-      setTimeout(guideNext,350);
+      setTimeout(()=>{if(U.sh&&U.sh.g===g&&g.i===i0)guideNext()},350);
     }else renderGuide();
   };
   if(px.secs){
     const end=Date.now()+px.secs*1000,ring=$('#holdr'),arc=$('#holdArc'),tt=$('#holdT'),btn=$('#gsetBtn');
     ring.hidden=false;btn.textContent='Stop';let lastSec=px.secs;
-    g.t={iv:setInterval(()=>{
-      if(!U.sh||U.sh.g!==g||!g.t){return}
+    const iv=setInterval(()=>{
+      if(!U.sh||U.sh.g!==g||!g.t){clearInterval(iv);return}   /* the sheet closed or moved on: stop ticking */
       const left=Math.max(0,end-Date.now()),s=Math.ceil(left/1000);
       arc.style.strokeDashoffset=100-left/(px.secs*1000)*100;
       tt.textContent=s;
       if(s!==lastSec){lastSec=s;F.play('tick',200+s*10)}
-      if(left<=0){clearInterval(g.t.iv);g.t=null;F.play('timer');F.vib([60,50,60]);finishSet()}
-    },100)};
+      if(left<=0){clearInterval(iv);g.t=null;F.play('timer');F.vib([60,50,60]);finishSet()}
+    },100);
+    g.t={iv:iv};
   }else finishSet();
 };
 A.gprev=function(){const g=U.sh.g;stopHold();g.i=Math.max(0,g.i-1);g.set=0;F.play('tap');renderGuide()};
@@ -4971,10 +5081,8 @@ A.physio=function(){
   U.openSheet('Physio sheet','<div class="hint">Built only from what you logged. Show it at your next visit.</div><textarea class="ta" id="phT" readonly aria-label="Physio sheet text">'+esc(physioText())+'</textarea>','<button class="btn" data-a="copy">Copy text</button>');
 };
 A.copy=function(){
-  const t=$('#phT');t.select();let ok=false;
-  try{ok=navigator.clipboard&&navigator.clipboard.writeText(t.value)}catch(err){}
-  try{if(!ok)document.execCommand('copy')}catch(err){}
-  U.sys('Copied. Paste it into a message to your physio.','good');
+  const t=$('#phT');
+  U.copyText(t.value,t).then(ok=>U.sys(ok?'Copied. Paste it into a message to your physio.':'Select the text and copy it from the box.','good'));
 };
 
 /* =====================================================================

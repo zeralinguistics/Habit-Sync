@@ -451,14 +451,260 @@ const pin = (iso) => {
   const un = await mk(() => {
     const good = { v: 5, cfg: { name: 'BACKUP' }, aura: 321, days: { '2026-10-04': { items: [], done: {}, workout: 'done' }, '2026-10-03': { items: [], done: {} } } };
     if (!localStorage.getItem('habitsync.proto.v4')) { localStorage.setItem('habitsync.proto.v4', '{"v":5,"cfg":{"name":"HALF'); localStorage.setItem('habitsync.proto.v4.bak', JSON.stringify(good)); }
-  });
+  }, '2026-10-06T01:30:00');   /* 01:30 is inside the hours when the app's day and the calendar day differ */
   await un.goto(url); await un.waitForTimeout(1600);
-  ok(await un.evaluate(() => HS.E.unreadable === true && /could not be read/.test(document.querySelector('#sysT').textContent)), 'an unreadable save shows a clear message instead of failing silently');
-  const uk = await un.evaluate(() => { HS.E.save(); return { raw: localStorage.getItem('habitsync.proto.v4.unreadable'), bak: JSON.parse(localStorage.getItem('habitsync.proto.v4.bak')).aura }; });
-  ok(uk.raw === '{"v":5,"cfg":{"name":"HALF' && uk.bak === 321, 'the unreadable text is kept aside and yesterday\'s automatic copy is not overwritten');
+  ok(await un.evaluate(() => HS.E.unreadable === true && HS.E.recovered === true && HS.E.S().cfg.name === 'BACKUP' && /could not be read/.test(document.querySelector('#sysT').textContent)), 'an unreadable save is replaced by yesterday\'s automatic copy, with a clear message');
+  const uk = await un.evaluate(() => { HS.E.save(); return { raw: localStorage.getItem('habitsync.proto.v4.unreadable'), bak: JSON.parse(localStorage.getItem('habitsync.proto.v4.bak')).aura, main: JSON.parse(localStorage.getItem('habitsync.proto.v4')).cfg.name }; });
+  ok(uk.raw === '{"v":5,"cfg":{"name":"HALF' && uk.bak === 321 && uk.main === 'BACKUP', 'the unreadable text is kept aside, the good automatic copy is not overwritten, even at 01:30');
   const ur = await un.evaluate(() => { const n = HS.E.restoreAuto(), S = HS.E.S(); return { n: n, name: S.cfg.name, aura: S.aura, both: !!S.days['2026-10-04'] && !!S.days['2026-10-03'] }; });
-  ok(ur.n >= 2 && ur.both && ur.name === 'BACKUP' && ur.aura === 321, 'restoring the automatic copy brings the last good state back');
+  ok(ur.n >= 2 && ur.both && ur.name === 'BACKUP' && ur.aura === 321, 'restoring the automatic copy by hand also works');
   ok(un.errs.length === 0, 'no console errors around an unreadable save ' + JSON.stringify(un.errs));
+
+  /* ---------- review fixes: data safety ---------- */
+  const quota = await mk(() => {
+    /* the automatic copy cannot be written (storage almost full), but the real save must still go through */
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) { if (/\.bak$/.test(k)) throw new Error('QuotaExceededError'); return set.call(this, k, v); };
+  });
+  await quota.goto(url); await quota.waitForTimeout(700);
+  const qr = await quota.evaluate(() => { const E = HS.E; E.S().welcomed = true; E.S().aura = 777; E.S().lastAutoBak = '1999-01-01'; E.save(); return JSON.parse(localStorage.getItem('habitsync.proto.v4')).aura; });
+  ok(qr === 777, 'a failing automatic copy never blocks the real save');
+  const full = await mk(() => { const set = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'habitsync.proto.v4' && window.__full) throw new Error('QuotaExceededError'); return set.call(this, k, v); }; });
+  await full.goto(url); await full.waitForTimeout(700);
+  await full.evaluate(() => { window.__full = true; HS.E.S().welcomed = true; HS.E.save(); }); await full.waitForTimeout(300);
+  ok(await full.evaluate(() => /refused to save/.test(document.querySelector('#sysT').textContent)), 'when the phone refuses to save, the player is told right away');
+
+  const tw = await mk();
+  await tw.goto(url); await tw.waitForTimeout(800);
+  await tw.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.E.save(); });
+  const tw2 = await tw.context().newPage(); tw2.errs = [];
+  tw2.on('pageerror', e => tw2.errs.push('PAGEERR ' + e.message));
+  await tw2.goto(url); await tw2.waitForTimeout(800);
+  await tw2.evaluate(() => { HS.E.logWeight(83.4); });   /* the other copy of the app records a weigh-in */
+  await tw.waitForTimeout(400);
+  const twSeen = await tw.evaluate(() => Object.keys(HS.E.S().weights).length);
+  await tw.evaluate(() => HS.E.addWater(250));          /* then the first copy saves something else */
+  const kept = await tw.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('habitsync.proto.v4')).weights).length);
+  ok(twSeen === 1 && kept === 1, 'a second copy of the app adopts the other one\'s work instead of overwriting it');
+  ok(tw.errs.length === 0 && tw2.errs.length === 0, 'no errors with two copies open');
+
+  const rs = await mk();
+  await rs.goto(url); await rs.waitForTimeout(800);
+  await rs.evaluate(`(${seedSrc})(31)`);
+  await rs.evaluate(() => { HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.tab = 'forge'; HS.ui.render(true); }); await rs.waitForTimeout(500);
+  const days0 = await rs.evaluate(() => Object.keys(HS.E.S().days).length);
+  await rs.click('#resetBtn'); await rs.waitForTimeout(60); await rs.click('#resetBtn'); await rs.waitForTimeout(200);
+  ok(await rs.evaluate(() => Object.keys(HS.E.S().days).length) === days0, 'an instant double tap on Reset does nothing');
+  await rs.waitForTimeout(900); await rs.click('#resetBtn'); await rs.waitForTimeout(500);
+  ok(await rs.evaluate(() => Object.keys(HS.E.S().days).length) < 3, 'a deliberate second tap resets');
+  const und = await rs.evaluate(() => HS.E.undoInfo());
+  ok(und && und.days >= days0 - 1, 'the old state is kept aside for an undo (' + (und && und.days) + ' days)');
+  await rs.evaluate(() => { HS.ui.tab = 'forge'; HS.ui.render(true); }); await rs.waitForTimeout(400);
+  ok(await rs.evaluate(() => /Undo the last reset or restore/.test(document.querySelector('#vaultWrap').textContent)), 'the Data vault offers the undo');
+  const back = await rs.evaluate(() => { HS.E.reset(); return HS.E.undoLast(); });
+  ok(back >= days0 - 1, 'undo brings everything back, even after a second reset (' + back + ' days)');
+  ok(rs.errs.length === 0, 'no console errors around reset and undo ' + JSON.stringify(rs.errs));
+
+  const cb = await mk(() => { Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => window.__clipOk ? Promise.resolve() : Promise.reject(new Error('denied')) }, configurable: true }); document.execCommand = () => false; });   /* headless Chromium lets execCommand('copy') succeed with no user gesture; a real phone does not */
+  await cb.goto(url); await cb.waitForTimeout(700);
+  await cb.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'forge'; HS.ui.render(true); window.__clipOk = false; HS.ui.act.bkCopy(); }); await cb.waitForTimeout(400);
+  const cbr = await cb.evaluate(() => ({ lb: HS.E.S().lastBackup, msg: document.querySelector('#bkMsg').textContent, toast: document.querySelector('#sysT').textContent }));
+  ok(cbr.lb === 0 && /Select all/.test(cbr.msg) && /Select and copy/.test(cbr.toast), 'a refused clipboard write is reported honestly and the backup reminder stays on');
+  await cb.evaluate(() => { window.__clipOk = true; HS.ui.act.bkCopy(); }); await cb.waitForTimeout(400);
+  ok(await cb.evaluate(() => HS.E.S().lastBackup > 0 && /Copied to the clipboard/.test(document.querySelector('#bkMsg').textContent)), 'a real copy counts as a backup');
+
+  /* ---------- review fixes: rules that gave wrong results ---------- */
+  {
+    const rp = await mk(() => {
+      /* count the timers that are alive, to catch one that never stops */
+      const live = new Set(), si = window.setInterval, ci = window.clearInterval;
+      window.__live = live;
+      window.setInterval = function (f, t) { const id = si.call(window, f, t); live.add(id); return id; };
+      window.clearInterval = function (id) { live.delete(id); return ci.call(window, id); };
+    });
+    await rp.goto(url); await rp.waitForTimeout(800);
+    await rp.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.clearCele(); });
+
+    const L = await rp.evaluate(() => {
+      const E = HS.E, S = E.S(), out = {};
+      [84, 83.6, 84.3, 84.6].forEach(sw => { S.startW = sw; const l = E.ladder(); out[sw] = { n: l.length, last: l[l.length - 1].kg, lastBoss: l[l.length - 1].boss, bosses: l.filter(g => g.boss).map(g => g.kg).join() }; });
+      S.startW = 84; return out;
+    });
+    ok(L[84].n === 28 && L[84].bosses === '80,76,72,70' && L[83.6].n === 28 && L[84.3].n === 29 && L[84.6].n === 30, 'gate counts follow the start weight: 28, 28, 29, 30');
+    ok(Object.keys(L).every(k => L[k].last === 70 && L[k].lastBoss), 'whatever the start weight, the last gate is the goal and it is a boss');
+
+    const G = await rp.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.startW = 84;
+      for (let i = 1; i <= 20; i++) S.weights[E.addDays(E.dkey(), -i)] = 79.9;
+      E.logWeight(79.9);
+      const a1 = S.aura, g1 = S.gates.length, camp1 = JSON.stringify(S.camp), kcal1 = S.cfg.kcal;
+      S.startW = 84.6; E.logWeight(79.9);
+      S.cfg.gateStep = 1; E.logWeight(79.9); S.cfg.gateStep = .5;
+      return { a1: a1, g1: g1, a2: S.aura, g2: S.gates.length, same: camp1 === JSON.stringify(S.camp) && kcal1 === S.cfg.kcal, boss: S.gates.indexOf(80) >= 0 };
+    });
+    ok(G.g1 >= 8 && G.boss && G.a2 === G.a1 && G.same, 'changing the start weight or gate size afterwards never pays a gate twice (aura ' + G.a1 + ' stays ' + G.a2 + ')');
+
+    const C = await rp.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey();
+      S.start = E.addDays(today, -14); S.cycles = [{ a: S.start, i: 0 }]; S.cycle = { a: S.start, i: 0 };
+      const past = []; for (let i = 14; i >= 1; i--) past.push(E.planFor(E.addDays(today, -i)));
+      const todayPlan = E.planFor(), target = todayPlan === 'Pull' ? 'Legs' : 'Pull';
+      E.setSession(target);
+      const past2 = []; for (let i = 14; i >= 1; i--) past2.push(E.planFor(E.addDays(today, -i)));
+      HS.ui.closeSheet(); HS.ui.gymSheet();
+      const rest = document.querySelectorAll('#shBody [data-a="sess:Rest"]').length;
+      HS.ui.act.sess('Rest');
+      const r = { same: past.join() === past2.join(), now: E.planFor(), target: target, anchors: S.cycles.length, rest: rest, stillTrain: E.planFor() === target };
+      HS.ui.closeSheet(); return r;
+    });
+    ok(C.same && C.now === C.target && C.anchors === 2, 'correcting today\'s session starts a new anchor and never rewrites earlier days');
+    ok(C.rest === 0 && C.stillTrain, 'a training day cannot be relabelled as Rest (that is what the rest pass and the pain day are for)');
+
+    const I = await rp.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.aura = 400;
+      E.skipWorkout(); const a1 = S.aura; E.painDay(); E.skipWorkout(); const r = E.restPass();
+      return { w: E.day().workout, a1: a1, a2: S.aura, r: r, pe: getComputedStyle(document.querySelector('#sheet')).pointerEvents };
+    });
+    ok(I.w === 'lazy' && I.a2 === I.a1 && I.r === false, 'a skipped session is settled once: a second tap or another button changes nothing (aura ' + I.a1 + ')');
+    ok(I.pe === 'none', 'a closed sheet cannot catch taps while it slides away');
+
+    const GR = await rp.evaluate(async () => {
+      const E = HS.E, U = HS.ui; E.reset(); E.S().welcomed = true; U.closeSheet(); E.day().reh = null;
+      U.rehabSheet(); U.act.rguide();
+      const g = U.sh.g, idx = g.list.findIndex(it => /^\d+\s*[×x]\s*\d+$/.test(it.rx.trim()));
+      if (idx < 0) return { skip: true };
+      while (g.i < idx) U.act.gskip();
+      const it = g.list[idx], sets = +it.rx.trim().split(/[×x]/)[1], nextIt = g.list[idx + 1];
+      for (let i = 0; i < sets; i++) U.act.gset();
+      U.act.gset(); U.act.gset();   /* extra taps inside the half second before the next move is drawn */
+      await new Promise(r => setTimeout(r, 800));
+      const items = E.day().reh.items;
+      return { moved: g.i - idx, done: !!items[it.key], nextTicked: !!items[nextIt.key] };
+    });
+    ok(GR.skip || (GR.moved === 1 && GR.done && !GR.nextTicked), 'extra taps on the last set of a rehab move advance one move, never two');
+
+    const CK = await rp.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey(), y = E.addDays(today, -1);
+      S.start = E.addDays(today, -5);
+      E.day(y).reh = { items: {}, day: 0, knee: 7, back: 2, sharp: false, done: true, n: 5, checked: true };
+      E.day().reh = { items: {}, day: 0, knee: 0, back: 0, sharp: false, done: true, n: 5, checked: false };
+      const a = E.lastLight(), h1 = E.rehabToday().hold;
+      E.day().reh.checked = true;
+      return { a: a, h1: h1, b: E.lastLight(), h2: E.rehabToday().hold };
+    });
+    ok(CK.a === 'red' && CK.h1 === 'red' && CK.b === 'green' && CK.h2 === null, 'a finished session with untouched pain sliders does not erase yesterday\'s red light; only a real check-in does');
+
+    const QA = await rp.evaluate(() => {
+      const E = HS.E, U = HS.ui; E.reset(); E.S().welcomed = true; U.closeSheet(); U.plateSheet('lunch');
+      const add = t => { document.querySelector('#mIn').value = t; U.act.mAdd(); };
+      const ph = document.querySelector('#mIn').placeholder;
+      add('shake 400 kcal'); const k1 = Math.round(E.mealKcal(E.day(), 'lunch'));
+      add('momos 350 kcal'); const k2 = Math.round(E.mealKcal(E.day(), 'lunch'));
+      add('momos 500 kcal'); const k3 = Math.round(E.mealKcal(E.day(), 'lunch'));
+      U.closeSheet(); return { k1: k1, d2: k2 - k1, d3: k3 - k2, ph: ph };
+    });
+    ok(Math.abs(QA.k1 - 400) <= 10 && Math.abs(QA.d2 - 350) <= 10 && Math.abs(QA.d3 - 500) <= 10 && /kcal/.test(QA.ph), 'a typed kcal figure is honoured every time (400, +350, +500 kcal logged: ' + QA.k1 + ', ' + QA.d2 + ', ' + QA.d3 + ')');
+
+    const CC = await rp.evaluate(async () => {
+      const U = HS.ui; U.clearCele();
+      const card = n => ({ kind: 'plain', ms: 60000, html: '<h1>CARD ' + n + '</h1>' });
+      U.cele(card('A')); U.cele(card('B')); U.cele(card('C'));
+      await new Promise(r => setTimeout(r, 400));
+      const first = document.querySelector('#ovb').textContent;
+      U.act.ovClose(); U.act.ovClose();
+      await new Promise(r => setTimeout(r, 700));
+      const second = document.querySelector('#ovb').textContent; U.clearCele();
+      return { first: first, second: second };
+    });
+    ok(/CARD A/.test(CC.first) && /CARD B/.test(CC.second), 'two quick taps close one celebration card, the next one is not skipped unseen');
+
+    const ST = await rp.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey();
+      S.start = E.addDays(today, -600);
+      for (let i = 0; i < 540; i++) E.day(E.addDays(today, -i)).weighed = true;
+      const info = E.streakInfo('weigh');
+      return { n: info.n, start: info.start, expect: E.addDays(today, -539) };
+    });
+    ok(ST.n === 540 && ST.start === ST.expect, 'a streak longer than 500 days counts in full and its start does not slide');
+
+    const AK = await rp.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.cfg.kcal = 1700; E.onGate({ kg: 80, boss: true }); const a = S.cfg.kcal;
+      S.cfg.kcal = 2050; E.onGate({ kg: 80, boss: true }); return { a: a, b: S.cfg.kcal };
+    });
+    ok(AK.a === 1700 && AK.b === 1990, 'the automatic calorie step only ever lowers a target (1700 stays, 2050 becomes 1990)');
+
+    const RT = await rp.evaluate(async () => {
+      const E = HS.E, U = HS.ui; E.reset(); E.S().welcomed = true; U.closeSheet();
+      U.gymSheet(); U.act.liftStart(); U.act.set('0:0');
+      U.sh.rest.end = Date.now() + 59500;
+      await new Promise(r => setTimeout(r, 400));
+      const t = document.querySelector('#restT').textContent; U.closeSheet(); return t;
+    });
+    ok(RT === '1:00', 'the rest timer shows 1:00, not 0:00, in the first second after a minute (' + RT + ')');
+
+    const HT = await rp.evaluate(async () => {
+      const E = HS.E, U = HS.ui; E.reset(); E.S().welcomed = true; U.closeSheet(); E.day().reh = null;
+      U.rehabSheet(); U.act.rguide();
+      const g = U.sh.g, idx = g.list.findIndex(it => /sec\s*[×x]\s*\d+$/.test(it.rx.trim()) && !/reps?/i.test(it.rx));
+      if (idx < 0) return { skip: true };
+      while (g.i < idx) U.act.gskip();
+      const base = window.__live.size;
+      U.act.gset();   /* starts a hold timer */
+      const during = window.__live.size;
+      U.closeSheet();
+      await new Promise(r => setTimeout(r, 500));
+      return { base: base, during: during, after: window.__live.size };
+    });
+    ok(HT.skip || (HT.during === HT.base + 1 && HT.after < HT.during), 'the hold timer stops when the sheet closes (timers alive: ' + HT.base + ', ' + HT.during + ', ' + HT.after + ')');
+
+    const EL = await rp.evaluate(() => {
+      const E = HS.E, U = HS.ui; E.reset(); E.S().welcomed = true; E.cfg().goalW = 90; U.closeSheet(); U.tab = 'path'; U.render(true);
+      const t = document.querySelector('#screen').innerHTML; E.reset(); U.tab = 'home'; U.render(true); return { bad: /NaN|undefined/.test(t) };
+    });
+    ok(!EL.bad, 'a goal at or above the starting weight does not break the Path screen');
+    ok(rp.errs.length === 0, 'no console errors in the rules checks ' + JSON.stringify(rp.errs));
+  }
+
+  {
+    /* the rest pass belongs to the week of the missed day, and a Chill day is settled for good */
+    const mkSave = strict => `() => { const st = { v: 5, cfg: { name: 'X', strict: '${strict}' }, welcomed: true, start: '2026-09-20', aura: 500, weights: {}, cycles: [{ a: '2026-10-04', i: 0 }], cycle: { a: '2026-10-04', i: 0 }, days: {}, swept: { '2026-10-02': 1, '2026-10-03': 1 } }; if (!localStorage.getItem('habitsync.proto.v4')) localStorage.setItem('habitsync.proto.v4', JSON.stringify(st)); }`;
+    const pp = await mk(eval(mkSave('standard')));
+    await pp.goto(url); await pp.waitForTimeout(1000);
+    const PW = await pp.evaluate(() => { const S = HS.E.S(); return { used: Object.keys(S.passUsed).join(), thisWeek: HS.E.passLeft(), aura: S.aura, fat: HS.E.fatigued(), w: (S.days['2026-10-04'] || {}).workout }; });
+    ok(PW.used === '2026-09-28' && PW.thisWeek && PW.aura === 500 && !PW.fat && PW.w === 'pass', 'on Monday, a missed Sunday uses last week\'s pass and leaves this week\'s intact');
+    ok(pp.errs.length === 0, 'no console errors ' + JSON.stringify(pp.errs));
+
+    const cp = await mk(eval(mkSave('chill')));
+    await cp.goto(url); await cp.waitForTimeout(1000);
+    const CH = await cp.evaluate(() => { const E = HS.E, S = E.S(); S.cfg.strict = 'standard'; const out = E.sweep(); return { n: out.length, aura: S.aura, fat: E.fatigued(), sw: Object.keys(S.swept).length }; });
+    ok(CH.n === 0 && CH.aura === 500 && !CH.fat && CH.sw >= 3, 'switching from Chill to Standard never punishes the days that passed under Chill');
+  }
+
+  {
+    const dst = await b.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'America/New_York' });
+    await dst.addInitScript(pin, '2026-03-08T12:20:00');
+    const dp = await dst.newPage(); dp.errs = [];
+    dp.on('pageerror', e => dp.errs.push('PAGEERR ' + e.message));
+    await dp.goto(url); await dp.waitForTimeout(700);
+    const nm = await dp.evaluate(() => HS.E.nowMin());
+    ok(nm === 740, 'minutes since midnight come from the wall clock, so a daylight-saving day is not an hour off (' + nm + ')');
+    await dst.close();
+  }
+
+  {
+    const ha = await mk(() => {
+      window.__q = 0;
+      window.Capacitor = { isNativePlatform: () => true, Plugins: { Health: {
+        isAvailable: async () => ({ available: true }), requestAuthorization: async o => ({ readAuthorized: o.read }),
+        queryAggregated: async () => { window.__q++; return { samples: [{ value: 4321 }] }; },
+        readSamples: async () => ({ samples: [] }), queryWorkouts: async () => ({ workouts: [] }) } } };
+      const st = { v: 5, cfg: { name: 'X' }, welcomed: true, aura: 5, health: { on: true, last: 0 } };
+      if (!localStorage.getItem('habitsync.proto.v4')) localStorage.setItem('habitsync.proto.v4', JSON.stringify(st));
+    });
+    await ha.goto(url); await ha.waitForTimeout(1300);
+    ok(await ha.evaluate(() => window.__q > 0 && HS.E.day().steps === '4321'), 'Samsung Health refreshes by itself when the app opens');
+    ok(ha.errs.length === 0, 'no console errors with the automatic Samsung Health refresh ' + JSON.stringify(ha.errs));
+  }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   await b.close();

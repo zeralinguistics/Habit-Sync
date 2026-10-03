@@ -31,7 +31,8 @@ function dayPred(kind,d,k){
 /* a pain day, a rest pass and a rest day never break a training streak. The clear streak forgives one gap: never miss twice. */
 E.streakInfo=function(kind){
   const s=S();let n=0,gap=0,start=null;
-  for(let i=0;i<500;i++){
+  const span=Math.max(0,E.daysBetween(s.start,dkey()))+1;   /* the whole history: a streak must not slide after a year and a half */
+  for(let i=0;i<=span;i++){
     const k=keyOffset(-i);
     if(k<s.start&&i>0)break;
     const v=dayPred(kind,s.days[k],k);
@@ -220,11 +221,12 @@ E.campInfo=function(){
   return{left:left+1,kcal:s.camp.kcal};
 };
 /* called from logWeight for every gate crossed */
+/* the automatic calorie step only ever lowers the target: one you set lower yourself stays */
 E.onGate=function(g){
   const s=S();
   if(!g.boss)return;
   const n=E.bossKgs().indexOf(g.kg)+1,last=g.kg===s.cfg.goalW;
-  if(s.cfg.autoKcal&&!last){const to=E.kcalFor(g.kg);if(to&&to!==s.cfg.kcal){const from=s.cfg.kcal;s.cfg.kcal=to;E.emit('kcal',{from:from,to:to})}}
+  if(s.cfg.autoKcal&&!last){const to=E.kcalFor(g.kg);if(to&&to<s.cfg.kcal){const from=s.cfg.kcal;s.cfg.kcal=to;E.emit('kcal',{from:from,to:to})}}
   if(s.cfg.camp!==false&&!last){s.camp={from:dkey(),until:addDays(dkey(),6),kcal:E.maint(E.trend())};E.emit('camp',s.camp)}
   E.emit('boss',{kg:g.kg,n:n,last:last});
 };
@@ -301,7 +303,7 @@ E.report=function(){
    rest days get the block, aerobic and optional extras. The pain traffic light holds the strength work back when the knee or back is amber or red. */
 E.lastLight=function(){
   const s=S();
-  for(let i=0;i<2;i++){const d=s.days[keyOffset(-i)];if(d&&d.reh&&(d.reh.done||d.reh.knee||d.reh.back||d.reh.sharp))return E.light(d.reh)}
+  for(let i=0;i<2;i++){const d=s.days[keyOffset(-i)];if(d&&E.checkedIn(d.reh))return E.light(d.reh)}
   return null;
 };
 E.rehabToday=function(k,noHold){
@@ -487,20 +489,22 @@ E.mood=function(){
 
 /* ======================== data vault: backup, restore, compaction ======================== */
 E.backupText=function(){
-  const s=S();s.lastBackup=Date.now();E.persist();
+  const s=S();
   return JSON.stringify({app:'habit-sync',version:s.v,exported:new Date().toISOString(),state:s});
 };
+/* the backup reminder is silenced only once the backup has really been handed over (saved, shared or copied) */
+E.markBackup=function(){S().lastBackup=Date.now();E.persist()};
 E.importText=function(txt){
   let obj;
   try{obj=JSON.parse(txt)}catch(e){throw new Error('That is not a Habit Sync backup (could not read it).')}
   const st=obj&&obj.app==='habit-sync'?obj.state:(obj&&obj.days&&obj.cfg?obj:null);
   if(!st||!st.days||!st.cfg)throw new Error('That file is not a Habit Sync backup.');
-  E._set(E.migrate(st));E.ensureOwned();E.persist();E.emit('reset');
+  const next=E.migrate(st);E.snapshot();E._set(next);E.ensureOwned();E.persist();E.emit('reset');
   return Object.keys(S().days).length;
 };
 E.restoreAuto=function(){
   const t=localStorage.getItem(E.KEY+'.bak');if(!t)throw new Error('No automatic backup yet. One is made on the first save of each day.');
-  E._set(E.migrate(JSON.parse(t)));E.ensureOwned();E.persist();E.emit('reset');
+  const next=E.migrate(JSON.parse(t));E.snapshot();E._set(next);E.ensureOwned();E.persist();E.emit('reset');
   return Object.keys(S().days).length;
 };
 E.dataInfo=function(){

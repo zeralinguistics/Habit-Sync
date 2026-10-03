@@ -18,7 +18,8 @@ A workflow keeps `docs/` rebuilt after every change, so the page is always curre
 ## Your data
 
 * Stored in the app's own storage on the device (`localStorage`, key `habitsync.proto.v4`). The app asks the browser to keep it persistent.
-* **Forge, Data vault** has: save a backup file (share it to Drive or WhatsApp), restore from a file, and restore the automatic daily copy.
+* **Forge, Data vault** has: save a backup file (share it to Drive or WhatsApp), restore from a file, restore the automatic daily copy, and undo the last reset or restore.
+  If a save ever cannot be read, the app keeps the unreadable text aside and falls back to the automatic copy.
   Save a backup every few weeks. The Forge tab shows a gold dot when one is overdue.
 * History older than 120 days is compacted to daily totals, so the app can run for years inside storage limits.
 * Nothing is sent anywhere. Samsung Health access is read-only.
@@ -40,7 +41,7 @@ A workflow keeps `docs/` rebuilt after every change, so the page is always curre
 python3 prototype/build.py                  # dist/habit-sync.html and a fragment for sandboxed hosts
 python3 prototype/build.py --pages docs     # the installable web build (CI does this on every push)
 python3 prototype/build.py --native app/www # the folder the Android shell wraps
-node prototype/test/e2e.js /tmp/            # about 115 end-to-end checks (Playwright + Chromium)
+node prototype/test/e2e.js /tmp/            # about 150 end-to-end checks (Playwright + Chromium)
 node prototype/test/pwa.js /tmp/            # offline and install checks
 ```
 
