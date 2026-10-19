@@ -1240,12 +1240,12 @@ svg.fig.big{height:210px;width:100%}
 
 /* ---------- workout ---------- */
 .rot{display:flex;align-items:center;justify-content:space-between;gap:2px;margin-top:6px}
-.rot span{flex:1;text-align:center;padding:9px 2px 7px;border-radius:12px;border:1px solid rgba(var(--glr),.22);background:rgba(var(--glr),.04)}
-.rot span b{display:block;font:700 15px var(--display);letter-spacing:.1em;text-transform:uppercase}
-.rot span small{display:block;font-size:10.5px;color:var(--mute);min-height:13px}
-.rot span.now{border-color:var(--gold);background:linear-gradient(180deg,rgba(245,196,81,.22),rgba(245,196,81,.06));box-shadow:0 0 14px rgba(245,196,81,.3)}
-.rot span.now small{color:var(--gold)}
-.rot span.last{border-style:dashed}
+.rot span,.rot button.rb{flex:1;text-align:center;padding:9px 2px 7px;border-radius:12px;border:1px solid rgba(var(--glr),.22);background:rgba(var(--glr),.04)}
+.rot span b,.rot button.rb b{display:block;font:700 15px var(--display);letter-spacing:.1em;text-transform:uppercase}
+.rot span small,.rot button.rb small{display:block;font-size:10.5px;color:var(--mute);min-height:13px}
+.rot span.now,.rot button.rb.now{border-color:var(--gold);background:linear-gradient(180deg,rgba(245,196,81,.22),rgba(245,196,81,.06));box-shadow:0 0 14px rgba(245,196,81,.3)}
+.rot span.now small,.rot button.rb.now small{color:var(--gold)}
+.rot span.last,.rot button.rb.last{border-style:dashed}
 .rot i{font-style:normal;color:var(--mute);font-size:18px;flex:none;width:12px;text-align:center}
 .lh2{display:flex;align-items:center;gap:12px;margin:2px 0 6px}
 .lhr{position:relative;width:54px;height:54px;flex:none}
@@ -1413,6 +1413,12 @@ svg.fig.big{height:210px;width:100%}
 .chk span,.mrm b,.mrm small{overflow-wrap:anywhere}
 /* the grey example in an empty field must not look like a value */
 .fr input::placeholder,.cfld input::placeholder{color:var(--mute);opacity:.4}
+
+/* the cycle strip buttons keep the look of the strip; the row for sessions already done sits under the picker */
+.rot button.rb{color:inherit;font:inherit;cursor:pointer;min-height:44px}
+.rot button.rb:active{transform:scale(.97)}
+.didrow{display:flex;gap:8px}
+.didrow .btn{flex:1;margin:0;padding:12px 4px;font-size:13px}
 
 </style>
 </head>
@@ -2891,9 +2897,9 @@ E.lastMins=function(){
   const d=ks.length?S.days[ks[ks.length-1]]:null;
   return d?{lift:d.mins.lift||60,walk:d.mins.walk||0,run:d.mins.run||0,free:d.runFree!=null?d.runFree:3}:{lift:60,walk:15,run:10,free:3};
 };
-E.completeWorkout=function(plan){
+E.completeWorkout=function(plan,o){
   if(E.day().workout==='done')return{award:0,comeback:false,again:true};   /* a double tap never pays twice or skips a session in the rotation */
-  const d=E.day(),p=E.liftProgress(plan),frac=p.total?Math.min(1,p.done/p.total/.8):1;
+  const d=E.day(),p=E.liftProgress(plan),frac=o&&o.quick?.6:p.total?Math.min(1,p.done/p.total/.8):1;   /* "I already trained" with no sets logged pays 60 percent */
   const comeback=E.clearFatigue();if(comeback)S.counters.comeback++;
   const award=Math.round(100*frac);
   d.workout='done';d.sess=plan;S.rot.i=(ROT.indexOf(plan)+1)%4;   /* the rotation moves on from the session you really did */
@@ -2902,6 +2908,13 @@ E.completeWorkout=function(plan){
   S.missStreak=0;
   E.save();E.emit('workout',{award:award,comeback:comeback,done:p.done,total:p.total});
   return{award:award,comeback:comeback};
+};
+/* "Where am I in the cycle": the session that is due next. Rest is not offered here: it follows Legs by itself, and a rest day is never a relabel. */
+E.setNext=function(type){
+  const i=ROT.indexOf(type);if(i<0||type==='Rest')return false;
+  S.rot={i:i,from:dkey()};
+  const d=S.days[dkey()];if(d&&d.sess&&d.workout!=='done')d.sess=null;   /* today follows the cycle again */
+  E.save();return true;
 };
 /* A rest day is a cardio day: an easy walk and some running. It is optional, never punished, and it never moves the Push, Pull, Legs, Rest rotation.
    Details are optional: minutes alone use the treadmill defaults, and a distance (typed in when the phone stayed in the locker) gives the real speed. */
@@ -5073,7 +5086,7 @@ U.nextMove=function(){
       return mk(ml,'plate','Log '+ml,mm?fmt(mm)+' kcal so far. Add more or finish the plate.':'Window '+hhmm(w[0])+' to '+hhmm(w[1])+'. Build your plate, 10 seconds.','+'+E.rateMeal(ml).stars*4);
     }
   }
-  if(open)return mk('gym','gym','Train: '+plan,E.routine(plan).length+' exercises. One tap per exercise.','+100');
+  if(open)return mk('gym','gym','Train: '+plan,E.routine(plan).length+' exercises, one tap each. Different session today? Change it inside.','+100');
   const rq=q('rehab');
   if(rq&&rq.st==='todo')return mk('rehab','rehab','Rehab session',rq.s+'. Your physio’s list, one move at a time.','+'+U.rehabAura(E.rehabProgress().total));
   if(restDay&&gq&&gq.st==='todo'&&m<1260)return mk('gym','walk','Cardio day','Rest day: an easy walk or run, then note how the knee felt.','+60');
@@ -5949,7 +5962,7 @@ const SECS={
         <button class="chk" data-a="backupset:"><i>✓</i><span>No backup<small>Hide the suggestion</small></span></button>
         <div class="stack2"><button class="btn vio" data-a="backupLabel">Enter my protein powder from its label</button></div>
         <div class="small">Brands differ a lot. Read the "per serving" column on your tub (for example Yogabar) and enter it: serving size in grams, calories, protein, carbs and fat.</div>`}},
-  routine:{t:'Training routine',html:()=>`<div id="rxWrap">${routineEditor()}</div>`},
+  routine:{t:'Training routine',html:()=>{const due=E.ROT[E.S().rot.i];return `<div class="sec" style="margin-top:0">Where you are in the cycle</div><div class="small" style="margin:0 0 8px">Push, Pull, Legs, Rest, then again. Pick the session that is due next. Rest comes after Legs by itself. Due now: <b>${due}</b>.</div>${seg('nextsess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],due).replace('seg2','seg2 full')}<div class="sec">Exercises</div><div id="rxWrap">${routineEditor()}</div>`}},
   rules:{t:'Rules and teasing',html:()=>{const c=E.cfg();return `<div class="small" style="margin-top:0">Penalties</div>${seg('strict',[['chill','Chill'],['standard','Standard'],['hard','Hard']],c.strict).replace('seg2','seg2 full')}
     <div class="small" id="strictTxt">${strictTxt(c.strict)}</div>
     <div class="small">Pain days never count as a skip. You also get one rest pass a week.</div>
@@ -6055,6 +6068,7 @@ A.roast=v=>{E.cfg().roast=v;E.save();F.play(v==='off'?'pick':'wah');refreshSet()
 A.theme=v=>{E.cfg().theme=v;E.save();F.applyTheme();F.play('pick');refreshSet()};
 A.snd=v=>{E.cfg().sound=v==='1';E.save();if(E.cfg().sound){F.unlock();F.play('pick')}refreshSet()};
 A.hap=v=>{E.cfg().haptics=v==='1';E.save();F.vib(30);refreshSet()};
+A.nextsess=v=>{if(E.setNext(v)){F.play('pick');refreshSet()}};
 A.rtab=v=>{rTab=v;$('#rxWrap').innerHTML=routineEditor()};
 A.rxs=v=>{const p=v.split(':'),x=E.routine(rTab)[+p[0]];x.sets=Math.max(1,Math.min(8,x.sets+ +p[1]));E.save();$('#rxWrap').innerHTML=routineEditor()};
 A.rxr=v=>{const p=v.split(':'),x=E.routine(rTab)[+p[0]];x.reps=Math.max(1,Math.min(30,x.reps+ +p[1]));E.save();$('#rxWrap').innerHTML=routineEditor()};
@@ -6531,7 +6545,18 @@ function penaltyLine(){
 function rotStrip(plan){
   const ls=E.lastSession(),due=E.ROT[E.S().rot.i];
   const ago=ls?E.daysBetween(ls.k,E.dkey()):null;
-  return `<div class="rot">${E.ROT.map((t,i)=>`<span class="${t===plan?'now':''}${ls&&t===ls.type?' last':''}"><b>${t}</b><small>${t===plan?(plan!==due?'today':'due'):ls&&t===ls.type?(ago===0?'today':ago===1?'yesterday':ago+' days ago'):''}</small></span>${i<3?'<i>›</i>':''}`).join('')}</div>`;
+  /* Push, Pull and Legs can be tapped to make that today's session; Rest only comes after Legs */
+  return `<div class="rot">${E.ROT.map((t,i)=>{
+    const cls=(t===plan?'now':'')+(ls&&t===ls.type?' last':''),sub=t===plan?(plan!==due?'today':'due'):ls&&t===ls.type?(ago===0?'today':ago===1?'yesterday':ago+' days ago'):'';
+    const inner=`<b>${t}</b><small>${sub}</small>`;
+    return (t==='Rest'?`<span class="${cls}">${inner}</span>`:`<button type="button" class="rb ${cls}" data-a="sess:${t}" aria-pressed="${t===plan}" aria-label="Make ${t} today's session">${inner}</button>`)+(i<3?'<i>›</i>':'');
+  }).join('')}</div>`;
+}
+/* trained already, nothing logged: one tap to pick the session, a second to confirm */
+function didRow(){
+  const a=U.sh&&U.sh.armed;
+  const b=t=>`<button type="button" class="btn ${a===t?'good':'ghost'}" data-a="didit:${t}">${a===t?'Tap again: '+t+' was done':t}</button>`;
+  return `<div class="sec">Already trained today?</div><div class="small" style="margin:0 0 8px">Tap the session you did and the cycle moves on. No sets needed, but it pays less than logging them.</div><div class="didrow">${['Push','Pull','Legs'].map(b).join('')}</div>`;
 }
 /* a run done yesterday without the phone: offered only when yesterday was a rest day with nothing logged */
 function yestCardioBtn(){
@@ -6558,7 +6583,7 @@ function renderGym(){
   }
   if(plan==='Rest'&&!d.sess&&sh.step==='choose'&&d.workout!=='done'){
     const m=d.mins||{};
-    U.openSheet('Rest day','<div class="hint">Rest from lifting. Your rest day is cardio: walking and running, plus the rehab list.</div>'+rotStrip(plan)+(d.cardio?`<div class="note">Cardio logged: ${m.walk||0} min walking, ${m.run||0} min running.</div>`:'')+'<div class="sec">Feeling strong and want to lift anyway?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+'<div class="small">The rotation follows what you finish, not the calendar. Rest comes after Legs, and it moves on to Push when the day passes. A session you miss stays due.</div>','<button class="btn good" data-a="cardioStart">'+(d.cardio?'Change my cardio':'Log my walk or run')+'</button><button class="btn ghost" data-a="close">Close</button>');return}
+    U.openSheet('Rest day','<div class="hint">Rest from lifting. Your rest day is cardio: walking and running, plus the rehab list.</div>'+rotStrip(plan)+(d.cardio?`<div class="note">Cardio logged: ${m.walk||0} min walking, ${m.run||0} min running.</div>`:'')+'<div class="sec">Feeling strong and want to lift anyway?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+didRow()+'<div class="small">The rotation follows what you finish, not the calendar. Rest comes after Legs, and it moves on to Push when the day passes. A session you miss stays due.</div>','<button class="btn good" data-a="cardioStart">'+(d.cardio?'Change my cardio':'Log my walk or run')+'</button><button class="btn ghost" data-a="close">Close</button>');return}
   if(sh.step==='lift')return renderLift();
   if(sh.step==='details'){
     const lv=cardioLive(sh),en=E.energyDay(d);
@@ -6583,7 +6608,7 @@ function renderGym(){
   const capn=plan==='Legs'?'<div class="note">Your own cap: 30 to 40 kg on squats and deadlifts until your physio says otherwise.</div>':'';
   const fat=E.fatigued()?'<div class="warn" style="margin-top:0">You are fatigued. Finishing this workout is your comeback quest: it lifts the level lock and the aura penalty.</div>':'';
   const list=E.routine(plan);
-  U.openSheet(plan+' day',fat+rotStrip(plan)+'<div class="hint" style="margin-top:12px">'+list.length+' exercises, '+list.reduce((a,x)=>a+x.sets,0)+' sets. Rehab today: '+(HS.REHAB_FOR[plan]||'')+'.</div>'+'<div class="sec">Doing a different session today?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+capn+'<div class="sec">Not training today?</div><div class="notrain"><button class="btn vio" data-a="gym:pain">Pain day, could not train</button>'+(E.passLeft()?'<button class="btn ghost" data-a="gym:pass">Use my weekly rest pass</button>':'')+'<button class="btn bad" data-a="gym:lazy">Skip with no excuse</button></div><div class="small pen">'+penaltyLine()+'</div>'+yestCardioBtn(),
+  U.openSheet(plan+' day',fat+rotStrip(plan)+'<div class="hint" style="margin-top:12px">'+list.length+' exercises, '+list.reduce((a,x)=>a+x.sets,0)+' sets. Rehab today: '+(HS.REHAB_FOR[plan]||'')+'.</div>'+'<div class="sec">Doing a different session today?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+capn+didRow()+'<div class="sec">Not training today?</div><div class="notrain"><button class="btn vio" data-a="gym:pain">Pain day, could not train</button>'+(E.passLeft()?'<button class="btn ghost" data-a="gym:pass">Use my weekly rest pass</button>':'')+'<button class="btn bad" data-a="gym:lazy">Skip with no excuse</button></div><div class="small pen">'+penaltyLine()+'</div>'+yestCardioBtn(),
     '<button class="btn" data-a="liftStart">Start workout</button>');
 }
 A.cardioStart=function(){
@@ -6624,7 +6649,17 @@ A.cardioSave=function(){
   const km=(t.wKm>0?t.wKm:0)+(t.rKm>0?t.rKm:0);
   U.sys((r.first?'Cardio logged. +60 aura. ':'Cardio updated. ')+(yest?'For yesterday. ':'')+t.walk+' min walking, '+t.run+' min running'+(km>0?', '+(Math.round(km*10)/10)+' km':'')+'.','good',true);F.burstCenter(30);
 };
-A.sess=function(v){if(v==='Rest'&&E.planFor()!=='Rest')return;   /* a rest day on demand is the rest pass or a pain day, not a relabel */
+A.didit=function(v){
+  const sh=U.sh,d=E.day();
+  if(d.workout==='done'||['Push','Pull','Legs'].indexOf(v)<0)return;
+  if(sh.armed!==v){sh.armed=v;F.play('tick',90);reGym();return}
+  sh.armed=null;
+  const r=E.completeWorkout(v,{quick:true});
+  U.justRow='gym';F.play('quest');F.vib([20,30,30]);
+  sh.step='pain';renderGym();
+  U.sys(v+' marked as done. +'+r.award+' aura. Next: '+E.ROT[E.S().rot.i]+'.','good',true);
+};
+A.sess=function(v){if(v==='Rest'&&E.planFor()!=='Rest')return;U.sh.armed=null;   /* a rest day on demand is the rest pass or a pain day, not a relabel */
   E.setSession(v);E.save();U.sh.step='choose';renderGym()};
 A.liftStart=function(){U.sh.step='lift';F.play('pick');renderGym()};
 A.gym=function(v){
