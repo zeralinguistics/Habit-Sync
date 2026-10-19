@@ -3,7 +3,7 @@
 (function(){
 'use strict';
 const HS=window.HS=window.HS||{};
-HS.VERSION='0.5';
+HS.VERSION='0.6';
 HS.BUILD=0;   /* set by build.py --native --build N (the CI run number); 0 means a development or web build */
 HS.REPO='zeralinguistics/Habit-Sync';
 

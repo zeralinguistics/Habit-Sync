@@ -21,7 +21,7 @@ The owner uses an Android phone with Samsung Health and follows a physio-guided 
 
 ```
 node prototype/test/calories.js                       # food table (Atwater, USDA/IFCT anchors, every mess dish has a row) and workout calorie formulas, no browser
-PLAYWRIGHT_PATH=<playwright module dir> CHROME=<chrome binary> node prototype/test/e2e.js /tmp/   # ~180 checks, ~3 min
+PLAYWRIGHT_PATH=<playwright module dir> CHROME=<chrome binary> node prototype/test/e2e.js /tmp/   # ~250 checks, ~10 min
 PLAYWRIGHT_PATH=... CHROME=... node prototype/test/pwa.js /tmp/                                   # offline and install
 ```
 
