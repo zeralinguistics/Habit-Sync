@@ -22,6 +22,9 @@ const pin = (iso) => {
     await ctx.addInitScript(pin, iso || '2026-10-05T12:30:00');
     if (init) await ctx.addInitScript(init);
     const pg = await ctx.newPage();
+    pg.setDefaultTimeout(4000);
+    /* an action that cannot find its element is a failed check, not a crash, so one broken screen does not hide the rest */
+    ['click', 'fill', 'press', 'setInputFiles'].forEach(m => { const o = pg[m].bind(pg); pg[m] = async (...a) => { try { return await o(...a); } catch (e) { ok(false, 'action ' + m + ' ' + a[0] + ': ' + e.message.split('\n')[0]); } }; });
     pg.errs = [];
     pg.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|favicon|Blocked call to navigator.vibrate/.test(m.text())) pg.errs.push(m.text()); });
     pg.on('pageerror', e => pg.errs.push('PAGEERR ' + e.message));
@@ -80,8 +83,8 @@ const pin = (iso) => {
 
   /* ---------- plate: tiles, typing, ruler, stars ---------- */
   await pg.click('[data-a="node:lunch"]'); await pg.waitForTimeout(600);
-  await pg.click('.tile >> nth=0'); await pg.waitForTimeout(150);
-  await pg.click('.tile >> nth=1'); await pg.waitForTimeout(700);
+  await pg.click('.fadd >> nth=0'); await pg.waitForTimeout(150);
+  await pg.click('.fadd >> nth=3'); await pg.waitForTimeout(700);   /* salad and pappad: the typed rice and chapati below must not meet a tile of their own */
   await pg.fill('#mIn', '200g rice, 2 chapati'); await pg.press('#mIn', 'Enter'); await pg.waitForTimeout(700);
   const items = (await S(pg)).days[TODAY].items;
   const rice = items.find(i => i.name === 'Plain rice'), chap = items.find(i => i.name === 'Chapati');
@@ -101,6 +104,7 @@ const pin = (iso) => {
   /* ---------- usuals and repeat ---------- */
   await pg.evaluate(() => { const E = HS.E, k = E.addDays(E.dkey(), -1), d = E.day(k); d.items = [{ name: 'Boiled egg', meal: 'dinner', g: 100 }, { name: 'Chapati', meal: 'dinner', g: 80 }]; d.done.dinner = true; E.save(); });
   await pg.evaluate(() => HS.ui.plateSheet('dinner')); await pg.waitForTimeout(600);
+  await pg.click('[data-a="ptab:mine"]'); await pg.waitForTimeout(300);
   ok(await pg.evaluate(() => !!document.querySelector('.repeat') && /Boiled egg/.test(document.querySelector('.repeat').textContent)), 'an empty plate offers "same as last time"');
   await pg.click('.repeat'); await pg.waitForTimeout(900);
   ok(await pg.evaluate(() => HS.E.day().items.filter(i => i.meal === 'dinner').length) === 2, 'one tap repeats the whole previous meal');
@@ -142,10 +146,12 @@ const pin = (iso) => {
   ok(rk.length === 11 && rk.indexOf('d0_4') < 0, 'push-day rehab has 11 moves (block + knee range + Day 1 core) and skips the Jefferson curl');
   ok(await pg.evaluate(() => document.querySelectorAll('svg.fig').length) >= 10, 'every move shows a moving outline');
   await pg.click('[data-a="rguide"]'); await pg.waitForTimeout(600);
-  ok(await pg.evaluate(() => !!document.querySelector('.gd svg.fig.big') && /1 \/ 11/.test(document.querySelector('.gtop span').textContent)), 'guided session opens at move 1 of 11 with a big outline');
+  const GN = await pg.evaluate(() => HS.ui.sh.g.list.length);
+  ok(await pg.evaluate(n => !!document.querySelector('.gd svg.fig.big') && new RegExp('1 / ' + n).test(document.querySelector('.gtop span').textContent), GN) && GN === 13, 'guided session opens at step 1 of 13: 11 moves, and knee to chest and the Pallof press each count once per side');
+  ok(await pg.evaluate(() => { const l = HS.ui.sh.g.list, kc = l.filter(x => x.key === 'b1'); return kc.length === 2 && kc[0].side === 'L' && kc[1].side === 'R' && /30 sec/.test(kc[0].rx); }), 'knee to chest is 30 seconds on the left leg, then on the right leg');
   await pg.screenshot({ path: out + 'a7-guide.png' });
   /* skip timer waits: stub the hold length by completing each move through its own set button */
-  for (let i = 0; i < 11; i++) {
+  for (let i = 0; i < GN; i++) {
     const info = await pg.evaluate(() => { const g = HS.ui.sh.g; return g ? { i: g.i, hold: /Start hold/.test(document.querySelector('#gsetBtn').textContent) } : null; });
     if (!info) break;
     if (info.hold) { await pg.evaluate(() => { const g = HS.ui.sh.g; const it = g.list[g.i]; HS.E.day().reh.items[it.key] = true; HS.E.save(); HS.ui.act.gskip(); }); }
@@ -207,13 +213,15 @@ const pin = (iso) => {
   /* ---------- path ---------- */
   await pg.evaluate(() => HS.ui.act.tab('path')); await pg.waitForTimeout(1500);
   await pg.screenshot({ path: out + 'b4-path.png' });
-  ok(await pg.evaluate(() => !!document.querySelector('.pchart .cplan') && !!document.querySelector('.gsil') && !!document.querySelector('#road')), 'path shows the plan chart, the final-form silhouette and the road');
+  ok(await pg.evaluate(() => !!document.querySelector('.jchartc svg') && !!document.querySelector('.jplan') && !!document.querySelector('.jh1 svg') && !!document.querySelector('#road')), 'the journey shows the descent chart with the plan line, the final-form silhouette and the gate road');
   await pg.evaluate(() => HS.ui.act.campaign()); await pg.waitForTimeout(600);
   ok(await pg.evaluate(() => document.querySelectorAll('.rc2').length === 5 && /28/.test(document.querySelector('#shBody .dis').textContent)), 'campaign sheet lists four realms plus the final form and 28 gates');
   await pg.screenshot({ path: out + 'b5-campaign.png' });
   await pg.evaluate(() => HS.ui.closeSheet());
   await pg.evaluate(() => HS.ui.act.streaks()); await pg.waitForTimeout(500);
-  ok(await pg.evaluate(() => document.querySelectorAll('.gl2').length >= 11), 'goals and streaks sheet lists five weekly goals and seven streaks');
+  ok(await pg.evaluate(() => document.querySelectorAll('#shBody .pil').length === 6 && document.querySelectorAll('#shBody .mgrid .mc').length >= 28 && /Streak shields/.test(document.querySelector('#shBody').textContent)), 'the streak sheet shows six pillars, the month calendar and the shields');
+  await pg.evaluate(() => HS.ui.act.goalsOpen()); await pg.waitForTimeout(500);
+  ok(await pg.evaluate(() => document.querySelectorAll('.gl2').length >= 11), 'goals and rewards lists five weekly goals and seven streaks');
   await pg.evaluate(() => HS.ui.closeSheet());
 
   /* ---------- forge: customise ---------- */
@@ -222,17 +230,21 @@ const pin = (iso) => {
   ok(await pg.evaluate(() => /Aura and levels/.test(document.querySelector('#shBody').textContent) && /camp week/i.test(document.querySelector('#shBody').textContent)), 'the Forge explains how the game works in plain words');
   await pg.screenshot({ path: out + 'b5b-help.png' });
   await pg.evaluate(() => HS.ui.closeSheet()); await pg.waitForTimeout(300);
+  await pg.evaluate(() => HS.ui.act.set_('rules')); await pg.waitForTimeout(500);
   await pg.click('[data-a="roast:off"]'); await pg.waitForTimeout(200);
   ok((await S(pg)).cfg.roast === 'off' && await pg.evaluate(() => HS.say('roast', 'skip', 'off') === ''), 'teasing can be switched off');
   await pg.click('[data-a="roast:playful"]');
+  await pg.evaluate(() => { HS.ui.closeSheet(); HS.ui.act.set_('targets'); }); await pg.waitForTimeout(500);
   await pg.fill('[data-cfg="kcal"]', '2200');
   ok(await pg.evaluate(() => HS.E.cfg().kcal === 2200), 'settings change the calorie target live');
   await pg.fill('[data-cfg="kcal"]', '1990');
+  await pg.evaluate(() => { HS.ui.closeSheet(); HS.ui.act.set_('look'); }); await pg.waitForTimeout(500);
   await pg.click('[data-a="theme:ember"]'); await pg.waitForTimeout(200);
   ok(await pg.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() === '#ff8a3d'), 'a fixed theme overrides the realm');
   await pg.click('[data-a="theme:auto"]'); await pg.waitForTimeout(200);
   ok(await pg.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() === '#a678ff'), '"My realm" follows the realm again');
   await pg.screenshot({ path: out + 'b6-forge.png' });
+  await pg.evaluate(() => { HS.ui.closeSheet(); HS.ui.act.set_('backup'); }); await pg.waitForTimeout(500);
 
   /* ---------- the data vault ---------- */
   const backup = await pg.evaluate(() => HS.E.backupText());
@@ -241,7 +253,7 @@ const pin = (iso) => {
   await pg.evaluate(() => { HS.E.S().aura = 1; HS.E.save(); });
   await pg.setInputFiles('#restoreFile', { name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(backup) }); await pg.waitForTimeout(600);
   ok((await S(pg)).aura === before.aura, 'restoring from a backup file brings the state back exactly');
-  await pg.evaluate(() => HS.ui.act.tab('forge')); await pg.waitForTimeout(400);
+  await pg.evaluate(() => { HS.ui.closeSheet(); HS.ui.act.set_('backup'); }); await pg.waitForTimeout(500);
   await pg.setInputFiles('#restoreFile', { name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') }); await pg.waitForTimeout(500);
   ok(await pg.evaluate(() => /not a Habit Sync backup/i.test(document.querySelector('#sysT').textContent)) && (await S(pg)).aura === before.aura, 'a wrong file is refused and nothing is lost');
   const cmp = await pg.evaluate(() => {
@@ -284,13 +296,13 @@ const pin = (iso) => {
   ok(info.gates >= 4 && G.goals === 5 && G.owned >= 8 && G.week === 7, 'seeded history: ' + info.gates + ' gates, 5 weekly goals, ' + G.owned + ' items owned');
   ok(G.ahead > 0 && /pace|Plateau|Adherence|Dropping/i.test(G.report), 'weekly report and plan comparison work on real data (' + G.report + ', ahead ' + G.ahead + ' kg)');
   await pg.evaluate(() => { HS.ui.tab = 'home'; HS.ui.render(true); }); await pg.waitForTimeout(900);
-  ok(await pg.evaluate(() => document.querySelectorAll('.goals .gc').length >= 5), 'home shows this week\'s goal cards');
+  ok(await pg.evaluate(() => /day streak/.test(document.querySelector('#screen').textContent) && !!document.querySelector('#skCard') && document.querySelectorAll('.skd').length === 7), 'home shows the streak card with the last seven days on seeded history');
 
   /* ---------- a day that ends at 3 am, for someone who goes to bed after midnight ---------- */
   const lp = await mk(null, '2026-10-06T01:10:00');
   await lp.goto(url); await lp.waitForTimeout(800);
   await lp.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.render(true); }); await lp.waitForTimeout(500);
-  const L1 = await lp.evaluate(() => ({ k: HS.E.dkey(), m: HS.E.nowMin(), sit: HS.E.situation(), hdr: Array.from(document.querySelectorAll('.wt em')).map(e => e.textContent).find(t => /done/.test(t)) }));
+  const L1 = await lp.evaluate(() => ({ k: HS.E.dkey(), m: HS.E.nowMin(), sit: HS.E.situation(), hdr: (document.querySelector('#screen').textContent.match(/closes in [0-9]+h [0-9]+m/) || [''])[0] }));
   ok(L1.k === '2026-10-05' && L1.m >= 1500 && L1.m <= 1520, 'at 01:10 it is still yesterday (' + L1.k + ', minute ' + L1.m + ')');
   ok(/closes in 1h 4\dm|closes in 1h 5\dm/.test(L1.hdr), 'the quest list says when the day really closes: ' + L1.hdr);
   ok(L1.sit === 'late', 'the late-night nudge applies after midnight');
@@ -320,10 +332,11 @@ const pin = (iso) => {
     } } };
   });
   await hp.goto(url); await hp.waitForTimeout(900);
-  await hp.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.act.tab('path'); }); await hp.waitForTimeout(600);
-  ok(await hp.evaluate(() => /Connect Samsung Health/.test(document.querySelector('#screen').textContent)), 'the Android app offers to connect Samsung Health');
+  await hp.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.act.tab('forge'); HS.ui.act.set_('samsung'); }); await hp.waitForTimeout(600);
+  ok(await hp.evaluate(() => /Connect Samsung Health/.test(document.querySelector('#shBody').textContent)), 'the Android app offers to connect Samsung Health');
   const cn = await hp.evaluate(async () => { const r = await HS.health.connect(); return r; });
-  ok(cn.ok && (await hp.evaluate(() => window.__calls[0][1].join())) === 'steps,calories,sleep,weight,workouts', 'connect asks for read-only steps, calories, sleep, weight and workouts');
+  ok(cn.ok && (await hp.evaluate(() => window.__calls[0][1].join())) === 'steps,distance,calories,sleep,weight,workouts,restingHeartRate,heartRate,flightsClimbed', 'connect asks for read-only steps, distance, calories, sleep, weight, workouts, heart rate and floors, and never for write access');
+  ok(await hp.evaluate(() => window.__calls[0].length === 2 && !!HS.health.types.length), 'the permission request is read-only');
   const sy = await hp.evaluate(async () => { const r = await HS.health.sync(); const d = HS.E.day(); return { r: r, steps: d.steps, hs: d.hSteps, act: d.hAct, sleep: d.sleep, hw: d.hWeight, work: d.hWork }; });
   ok(sy.r.ok && sy.steps === '7412' && sy.act === 318 && sy.sleep === 7.5 && sy.hw === 83.6 && sy.work.kcal === 310, 'sync fills steps 7412, 318 active kcal, 7.5 h sleep, weight 83.6 and the workout');
   await hp.evaluate(() => HS.ui.act.tab('forge')); await hp.waitForTimeout(500);
@@ -347,7 +360,7 @@ const pin = (iso) => {
     } } };
   });
   await np.goto(url); await np.waitForTimeout(800);
-  await np.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.act.tab('forge'); }); await np.waitForTimeout(500);
+  await np.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.act.tab('forge'); HS.ui.act.set_('remind'); }); await np.waitForTimeout(500);
   await np.click('[data-a="remind:1"]'); await np.waitForTimeout(900);
   const sc = await np.evaluate(() => ({ n: window.__sched.length ? window.__sched[window.__sched.length - 1].length : 0, first: window.__sched.length ? window.__sched[window.__sched.length - 1][0] : null, on: HS.E.S().remind.on }));
   ok(sc.on && sc.n >= 60 && sc.first && sc.first.isExactNotification === false, 'reminders schedule ' + sc.n + ' friendly nudges over 14 days, inexact so no special permission is needed');
@@ -356,21 +369,21 @@ const pin = (iso) => {
   /* ---------- bonus quests: three small optional extras a day ---------- */
   const bq = await mk();
   await bq.goto(url); await bq.waitForTimeout(800);
-  await bq.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'home'; HS.ui.render(true); HS.E.rng = () => .5; }); await bq.waitForTimeout(1300);
+  await bq.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'home'; HS.ui.render(true); HS.E.rng = () => .5; HS.ui.act.bonusSheet(); }); await bq.waitForTimeout(1300);
   const b0 = await bq.evaluate(() => {
     const E = HS.E, r = E.bonusToday(), r2 = E.bonusToday(), sets = new Set();
     for (let i = 0; i < 12; i++) sets.add(E.bonusToday(E.addDays(E.dkey(), i)).map(x => x.id).join());
-    return { ids: r.map(x => x.id), same: r.map(x => x.id).join() === r2.map(x => x.id).join(), autos: r.filter(x => x.auto).length, varied: sets.size, rows: document.querySelectorAll('#bonusWin .brow').length };
+    return { ids: r.map(x => x.id), same: r.map(x => x.id).join() === r2.map(x => x.id).join(), autos: r.filter(x => x.auto).length, varied: sets.size, rows: document.querySelectorAll('#bonusRows .brow').length };
   });
   ok(b0.ids.length === 3 && b0.autos === 1 && b0.same && b0.varied >= 4 && b0.rows === 3, 'three bonus quests a day (one ticks itself, two you tick), stable through the day, different across days: ' + b0.ids.join());
   const mrow = await bq.evaluate(() => HS.E.bonusToday().find(x => !x.auto));
   const aura0 = (await S(bq)).aura;
-  const sel = id => '#bonusWin [data-a="bonus:' + id + '"]';
+  const sel = id => '#bonusRows [data-a="bonus:' + id + '"]';
   await bq.click(sel(mrow.id)); await bq.waitForTimeout(400);
-  const b1 = await bq.evaluate(id => ({ aura: HS.E.S().aura, done: document.querySelector('#bonusWin [data-a="bonus:' + id + '"]').classList.contains('done'), n: HS.E.S().counters.bonus }), mrow.id);
+  const b1 = await bq.evaluate(id => ({ aura: HS.E.S().aura, done: document.querySelector('#bonusRows [data-a="bonus:' + id + '"]').classList.contains('done'), n: HS.E.S().counters.bonus }), mrow.id);
   ok(b1.aura === aura0 + mrow.a && b1.done && b1.n === 1, 'ticking a bonus quest pays its aura once (+' + mrow.a + ') and shows it done');
   await bq.click(sel(mrow.id)); await bq.waitForTimeout(250); await bq.click(sel(mrow.id)); await bq.waitForTimeout(300);
-  const b2 = await bq.evaluate(id => ({ aura: HS.E.S().aura, n: HS.E.S().counters.bonus, done: document.querySelector('#bonusWin [data-a="bonus:' + id + '"]').classList.contains('done') }), mrow.id);
+  const b2 = await bq.evaluate(id => ({ aura: HS.E.S().aura, n: HS.E.S().counters.bonus, done: document.querySelector('#bonusRows [data-a="bonus:' + id + '"]').classList.contains('done') }), mrow.id);
   ok(b2.aura === aura0 + mrow.a && b2.n === 1 && b2.done, 'unticking and ticking again never pays twice');
   const au = await bq.evaluate(() => {
     const E = HS.E, d = E.day(), a = E.bonusToday().find(x => x.auto), aura = E.S().aura;
@@ -382,12 +395,12 @@ const pin = (iso) => {
     E.save(); return { id: a.id, a: a.a, aura: aura };
   });
   await bq.waitForTimeout(500);
-  const b3 = await bq.evaluate(id => ({ aura: HS.E.S().aura, claimed: !!HS.E.S().claimed['bonus:' + HS.E.dkey() + ':' + id], n: HS.E.S().counters.bonus, toast: document.querySelector('#sysT').textContent, done: document.querySelector('#bonusWin [data-a="bonus:' + id + '"]').classList.contains('done') }), au.id);
+  const b3 = await bq.evaluate(id => ({ aura: HS.E.S().aura, claimed: !!HS.E.S().claimed['bonus:' + HS.E.dkey() + ':' + id], n: HS.E.S().counters.bonus, toast: document.querySelector('#sysT').textContent, done: document.querySelector('#bonusRows [data-a="bonus:' + id + '"]').classList.contains('done') }), au.id);
   ok(b3.claimed && b3.done && b3.n === 2 && b3.aura >= au.aura + au.a && /Bonus quest done/.test(b3.toast), 'the self-ticking bonus pays when the data says so (' + au.id + ') and the card updates without a re-render');
   const other = await bq.evaluate(() => HS.E.bonusToday().find(x => !x.auto && !x.done));
   const aura1 = (await S(bq)).aura;
   await bq.click(sel(other.id)); await bq.waitForTimeout(500);
-  const b4 = await bq.evaluate(() => ({ aura: HS.E.S().aura, all: !!HS.E.day().bonusAll, set: document.querySelector('#bonusWin').classList.contains('allset'), toast: document.querySelector('#sysT').textContent }));
+  const b4 = await bq.evaluate(() => ({ aura: HS.E.S().aura, all: !!HS.E.day().bonusAll, set: /3 of 3/.test(document.querySelector('#bonusHd').textContent), toast: document.querySelector('#sysT').textContent }));
   ok(b4.all && b4.set && b4.aura === aura1 + other.a + 25 && /\+25 aura/.test(b4.toast), 'three out of three adds a +25 aura bonus and gilds the card');
   const ch = await bq.evaluate(() => { const E = HS.E, d = E.day(); d.chest = null; const up = E.openChest(2).tier; d.chest = null; d.bonusAll = false; const plain = E.openChest(2).tier; d.chest = null; return { up: up, plain: plain }; });
   ok(ch.up === 'rare' && ch.plain === 'common', 'a clean bonus row lifts the daily chest one tier (common became rare)');
@@ -408,10 +421,11 @@ const pin = (iso) => {
   });
   ok(rd.walkOk > 0 && rd.light === 'red' && rd.walkRed === 0, 'after a red pain check-in the walking bonus is never offered (' + rd.walkOk + ' of 40 days before, ' + rd.walkRed + ' after)');
   const qz = await bq.evaluate(async () => {
+    HS.ui.closeSheet(); await new Promise(r => setTimeout(r, 700));
     HS.ui.tab = 'home'; HS.ui.render(); await new Promise(r => setTimeout(r, 120));
-    const plain = document.getAnimations().filter(a => a.animationName === 'rise').length;
+    const plain = document.getAnimations().filter(a => a.animationName === 'rise' && a.effect.target.closest('#screen')).length;
     HS.ui.render(true); await new Promise(r => setTimeout(r, 120));
-    return { plain: plain, full: document.getAnimations().filter(a => a.animationName === 'rise').length };
+    return { plain: plain, full: document.getAnimations().filter(a => a.animationName === 'rise' && a.effect.target.closest('#screen')).length };
   });
   ok(qz.plain === 0 && qz.full >= 5, 'a plain re-render does not replay the entrance animation; a tab switch does (' + qz.plain + ' vs ' + qz.full + ')');
   const pr = await bq.evaluate(() => { const E = HS.E, s = E.S(); s.claimed['bonus:2026-06-01:b_meals'] = 1; s.claimed['bonus:2026-10-04:b_meals'] = 1; E.compact(); return { old: !!s.claimed['bonus:2026-06-01:b_meals'], recent: !!s.claimed['bonus:2026-10-04:b_meals'] }; });
@@ -492,7 +506,7 @@ const pin = (iso) => {
   const rs = await mk();
   await rs.goto(url); await rs.waitForTimeout(800);
   await rs.evaluate(`(${seedSrc})(31)`);
-  await rs.evaluate(() => { HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.tab = 'forge'; HS.ui.render(true); }); await rs.waitForTimeout(500);
+  await rs.evaluate(() => { HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.tab = 'forge'; HS.ui.render(true); HS.ui.act.set_('backup'); }); await rs.waitForTimeout(600);
   const days0 = await rs.evaluate(() => Object.keys(HS.E.S().days).length);
   await rs.click('#resetBtn'); await rs.waitForTimeout(60); await rs.click('#resetBtn'); await rs.waitForTimeout(200);
   ok(await rs.evaluate(() => Object.keys(HS.E.S().days).length) === days0, 'an instant double tap on Reset does nothing');
@@ -500,7 +514,7 @@ const pin = (iso) => {
   ok(await rs.evaluate(() => Object.keys(HS.E.S().days).length) < 3, 'a deliberate second tap resets');
   const und = await rs.evaluate(() => HS.E.undoInfo());
   ok(und && und.days >= days0 - 1, 'the old state is kept aside for an undo (' + (und && und.days) + ' days)');
-  await rs.evaluate(() => { HS.ui.tab = 'forge'; HS.ui.render(true); }); await rs.waitForTimeout(400);
+  await rs.evaluate(() => { HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.act.set_('backup'); }); await rs.waitForTimeout(600);
   ok(await rs.evaluate(() => /Undo last reset or restore/.test(document.querySelector("#vaultWrap").textContent)), 'the Data vault offers the undo');
   const back = await rs.evaluate(() => { HS.E.reset(); return HS.E.undoLast(); });
   ok(back >= days0 - 1, 'undo brings everything back, even after a second reset (' + back + ' days)');
@@ -508,7 +522,7 @@ const pin = (iso) => {
 
   const cb = await mk(() => { Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => window.__clipOk ? Promise.resolve() : Promise.reject(new Error('denied')) }, configurable: true }); document.execCommand = () => false; });   /* headless Chromium lets execCommand('copy') succeed with no user gesture; a real phone does not */
   await cb.goto(url); await cb.waitForTimeout(700);
-  await cb.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'forge'; HS.ui.render(true); window.__clipOk = false; HS.ui.act.bkCopy(); }); await cb.waitForTimeout(400);
+  await cb.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'forge'; HS.ui.render(true); HS.ui.act.set_('backup'); window.__clipOk = false; HS.ui.act.bkCopy(); }); await cb.waitForTimeout(500);
   const cbr = await cb.evaluate(() => ({ lb: HS.E.S().lastBackup, msg: document.querySelector('#bkMsg').textContent, toast: document.querySelector('#sysT').textContent }));
   ok(cbr.lb === 0 && /Select all/.test(cbr.msg) && /Select and copy/.test(cbr.toast), 'a refused clipboard write is reported honestly and the backup reminder stays on');
   await cb.evaluate(() => { window.__clipOk = true; HS.ui.act.bkCopy(); }); await cb.waitForTimeout(400);
@@ -549,16 +563,16 @@ const pin = (iso) => {
       const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey();
       S.start = E.addDays(today, -14); S.cycles = [{ a: S.start, i: 0 }]; S.cycle = { a: S.start, i: 0 };
       const past = []; for (let i = 14; i >= 1; i--) past.push(E.planFor(E.addDays(today, -i)));
-      const todayPlan = E.planFor(), target = todayPlan === 'Pull' ? 'Legs' : 'Pull';
+      const rot0 = S.rot.i, todayPlan = E.planFor(), target = todayPlan === 'Pull' ? 'Legs' : 'Pull';
       E.setSession(target);
       const past2 = []; for (let i = 14; i >= 1; i--) past2.push(E.planFor(E.addDays(today, -i)));
       HS.ui.closeSheet(); HS.ui.gymSheet();
       const rest = document.querySelectorAll('#shBody [data-a="sess:Rest"]').length;
       HS.ui.act.sess('Rest');
-      const r = { same: past.join() === past2.join(), now: E.planFor(), target: target, anchors: S.cycles.length, rest: rest, stillTrain: E.planFor() === target };
+      const r = { same: past.join() === past2.join(), now: E.planFor(), target: target, rot: S.rot.i === rot0, anchors: S.cycles.length, rest: rest, stillTrain: E.planFor() === target };
       HS.ui.closeSheet(); return r;
     });
-    ok(C.same && C.now === C.target && C.anchors === 2, 'correcting today\'s session starts a new anchor and never rewrites earlier days');
+    ok(C.same && C.now === C.target && C.rot && C.anchors === 1, 'switching today\'s session never rewrites earlier days and never moves the rotation until you finish it');
     ok(C.rest === 0 && C.stillTrain, 'a training day cannot be relabelled as Rest (that is what the rest pass and the pain day are for)');
 
     const I = await rp.evaluate(() => {
@@ -600,11 +614,11 @@ const pin = (iso) => {
       const add = t => { document.querySelector('#mIn').value = t; U.act.mAdd(); };
       const ph = document.querySelector('#mIn').placeholder;
       add('shake 400 kcal'); const k1 = Math.round(E.mealKcal(E.day(), 'lunch'));
-      add('momos 350 kcal'); const k2 = Math.round(E.mealKcal(E.day(), 'lunch'));
-      add('momos 500 kcal'); const k3 = Math.round(E.mealKcal(E.day(), 'lunch'));
+      add('zorbo 350 kcal'); const k2 = Math.round(E.mealKcal(E.day(), 'lunch'));
+      add('zorbo 500 kcal'); const k3 = Math.round(E.mealKcal(E.day(), 'lunch'));
       U.closeSheet(); return { k1: k1, d2: k2 - k1, d3: k3 - k2, ph: ph };
     });
-    ok(Math.abs(QA.k1 - 400) <= 10 && Math.abs(QA.d2 - 350) <= 10 && Math.abs(QA.d3 - 500) <= 10 && /kcal/.test(QA.ph), 'a typed kcal figure is honoured every time (400, +350, +500 kcal logged: ' + QA.k1 + ', ' + QA.d2 + ', ' + QA.d3 + ')');
+    ok(Math.abs(QA.k1 - 400) <= 10 && Math.abs(QA.d2 - 350) <= 10 && Math.abs(QA.d3 - 500) <= 10 && QA.ph.length > 10, 'a typed kcal figure is honoured every time (400, +350, +500 kcal logged: ' + QA.k1 + ', ' + QA.d2 + ', ' + QA.d3 + ')');
 
     const CC = await rp.evaluate(async () => {
       const U = HS.ui; U.clearCele();
@@ -738,14 +752,14 @@ const pin = (iso) => {
     const text = await cp1.evaluate(() => HS.E.backupText());
     const cp2 = await mk();
     await cp2.goto(url); await cp2.waitForTimeout(700);
-    await cp2.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'forge'; HS.ui.render(true); }); await cp2.waitForTimeout(400);
+    await cp2.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.tab = 'forge'; HS.ui.render(true); HS.ui.act.set_('backup'); }); await cp2.waitForTimeout(500);
     await cp2.click('[data-a="bkPaste"]'); await cp2.fill('#pasteBk', text);
     await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(150);
     ok(await cp2.evaluate(() => Object.keys(HS.E.S().days).length) < 3, 'pasting backup text needs a deliberate second tap');
     await cp2.waitForTimeout(900); await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(500);
     const got = await cp2.evaluate(() => ({ days: Object.keys(HS.E.S().days).length, aura: HS.E.S().aura, name: HS.E.S().cfg.name }));
     ok(got.days >= 20 && got.aura === srcAura && got.name === 'HUNTER', 'pasted backup text restores the whole save (' + got.days + ' days)');
-    await cp2.evaluate(() => { HS.ui.tab = 'forge'; HS.ui.render(true); }); await cp2.waitForTimeout(300);
+    await cp2.evaluate(() => { HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.act.set_('backup'); }); await cp2.waitForTimeout(600);
     const a0 = await cp2.evaluate(() => HS.E.S().aura);
     await cp2.click('[data-a="bkPaste"]'); await cp2.fill('#pasteBk', 'not a backup'); await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(1000); await cp2.click('[data-a="bkPasteGo"]'); await cp2.waitForTimeout(400);
     ok(await cp2.evaluate(a => /not a Habit Sync backup/i.test(document.querySelector('#sysT').textContent) && HS.E.S().aura === a, a0), 'wrong text is refused and nothing is lost');
@@ -771,8 +785,8 @@ const pin = (iso) => {
       const E = HS.E, U = HS.ui; U.plateSheet('lunch');
       const add = t => { document.querySelector('#mIn').value = t; U.act.mAdd(); };
       const k = () => Math.round(E.mealKcal(E.day(), 'lunch')), toast = () => document.querySelector('#sysT').textContent;
-      add('momos 350'); const a = k();
-      add('momos 350'); const b = k();
+      add('zorbo 350'); const a = k();
+      add('zorbo 350'); const b = k();
       add('0 g'); const c = k(), t1 = toast();
       add('300 kcal'); const t2 = toast();
       add('rice 0g'); const t3 = toast(), d = k();
@@ -839,11 +853,11 @@ const pin = (iso) => {
       const week = () => { const o = []; for (let i = 0; i < 7; i++) o.push(E.planFor(E.addDays(today, i))); return o.join(); };
       const w0 = week(), p0 = E.planFor(), other = p0 === 'Pull' ? 'Legs' : 'Pull';
       E.setSession(other); const w1 = week(); E.setSession(p0); const w2 = week();
-      S.cycles.push({ a: E.addDays(today, 2), i: 0 }); E.setSession(other);
-      return { w0: w0, w2: w2, changed: w1 !== w0, future: S.cycles.filter(c => c.a > today).length, cyc: S.cycle.a <= today };
+      S.cycles.push({ a: E.addDays(today, 2), i: 0 }); let thrown = ''; try { E.setSession(other); } catch (e) { thrown = e.message; }
+      return { w0: w0, w2: w2, changed: w1 !== w0, thrown: thrown, plan: E.planFor(), other: other };
     });
     ok(SC.changed && SC.w0 === SC.w2, 'a mis-tap on the session picker followed by the right session leaves the week exactly as it was');
-    ok(SC.future === 0 && SC.cyc, 'an anchor dated in the future (clock set back) is dropped on the next correction');
+    ok(SC.thrown === '' && SC.plan === SC.other, 'an old-style anchor dated in the future (clock set back) cannot break the session picker');
     const CH = await sc.evaluate(async () => {
       const E = HS.E, U = HS.ui; E.reset(); E.S().welcomed = true; U.closeSheet(); U.clearCele(); E.day().closed = true; E.day().score = 3;
       let n = 0; const oc = U.cele; U.cele = c => { n++; return oc.call(U, c); };
@@ -859,7 +873,7 @@ const pin = (iso) => {
     const rp2 = await rm.newPage(); rp2.errs = [];
     rp2.on('pageerror', e => rp2.errs.push('PAGEERR ' + e.message));
     await rp2.goto(url); await rp2.waitForTimeout(700);
-    const RM = await rp2.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.E.logWeight(83.9); HS.ui.justRow = 'weigh'; HS.ui.render(); const p = document.querySelector('.qrow.just .qic svg path'); return p ? getComputedStyle(p).strokeDashoffset : 'none'; });
+    const RM = await rp2.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.E.logWeight(83.9); HS.ui.justRow = 'weigh'; HS.ui.render(); const p = document.querySelector('.tl2.just .tli svg path'); return p ? getComputedStyle(p).strokeDashoffset : 'none'; });
     ok(RM === '0px', 'with "remove animations" on, the tick on a finished quest is still drawn (' + RM + ')');
     await rm.close();
   }
@@ -870,8 +884,8 @@ const pin = (iso) => {
       const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey(); S.start = E.addDays(today, -20);
       for (let i = 19; i >= 0; i--) S.weights[E.addDays(today, -i)] = 84 + (20 - i) * .6;   /* weight going UP */
       HS.ui.closeSheet(); HS.ui.tab = 'path'; HS.ui.render(true);
-      const dots = [...document.querySelectorAll('circle.cd')].map(c => +c.getAttribute('cy'));
-      return { n: dots.length, inside: dots.every(y => y >= 0 && y <= 170) };
+      const dots = [...document.querySelectorAll('circle.jd')].map(c => +c.getAttribute('cy'));
+      return { n: dots.length, inside: dots.every(y => y >= 0 && y <= 214) };
     });
     ok(PC.n > 10 && PC.inside, 'the plan chart keeps every weigh-in inside the frame when the weight goes up');
   }
@@ -932,6 +946,207 @@ const pin = (iso) => {
       U.closeSheet(); return { knee: E.day().reh && E.day().reh.knee, saved: saved && saved.knee, light: E.lastLight() };
     });
     ok(SL.knee === 7 && SL.saved === 7 && SL.light === 'red', 'a pain slider moved after the day changed is recorded and saved (' + SL.knee + ')');
+  }
+
+
+  /* ---------- the training rotation: Push, Pull, Legs, Rest by what you finish, not by the weekday ---------- */
+  {
+    const rt = await mk();
+    await rt.goto(url); await rt.waitForTimeout(800);
+    const RO = await rt.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey(), nxt = () => E.ROT[E.S().rot.i], o = {};   /* E.reset() makes a new state object, so always ask for the current one */
+      o.first = E.planFor();
+      E.completeWorkout('Pull'); o.afterPull = nxt();      /* Pull was done although Push was due */
+      E.completeWorkout('Legs'); o.afterLegs = nxt();
+      /* a rest day that passes moves the rotation on to Push */
+      E.reset(); const T = E.S(); T.welcomed = true; T.start = E.keyOffset(-10); T.rot = { i: 3, from: today };
+      T.swept = {}; T.swept[E.keyOffset(-3)] = 1; T.swept[E.keyOffset(-2)] = 1;
+      const aura0 = T.aura; E.sweep();
+      o.restPassed = nxt(); o.restAura = T.aura === aura0; o.restFat = E.fatigued();
+      /* a Push that was missed is still Push, and the miss costs aura */
+      E.reset(); const U2 = E.S(); U2.welcomed = true; U2.start = E.keyOffset(-10); U2.rot = { i: 0, from: today }; U2.aura = 500; U2.passUsed = { [E.weekKey()]: 1 };
+      U2.swept = {}; U2.swept[E.keyOffset(-3)] = 1; U2.swept[E.keyOffset(-2)] = 1;
+      E.sweep(); o.missedStays = nxt(); o.missedAura = U2.aura < 500; o.yWork = (U2.days[E.keyOffset(-1)] || {}).workout;
+      return o;
+    });
+    ok(RO.first === 'Push', 'a fresh start begins on Push');
+    ok(RO.afterPull === 'Legs' && RO.afterLegs === 'Rest', 'the rotation follows the session you finished: Pull done, Legs is next; Legs done, Rest is next (' + RO.afterPull + ', ' + RO.afterLegs + ')');
+    ok(RO.restPassed === 'Push' && RO.restAura && !RO.restFat, 'a rest day that passes moves on to Push and costs nothing');
+    ok(RO.missedStays === 'Push' && RO.missedAura && RO.yWork === 'lazy', 'a missed Push stays due the next day (and the miss is settled once)');
+    const RS = await rt.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; HS.ui.closeSheet();
+      const base = E.planFor(); E.setSession('Legs'); const picked = E.planFor(); E.setSession(base); const back = E.planFor();
+      S.rot.i = 3; E.day().sess = null; HS.ui.gymSheet(); const hasStart = !!document.querySelector('[data-a="liftStart"]'), hasCardio = !!document.querySelector('[data-a="cardioStart"]');
+      HS.ui.act.sess('Rest'); HS.ui.closeSheet();
+      return { base: base, picked: picked, back: back, hasStart: hasStart, hasCardio: hasCardio };
+    });
+    ok(RS.base === 'Push' && RS.picked === 'Legs' && RS.back === 'Push', 'today\'s session can be switched to what you really do, and switched back');
+    ok(!RS.hasStart && RS.hasCardio, 'the Rest day offers cardio, not a lifting session');
+    ok(rt.errs.length === 0, 'no console errors in the rotation checks ' + JSON.stringify(rt.errs));
+  }
+
+  /* ---------- rest-day cardio: typed minutes and distance, speed and calories worked out, yesterday ---------- */
+  {
+    const cd = await mk();
+    await cd.goto(url); await cd.waitForTimeout(800);
+    await cd.evaluate(() => { const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.start = E.keyOffset(-20); S.rot = { i: 3, from: E.dkey() }; E.day(E.keyOffset(-1)).plan = 'Rest'; HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.tab = 'home'; HS.ui.render(true); });
+    await cd.waitForTimeout(800);
+    ok(await cd.evaluate(() => { const E = HS.E, d = E.day(); d.weighed = true; d.done = { breakfast: true, lunch: true }; d.reh = { items: {}, day: 0, knee: 0, back: 0, sharp: false, done: true, n: 5, checked: true }; E.save(); HS.ui.render(); const m = HS.ui.nextMove(); return m.id === 'gym' && /Cardio day/.test(m.title) && /Cardio day/.test(document.querySelector('.move').textContent); }), 'on a rest day, once the scale, lunch and rehab are done, the next move is the cardio day');
+    await cd.evaluate(() => HS.ui.act.gym ? HS.ui.gymSheet() : 0); await cd.waitForTimeout(500);
+    await cd.click('[data-a="cardioStart"]'); await cd.waitForTimeout(400);
+    await cd.fill('[data-f="rKm"]', '1.6'); await cd.fill('[data-f="wKm"]', '2.5'); await cd.waitForTimeout(200);
+    const lv = await cd.evaluate(() => ({ sum: document.querySelector('#cSum').textContent, est: document.querySelector('#cEst').textContent, kept: document.querySelector('[data-f="rKm"]') === document.activeElement || document.querySelector('[data-f="rKm"]').value === '1.6' }));
+    ok(/Run 9\.6 km\/h, 6:15 per km/.test(lv.sum) && /Walk 5 km\/h/.test(lv.sum), 'a typed distance gives the run speed and pace (' + lv.sum + ')');
+    const kc = +(lv.est.match(/~(\d+) kcal/) || [])[1];
+    ok(kc >= 200 && kc <= 450, 'the live calorie estimate follows (' + kc + ' kcal) and the typed numbers stay in the boxes');
+    await cd.click('[data-a="wsurf:flat"]'); await cd.waitForTimeout(300);
+    const kcFlat = await cd.evaluate(() => +(document.querySelector('#cEst').textContent.match(/~(\d+) kcal/) || [])[1]);
+    await cd.click('[data-a="wsurf:inc"]'); await cd.waitForTimeout(300);
+    const kc2 = await cd.evaluate(() => +(document.querySelector('#cEst').textContent.match(/~(\d+) kcal/) || [])[1]);
+    ok(kc2 > kcFlat + 50, 'walking on a 9% treadmill incline burns more than flat (' + kcFlat + ' to ' + kc2 + ')');
+    await cd.click('[data-a="wsurf:flat"]'); await cd.waitForTimeout(200);
+    await cd.fill('[data-f="rKm"]', '9'); await cd.waitForTimeout(200);
+    ok(await cd.evaluate(() => /Check the running distance/.test(document.querySelector('#cSum').textContent)), 'a distance that is a typo (9 km in 10 minutes) is flagged, not believed');
+    await cd.click('[data-a="cardioSave"]'); await cd.waitForTimeout(300);
+    ok(await cd.evaluate(() => !!HS.ui.sh && HS.ui.sh.step === 'cardio'), 'the typo is not saved');
+    await cd.fill('[data-f="rKm"]', '1.6'); await cd.click('[data-a="noPain"]'); await cd.waitForTimeout(200);
+    await cd.click('[data-a="cardioSave"]'); await cd.waitForTimeout(500);
+    let cs = await cd.evaluate(() => { const E = HS.E, S = E.S(), d = S.days[E.dkey()]; return { cardio: d.cardio, mins: d.mins, det: d.cardioDet, free: d.runFree, burn: d.burn, aura: S.aura, rot: S.rot.i, key: E.dkey() }; });
+    ok(cs.cardio && cs.mins.walk === 30 && cs.mins.run === 10 && cs.det.rKm === 1.6 && cs.det.wKm === 2.5 && cs.det.src === 'manual' && cs.free === 10, 'the cardio day is saved with distances and "no knee pain" (' + JSON.stringify(cs.det) + ')');
+    ok(cs.burn >= 150 && cs.burn <= 450 && cs.aura >= 60 && cs.rot === 3, 'it pays 60 aura once, stores the estimate (' + cs.burn + ' kcal) and leaves the rotation alone');
+    await cd.evaluate(() => { HS.ui.clearCele(); HS.ui.render(true); }); await cd.waitForTimeout(500);
+    ok(await cd.evaluate(() => /Cardio day/.test(document.querySelector('.move, .qrow.done') ? document.body.textContent : '') && /1\.6/.test(JSON.stringify(HS.E.day().cardioDet))), 'Today shows the cardio day as done');
+    /* yesterday, typed in the next morning */
+    await cd.evaluate(() => { HS.ui.gymSheet(); }); await cd.waitForTimeout(400);
+    await cd.click('[data-a="cardioStart"]'); await cd.waitForTimeout(300);
+    await cd.click('[data-a="cday:yest"]'); await cd.waitForTimeout(300);
+    ok(await cd.evaluate(() => /Yesterday/.test(document.querySelector('#shBody').textContent) && HS.ui.sh.tmp.day === 'yest'), 'a rest day can be logged for yesterday');
+    await cd.fill('[data-f="rKm"]', '2'); await cd.click('[data-a="cardioSave"]'); await cd.waitForTimeout(500);
+    const ys = await cd.evaluate(() => { const E = HS.E, S = E.S(), y = S.days[E.keyOffset(-1)], t = S.days[E.dkey()]; return { y: y.cardio, yk: y.cardioDet && y.cardioDet.rKm, t: t.cardioDet && t.cardioDet.rKm }; });
+    ok(ys.y && ys.yk === 2 && ys.t === 1.6, 'yesterday gets its own run (2 km) and today keeps its own (1.6 km)');
+    ok(cd.errs.length === 0, 'no console errors in the cardio checks ' + JSON.stringify(cd.errs));
+  }
+
+  /* ---------- the daily spark and streak shields ---------- */
+  {
+    const sp = await mk();
+    await sp.goto(url); await sp.waitForTimeout(800);
+    const SP = await sp.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.start = E.keyOffset(-12); S.shield = { n: 1, used: {}, checked: {} };
+      const lit = k => { const d = E.day(k); d.weighed = true; d.done = { breakfast: true, lunch: true }; d.water = 3000; };
+      [-6, -5, -4, -2, -1].forEach(i => lit(E.keyOffset(i)));   /* day -3 was missed */
+      const before = E.sparkInfo().n, out = E.sparkSweep();
+      const o = { before: before, saved: out.length && out[0].saved, k: out[0] && out[0].k === E.keyOffset(-3), shield: S.shield.n, n: E.sparkInfo().n, st: E.sparkDay(E.keyOffset(-3)) };
+      /* a second miss with no shield left ends the streak */
+      E.day(E.keyOffset(-1)).water = 0; E.day(E.keyOffset(-1)).done = {}; E.day(E.keyOffset(-1)).weighed = false;
+      S.shield.checked = {}; o.after = E.sparkInfo().n;
+      /* pain day and rest pass are protected, never missed */
+      const d9 = E.day(E.keyOffset(-8)); d9.workout = 'pain'; o.safe = E.sparkDay(E.keyOffset(-8));
+      return o;
+    });
+    ok(SP.before === 2 && SP.saved && SP.k && SP.shield === 0 && SP.st === 'shield', 'a missed day inside a streak of two or more is saved by a shield, once');
+    ok(SP.n === 5, 'the shield keeps the streak whole: five lit days across the gap (' + SP.n + ')');
+    ok(SP.after === 0 && SP.safe === 'safe', 'without a shield a miss ends the streak, while a pain day is protected');
+    const PL = await sp.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.cfg.sparkGoal = 3; const d = E.day();
+      const p0 = E.pillarsMet(); d.weighed = true; d.water = 3000; d.done = { lunch: true, dinner: true };
+      const p3 = E.pillarsMet(), lit = E.sparkDay(E.dkey());
+      S.cfg.sparkGoal = 5; const lit5 = E.sparkDay(E.dkey());
+      return { p0: p0, p3: p3, lit: lit, lit5: lit5, ids: E.pillarsFor().map(x => x.id).join() };
+    });
+    ok(PL.p0 === 0 && PL.p3 === 3 && PL.lit === 'lit' && PL.lit5 === 'open' && PL.ids === 'check,fuel,protein,move,rehab,water', 'three of six pillars light the day on Easy, five are needed on Hard');
+    ok(sp.errs.length === 0, 'no console errors in the streak checks ' + JSON.stringify(sp.errs));
+  }
+
+  /* ---------- rehab: one-sided moves are counted per side ---------- */
+  {
+    const rh = await mk();
+    await rh.goto(url); await rh.waitForTimeout(800);
+    await rh.evaluate(() => { const E = HS.E; E.reset(); E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.rehabSheet(); }); await rh.waitForTimeout(600);
+    ok(await rh.evaluate(() => document.querySelectorAll('.sidechips').length >= 2 && /30 sec × 3 each leg/.test(document.querySelector('#shBody').textContent)), 'knee to chest and the Pallof press show a Left and a Right box, with 30 seconds on each leg');
+    await rh.click('[data-a="rside:b1:L"]'); await rh.waitForTimeout(250);
+    let R1 = await rh.evaluate(() => ({ done: HS.E.rehabProgress().done, item: !!HS.E.day().reh.items.b1, L: HS.E.day().reh.sd.b1.L, R: HS.E.day().reh.sd.b1.R }));
+    ok(!R1.item && R1.L && !R1.R && R1.done === 0, 'the left leg alone does not tick the move');
+    await rh.click('[data-a="rside:b1:R"]'); await rh.waitForTimeout(250);
+    const R2 = await rh.evaluate(() => ({ done: HS.E.rehabProgress().done, item: !!HS.E.day().reh.items.b1 }));
+    ok(R2.item && R2.done === 1, 'both legs tick it');
+    await rh.click('[data-a="rt:b1"]'); await rh.waitForTimeout(250); await rh.click('[data-a="rt:b1"]'); await rh.waitForTimeout(250);
+    ok(await rh.evaluate(() => { const r = HS.E.day().reh; return !!r.items.b1 && r.sd.b1.L && r.sd.b1.R; }), 'ticking the whole move ticks both sides');
+    const RT = await rh.evaluate(() => { const E = HS.E, o = {}; ['Push', 'Pull', 'Legs', 'Rest'].forEach(t => { E.S().rot.i = E.ROT.indexOf(t); E.day().sess = null; const g = E.rehabGroups(); o[t] = g.groups.map(x => x.title).join(' | '); }); return o; });
+    ok(/Day 1: core and stability/.test(RT.Push) && /Day 2: S\/B work/.test(RT.Pull) && /Day 3|Also Day 3/.test(RT.Legs) && /Bonus/.test(RT.Rest), 'rehab follows the session: Push Day 1, Pull Day 2, Legs Day 3, Rest the block plus a bonus');
+    ok(rh.errs.length === 0, 'no console errors in the rehab checks ' + JSON.stringify(rh.errs));
+  }
+
+  /* ---------- nutrition: protein backup, food facts, the label form ---------- */
+  {
+    const nu = await mk(null, '2026-10-05T20:30:00');
+    await nu.goto(url); await nu.waitForTimeout(800);
+    const NU = await nu.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; HS.ui.closeSheet();
+      E.addFood('Plain rice', null, 'lunch'); E.addFood('Chapati', null, 'lunch'); E.addFood('Boiled egg', null, 'lunch');
+      const pg0 = E.proteinGap(), gap = pg0 && pg0.gap, late = pg0 && pg0.late, bk = E.backupFood(), t = E.totals(E.day()), n = E.nutrients();
+      return { gap: gap, late: late, bk: bk && bk.name, p: Math.round(t.p), cfg: S.cfg.backup, cols: n.v.k > 0 && n.v.ca > 0 && n.v.fe > 0 && n.v.vd >= 0, k: Math.round(n.v.k), tk: Math.round(t.k) };
+    });
+    ok(NU.bk === 'Plant protein powder (1 scoop)' && NU.gap > 80 && NU.late === true, 'the protein backup is ready for a short day (' + NU.gap + ' g to go, backup ' + NU.bk + ')');
+    ok(NU.cols && Math.abs(NU.k - NU.tk) <= 1, 'nutrient totals include micronutrients and agree with the calorie total');
+    await nu.evaluate(() => HS.ui.foodSheet('Boiled egg')); await nu.waitForTimeout(500);
+    const FS = await nu.evaluate(() => document.querySelector('#shBody').textContent);
+    ok(/Per 100 g/.test(FS) && /Saturated fat/.test(FS) && /Vitamins and minerals in this portion/.test(FS) && /Where this number comes from/.test(FS) && /Indian Food Composition|IFCT/.test(FS), 'the food facts sheet lists the macros, vitamins and minerals, and says where the number comes from');
+    await nu.evaluate(() => { HS.ui.closeSheet(); HS.ui.customSheet({ name: 'Yogabar protein powder', g: 33, asBackup: true }); }); await nu.waitForTimeout(500);
+    ok(await nu.evaluate(() => document.querySelector('#cf_name').value === 'Yogabar protein powder' && document.querySelector('#cf_g').value === '33' && !!document.querySelector('#cf_kcal') && !!document.querySelector('#cf_p')), 'the label form opens ready for the owner\'s own protein powder (name and 33 g filled in)');
+    ok(nu.errs.length === 0, 'no console errors in the nutrition checks ' + JSON.stringify(nu.errs));
+  }
+
+  /* ---------- home-screen widgets: the app draws one picture per widget and hands it to Android ---------- */
+  {
+    const wp = await mk(() => {
+      window.__w = { updates: [], pending: 500, asked: 0 };
+      window.Capacitor = { isNativePlatform: () => true, Plugins: { HabitWidget: {
+        sizes: async () => { window.__w.asked++; return { density: 2.5, widgets: [{ id: 11, kind: 'streak', w: 158, h: 158 }, { id: 12, kind: 'week', w: 320, h: 78 }, { id: 13, kind: 'today', w: 320, h: 158 }] }; },
+        update: async o => { window.__w.updates.push(o); },
+        consume: async () => { const p = window.__w.pending; window.__w.pending = 0; return { water: p }; } } } };
+      localStorage.setItem('habitsync.proto.v4', JSON.stringify({ v: 5, cfg: { name: 'X' }, welcomed: true, aura: 5 }));
+    });
+    await wp.goto(url); await wp.waitForTimeout(2500);
+    const W = await wp.evaluate(() => {
+      const u = window.__w.updates[window.__w.updates.length - 1] || {};
+      const dim = b64 => { const a = atob(b64.slice(0, 40)); return { sig: a.slice(1, 4), w: (a.charCodeAt(16) << 24) | (a.charCodeAt(17) << 16) | (a.charCodeAt(18) << 8) | a.charCodeAt(19), h: (a.charCodeAt(20) << 24) | (a.charCodeAt(21) << 16) | (a.charCodeAt(22) << 8) | a.charCodeAt(23) }; };
+      return { n: window.__w.updates.length, day: u.day, ds: u.dayStart, imgs: (u.images || []).map(i => ({ id: i.id, d: dim(i.png) })), water: HS.E.day().water, pending: window.__w.pending };
+    });
+    ok(W.n >= 1 && W.day === '2026-10-05' && W.ds === 3 && W.imgs.length === 3, 'the app sends one picture for each widget that is on the home screen (' + W.imgs.length + ')');
+    ok(W.imgs.every(i => i.d.sig === 'PNG' && i.d.w > 200 && i.d.h > 100), 'the pictures are real PNGs at a sharp size ' + JSON.stringify(W.imgs.map(i => i.d.w + 'x' + i.d.h)));
+    const ratio = W.imgs.map(i => Math.round(i.d.w / i.d.h * 100) / 100);
+    ok(Math.abs(ratio[0] - 1) < .03 && Math.abs(ratio[1] - 320 / 78) < .08 && Math.abs(ratio[2] - 320 / 158) < .06, 'each picture has the proportions of its widget ' + JSON.stringify(ratio));
+    ok(W.water === 500 && W.pending === 0, 'water poured from the widget while the app was closed is added when the app opens (' + W.water + ' ml)');
+    ok(await wp.evaluate(async () => { const before = window.__w.updates.length; HS.E.addWater(250); await new Promise(r => setTimeout(r, 1600)); return window.__w.updates.length > before; }), 'the widgets are redrawn after the app saves something');
+    ok(wp.errs.length === 0, 'no console errors with the widget bridge ' + JSON.stringify(wp.errs));
+  }
+
+  /* ---------- the owner's old backup (synthetic, same shape) loads into the new version ---------- */
+  {
+    const ob = await mk();
+    await ob.goto(url); await ob.waitForTimeout(700);
+    const OB = await ob.evaluate(() => {
+      const E = HS.E, k = n => E.keyOffset(-n), days = {}, weights = {};
+      for (let i = 12; i >= 1; i--) days[k(i)] = { items: [{ name: 'Boiled chicken (100 g)', meal: 'lunch', g: 100 }, { name: 'Soya chunks (60 g)', meal: 'dinner', g: 60 }, { name: 'Chapati', meal: 'dinner', g: 80 }], done: { lunch: true, dinner: true }, skip: {}, workout: i === 3 ? 'done' : null, plan: i === 3 ? 'Legs' : null, pain: null, burn: 0, mins: null, runFree: null, reh: null, lift: {}, weighed: true, pAward: false, closed: true, delta: 0, sugarPen: 0, score: 3, steps: '' };
+      for (let i = 12; i >= 1; i--) weights[k(i)] = 84 - (12 - i) * .1;
+      const st = { v: 5, cfg: { name: 'OLD', kcal: 2050, protein: 140, goalW: 70, gateStep: .5, bossEvery: 4, strict: 'standard', theme: 'auto', roast: 'playful' }, aura: 3000, stats: { STR: 5, VIT: 6, AGI: 1, SNS: 3 }, startW: 84, start: k(14), weights: weights, gates: [83.5], cycle: { a: k(3), i: 2 }, cycles: [{ a: k(3), i: 2 }], days: days, custom: {}, rehab: { confirmed: false, next: 0 }, routine: null, last: {}, pr: {}, fatigue: null, pass: { wk: '', used: false }, missStreak: 0, swept: {} };
+      E.importText(JSON.stringify({ app: 'habit-sync', version: 5, state: st }));
+      const S = E.S(), d = S.days[k(3)];
+      const rawName = Object.values(S.days).some(x => (x.items || []).some(i => i.name === 'Boiled chicken (100 g)' || i.name === 'Soya chunks (60 g)'));
+      const resolves = Object.values(S.days).every(x => (x.items || []).every(i => !!E.food(i.name)));
+      return { v: S.v, aura: S.aura, days: Object.keys(S.days).length, rot: E.ROT[S.rot.i], legs: E.sessionOf(k(3)), shield: S.shield && S.shield.n, supps: Array.isArray(S.supps) || S.supps === null, spark: E.sparkInfo().n, rawName: rawName, resolves: resolves, kcal: Math.round(E.totals(S.days[k(1)]).k), p: Math.round(E.totals(S.days[k(1)]).p) };
+    });
+    ok(OB.v === 5 && OB.aura === 3000 && OB.days >= 12, 'an older backup loads with every day and the aura intact');
+    ok(OB.legs === 'Legs' && OB.rot === 'Rest', 'the last finished session (Legs) makes Rest the next in the rotation, whatever the weekday');
+    ok(!OB.rawName && OB.resolves, 'foods saved under their old names still find their rows (renamed in place)');
+    ok(OB.kcal > 500 && OB.p > 40, 'old days are recounted with the corrected food values (' + OB.kcal + ' kcal, ' + OB.p + ' g protein)');
+    ok(OB.shield === 1, 'the new streak shield starts at one');
+    ok(OB.spark >= 0, 'the streak is computed from the old days without errors');
+    await ob.evaluate(() => { HS.ui.tab = 'home'; HS.ui.render(true); }); await ob.waitForTimeout(600);
+    const OT = await ob.evaluate(() => { const o = {}; ['home', 'armory', 'path', 'forge'].forEach(t => { try { HS.ui.tab = t; HS.ui.render(); o[t] = document.querySelector('#screen').textContent.length > 200; } catch (e) { o[t] = 'ERR ' + e.message; } }); return o; });
+    ok(OT.home === true && OT.armory === true && OT.path === true && OT.forge === true, 'every tab opens from the older backup ' + JSON.stringify(OT));
+    ok(ob.errs.length === 0, 'no console errors from the older backup ' + JSON.stringify(ob.errs));
   }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

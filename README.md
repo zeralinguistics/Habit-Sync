@@ -9,7 +9,7 @@ The goal is built in: 84 kg to 70 kg in 28 half-kilo gates, five realms, four bo
 
 | Way | What you get | How |
 | --- | --- | --- |
-| **Android app (APK)** | Samsung Health sync (steps, active calories, sleep, weight, workouts), reminders, backup through the share sheet | Open the [latest release](../../releases/tag/android-latest) on the phone, download `habit-sync.apk`, open it, allow "install unknown apps" once. Each new build installs over the last one and keeps your data. The app tells you in the Forge when a newer build is out. |
+| **Android app (APK)** | Samsung Health sync (steps, distance, floors, active calories, heart rate, sleep, weight, walks and runs), home-screen widgets, reminders, backup through the share sheet | Open the [latest release](../../releases/tag/android-latest) on the phone, download `habit-sync.apk`, open it, allow "install unknown apps" once. Each new build installs over the last one and keeps your data. The app tells you in the Forge when a newer build is out. |
 | **Web app (PWA)** | Same game, works offline, install it from the browser menu ("Add to Home screen") | After enabling GitHub Pages (below) open <https://zeralinguistics.github.io/Habit-Sync/> on the phone. |
 
 **Enable the web app once:** repository Settings, Pages, "Deploy from a branch", choose this branch and the `/docs` folder, Save.
@@ -26,13 +26,17 @@ A workflow keeps `docs/` rebuilt after every change, so the page is always curre
 
 ## What is in the game
 
-* **Quests**: weigh-in with sleep, three meals, workout, rehab, protein, clear the day. One big "next move" card says what to do now.
+* **Today**: one big "next move" card says what to do now. Below it the streak flame with this week, the day's fuel (calories, protein, carbs and fat), and the quests. Everything else is one tap away.
+* **Daily streak**: light 3, 4 or 5 of six pillars (check-in, fuel, protein, move, rehab, water) to keep the flame. Streak shields save a missed day. Pain days and the rest pass never break it.
+* **Training rotation**: Push, Pull, Legs, Rest, then again, by what you finish, not the weekday. A missed session stays due. Rest days are for walking and running, which you can type in by hand (minutes, distance, incline) if the phone stayed behind.
+* **Nutrition**: 201 foods from the Indian Food Composition Tables 2017 with 26 nutrients each, the printed mess menu, a protein backup (powder or bar) for short days, and your own foods from a label. `prototype/tools/nutrition/REPORT.md` shows every dish and its source.
+* **Home-screen widgets** (Android): Streak, Streak week and Today, drawn by the app.
 * **Bonus quests**: three small optional extras a day (one ticks itself from your data, two you tick). No penalty for skipping; a clean row raises the daily chest one tier.
 * **Armory**: 37 pieces of gear (hood, body, eyes, weapon, aura, companion, title) unlock by doing the work and are never bought.
 * **Realms**: each boss gate opens a new realm that changes the colours, backdrop and weather of the whole app.
 * **Penalties are real**: skipped sessions cost aura and cause fatigue (half aura, level locked until you train). Pain days and one weekly rest pass are never punished.
 * **Teasing** (Off, Playful, Savage) only ever targets a skipped habit, never the body.
-* **Rehab**: the external physio's list spread over the training cycle, a guided session with a moving outline and hold timers, and a pain traffic light that holds the strength work back after an amber or red day.
+* **Rehab**: the external physio's list matched to the session (Push Day 1, Pull Day 2, Legs Day 3), one-sided moves done on each side, a guided session with a moving outline and hold timers, and a pain traffic light that holds the strength work back after an amber or red day.
 * **Plan**: the campaign sheet shows every gate with a date, calories per realm, camp weeks, and the weekly report adjusts advice to the real trend.
 
 ## Develop
@@ -41,11 +45,12 @@ A workflow keeps `docs/` rebuilt after every change, so the page is always curre
 python3 prototype/build.py                  # dist/habit-sync.html and a fragment for sandboxed hosts
 python3 prototype/build.py --pages docs     # the installable web build (CI does this on every push)
 python3 prototype/build.py --native app/www # the folder the Android shell wraps
-node prototype/test/e2e.js /tmp/            # about 180 end-to-end checks (Playwright + Chromium)
+node prototype/test/calories.js             # food table and workout calorie checks, no browser
+node prototype/test/e2e.js /tmp/            # end-to-end checks (Playwright + Chromium)
 node prototype/test/pwa.js /tmp/            # offline and install checks
 ```
 
-Layout: `prototype/js` (engine, engine-plus, content, ui-*, avatar, fx, health, notify), `prototype/css`, `prototype/test`,
+Layout: `prototype/js` (engine, engine-plus, nutri, content, ui-*, avatar, fx, health, notify, widget), `prototype/tools/nutrition` (builds the food table), `prototype/css`, `prototype/test`,
 `app/` (Capacitor Android shell), `.github/workflows` (ci, pages, android).
 
 Rules worth keeping when changing things:

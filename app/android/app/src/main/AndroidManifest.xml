@@ -38,6 +38,41 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Home-screen widgets. They only show what the app last saved to private app storage. -->
+        <receiver
+            android:name=".StreakWidget"
+            android:exported="false"
+            android:label="Habit Sync streak">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_streak_info" />
+        </receiver>
+        <receiver
+            android:name=".WeekWidget"
+            android:exported="false"
+            android:label="Habit Sync streak week">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_week_info" />
+        </receiver>
+        <receiver
+            android:name=".TodayWidget"
+            android:exported="false"
+            android:label="Habit Sync today">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today_info" />
+        </receiver>
     </application>
 
     <!-- Permissions -->
@@ -48,13 +83,11 @@
     <!-- Reminders are ordinary notifications at roughly the chosen time. Exact alarms are not needed, so the permission is dropped. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 
-    <!-- Health Connect: read-only, and only what the app shows (steps, active calories, sleep, weight, workouts).
+    <!-- Health Connect: read-only, and only what the app shows (steps, distance, floors, active calories, heart rate, sleep, weight, workouts).
          The plugin declares many more; they are removed here so the app cannot ask for them. -->
     <uses-permission android:name="android.permission.health.WRITE_STEPS" tools:node="remove" />
-    <uses-permission android:name="android.permission.health.READ_DISTANCE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_DISTANCE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED" tools:node="remove" />
-    <uses-permission android:name="android.permission.health.READ_HEART_RATE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_HEART_RATE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_WEIGHT" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_SLEEP" tools:node="remove" />
@@ -62,7 +95,6 @@
     <uses-permission android:name="android.permission.health.WRITE_RESPIRATORY_RATE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_OXYGEN_SATURATION" tools:node="remove" />
-    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_RESTING_HEART_RATE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_HEART_RATE_VARIABILITY" tools:node="remove" />
@@ -76,7 +108,6 @@
     <uses-permission android:name="android.permission.health.WRITE_BODY_TEMPERATURE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_HEIGHT" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_HEIGHT" tools:node="remove" />
-    <uses-permission android:name="android.permission.health.READ_FLOORS_CLIMBED" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_FLOORS_CLIMBED" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_BODY_FAT" tools:node="remove" />
     <uses-permission android:name="android.permission.health.WRITE_BODY_FAT" tools:node="remove" />

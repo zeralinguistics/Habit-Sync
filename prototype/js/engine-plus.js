@@ -30,6 +30,7 @@ function dayPred(kind,d,k){
 }
 /* a pain day, a rest pass and a rest day never break a training streak. The clear streak forgives one gap: never miss twice. */
 E.streakInfo=function(kind){
+  if(kind==='spark')return E.sparkInfo();
   const s=S();let n=0,gap=0,start=null;
   const span=Math.max(0,E.daysBetween(s.start,dkey()))+1;   /* the whole history: a streak must not slide after a year and a half */
   for(let i=0;i<=span;i++){
@@ -45,6 +46,107 @@ E.streakInfo=function(kind){
   return{n:n,start:start};
 };
 E.streak=kind=>E.streakInfo(kind).n;
+
+/* ======================== the daily spark: the streak you watch ========================
+   Six pillars make a day: check-in (weigh), fuel (two meals logged), protein, move (train, or on a rest day rehab or a walk),
+   rehab and water. You choose how many it takes to light the day (3, 4 or 5). Light enough days in a row and the flame grows.
+   A streak shield (one to start, one more at every seven days, two at most) saves a day you miss. A pain day or a rest pass never breaks it. */
+E.SPARK_GOALS=[3,4,5];
+E.sparkGoal=()=>{const g=S().cfg.sparkGoal;return g>=1&&g<=6?g:3};
+E.pillarsFor=function(k){
+  k=k||dkey();const s=S(),d=s.days[k]||{},plan=E.planFor(k),meals=Object.keys(d.done||{}).length,water=d.water||0,tw=s.cfg.water||3000;
+  const rehab=!!(d.reh&&d.reh.done);
+  const move=plan==='Rest'&&!d.sess?(rehab||!!d.cardio||(+d.steps||0)>=6000):(d.workout==='done'||d.workout==='pain'||d.workout==='pass');
+  return[
+    {id:'check',t:'Check-in',ic:'scale',met:!!d.weighed,s:d.weighed?'Weighed in':'Weigh in'},
+    {id:'fuel',t:'Fuel',ic:'plate',met:meals>=2,s:meals+' of 3 meals'},
+    {id:'protein',t:'Protein',ic:'prot',met:!!d.pAward,s:d.pAward?'Target hit':'Not yet'},
+    {id:'move',t:plan==='Rest'&&!d.sess?'Move':'Train',ic:'gym',met:!!move,s:d.workout==='done'?'Done':d.workout==='pain'||d.workout==='pass'?'Protected':plan==='Rest'&&!d.sess?(move?'Done':'Cardio, rehab or a walk'):'Not yet'},
+    {id:'rehab',t:'Rehab',ic:'rehab',met:rehab,s:rehab?'Done':'Not yet'},
+    {id:'water',t:'Water',ic:'drop',met:water>=tw*.8||!!d.waterHit,s:(water/1000).toFixed(1).replace(/\.0$/,'')+' of '+(tw/1000).toFixed(1).replace(/\.0$/,'')+' L'}
+  ];
+};
+E.pillarsMet=k=>E.pillarsFor(k).filter(p=>p.met).length;
+const sparkProtected=d=>!!(d&&(d.workout==='pain'||d.workout==='pass'));
+/* one day of the streak: lit, saved by a shield, protected (pain day or rest pass), open (today), or missed */
+E.sparkDay=function(k){
+  const s=S(),d=s.days[k],today=k===dkey();
+  if(E.pillarsMet(k)>=E.sparkGoal())return'lit';
+  if(s.shield&&s.shield.used&&s.shield.used[k])return'shield';
+  if(sparkProtected(d))return'safe';
+  if(today)return'open';
+  return k<s.start?'before':'miss';
+};
+E.sparkInfo=function(){
+  const s=S();let n=0,start=null,safe=0;
+  const span=Math.max(0,E.daysBetween(s.start,dkey()))+1;
+  for(let i=0;i<=span;i++){
+    const k=keyOffset(-i);if(k<s.start&&i>0)break;
+    const st=E.sparkDay(k);
+    if(st==='lit'){n++;start=k;continue}
+    if(st==='shield'||st==='safe'){safe++;continue}
+    if(st==='open')continue;
+    break;
+  }
+  return{n:n,start:start,safe:safe};
+};
+/* consecutive lit days ending the day before k (shields and protected days neither add nor break) */
+function runBefore(k){
+  const s=S();let n=0;
+  for(let i=1;i<400;i++){
+    const d=addDays(k,-i);if(d<s.start)break;
+    const st=E.sparkDay(d);
+    if(st==='lit'){n++;continue}
+    if(st==='shield'||st==='safe')continue;
+    break;
+  }
+  return n;
+}
+/* On open: a day that slipped past with a streak of two or more is saved by a shield if one is banked. */
+E.sparkSweep=function(){
+  const s=S();if(!s.shield)return[];
+  const out=[];
+  s.shield.checked=s.shield.checked||{};
+  for(let i=3;i>=1;i--){
+    const k=keyOffset(-i);
+    if(k<=s.start||s.shield.checked[k])continue;
+    s.shield.checked[k]=1;
+    const st=E.sparkDay(k);
+    if(st!=='miss')continue;
+    const run=runBefore(k);
+    if(run>=2){
+      if(s.shield.n>0){s.shield.n--;s.shield.used[k]=1;out.push({k:k,saved:true,run:run})}
+      else out.push({k:k,saved:false,run:run});
+    }
+  }
+  if(out.length){E.persist();out.forEach(o=>E.emit(o.saved?'shield':'streakend',o))}
+  return out;
+};
+/* a new shield at every seventh day of a streak (never more than two held) */
+E.sparkEarn=function(){
+  const s=S(),si=E.sparkInfo();if(!s.shield||si.n<7)return;
+  for(let m=7;m<=si.n;m+=7){
+    const key='shield:'+si.start+':'+m;
+    if(!s.claimed[key]){s.claimed[key]=1;if(s.shield.n<2){s.shield.n++;E.persist();E.emit('shieldearn',{n:s.shield.n,days:m})}}
+  }
+};
+/* the moment the day first lights up */
+E.checkSpark=function(){
+  const s=S(),d=s.days[dkey()];if(!d||d.spark)return;
+  if(E.pillarsMet()>=E.sparkGoal()){
+    d.spark=true;E.addAura(25);E.persist();
+    E.emit('spark',{n:E.sparkInfo().n,met:E.pillarsMet(),perfect:E.pillarsMet()===6});
+  }
+};
+/* the last seven days, today last, for the week row (a calendar week is empty on a Monday, and the week behind you is the motivation) */
+E.sparkWeek=function(){
+  const out=[],names=['S','M','T','W','T','F','S'];
+  for(let i=6;i>=0;i--){
+    const k=keyOffset(-i),dow=new Date(k+'T12:00:00').getDay();
+    out.push({k:k,d:names[dow],st:E.sparkDay(k),today:i===0,n:E.pillarsMet(k)});
+  }
+  return out;
+};
 
 /* ======================== counters, unlocks, realms ======================== */
 E.RANK_LV={E:1,D:6,C:12,B:18,A:24,S:30};
@@ -62,7 +164,7 @@ E.counters=function(){
     if(d.weighed)c.weigh++;
   });
   c.gates=s.gates.length;c.boss=E.bossCleared();c.prs=s.counters.pr;c.comeback=s.counters.comeback;c.goals=s.counters.goals;c.bonus=s.counters.bonus||0;
-  c.streak=Math.max(s.bestStreak||0,E.streak('clear'));c.level=E.lv().L;
+  c.streak=Math.max(s.bestStreak||0,E.streak('clear'),E.streak('spark'));c.level=E.lv().L;
   return c;
 };
 E.reqMet=function(it,c){
@@ -72,7 +174,7 @@ E.reqMet=function(it,c){
   if(r.t==='rank')return c.level>=E.RANK_LV[r.v];
   return(c[r.t]||0)>=r.v;
 };
-const LABEL={level:v=>'Reach level '+v,rank:v=>'Reach rank '+v,boss:v=>'Clear boss gate '+v,gates:v=>'Clear '+v+' gates',workouts:v=>'Finish '+v+' workouts',streak:v=>'A '+v+'-day clear streak',prs:v=>v+' personal records',rehab:v=>v+' rehab days',comeback:()=>'Break fatigue by training',logdays:v=>v+' days logging 2+ meals',water:v=>v+' days at your water target',goals:v=>'Clear '+v+' short-term goals',bonus:v=>v+' bonus quests',protein:v=>v+' protein days',weigh:v=>v+' weigh-ins'};
+const LABEL={level:v=>'Reach level '+v,rank:v=>'Reach rank '+v,boss:v=>'Clear boss gate '+v,gates:v=>'Clear '+v+' gates',workouts:v=>'Finish '+v+' workouts',streak:v=>'A '+v+'-day streak',prs:v=>v+' personal records',rehab:v=>v+' rehab days',comeback:()=>'Break fatigue by training',logdays:v=>v+' days logging 2+ meals',water:v=>v+' days at your water target',goals:v=>'Clear '+v+' short-term goals',bonus:v=>v+' bonus quests',protein:v=>v+' protein days',weigh:v=>v+' weigh-ins'};
 E.reqProgress=function(it,c){
   c=c||E.counters();const r=it.req;
   if(r.t==='free')return{have:1,need:1,pct:1,text:'Yours'};
@@ -141,7 +243,7 @@ E.checkGoals=function(){
   E.goalsActive().forEach(g=>{
     if(g.done&&!g.claimed){s.claimed[g.id+'@'+wk]=1;s.counters.goals++;any=true;E.addAura(g.aura);E.emit('goal',g)}
   });
-  ['protein','weigh','log','water','rehab','workout','clear'].forEach(kind=>{
+  ['spark','protein','weigh','log','water','rehab','workout','clear'].forEach(kind=>{
     const si=E.streakInfo(kind);
     HS.STREAK_STEPS.forEach(step=>{
       if(si.n>=step){
@@ -215,7 +317,7 @@ E.streakTargets=function(){
   return out;
 };
 let afterT=null;
-E.afterSave=function(){clearTimeout(afterT);afterT=setTimeout(()=>{E.checkUnlocks();E.checkGoals();E.checkBonus()},0)};
+E.afterSave=function(){clearTimeout(afterT);afterT=setTimeout(()=>{E.checkUnlocks();E.checkGoals();E.checkBonus();E.checkSpark();E.sparkEarn()},0)};
 
 /* ======================== numbers: maintenance, targets, plan ======================== */
 E.maint=function(kg){const c=S().cfg;return Math.round((10*kg+6.25*c.height-5*c.age+5)*1.45/10)*10};
@@ -286,7 +388,7 @@ E.report=function(){
   const s=S(),T=E.T(),ks=[];for(let i=6;i>=0;i--)ks.push(keyOffset(-i));
   const ds=ks.map(k=>s.days[k]).filter(Boolean),closed=ds.filter(d=>d.closed);
   const r={closed:closed.length,cal:closed.filter(d=>d.calOk).length,protein:ds.filter(d=>d.pAward).length,workouts:ds.filter(d=>d.workout==='done').length,skipped:ds.filter(d=>d.workout==='lazy').length,
-    rehab:ds.filter(d=>d.reh&&d.reh.done).length,water:ds.filter(d=>d.waterHit).length,weighIns:ds.filter(d=>d.weighed).length,
+    rehab:ds.filter(d=>d.reh&&d.reh.done).length,cardio:ds.filter(d=>d.cardio).length,water:ds.filter(d=>d.waterHit).length,weighIns:ds.filter(d=>d.weighed).length,
     sleepAvg:null,kcalAvg:null,rate:null,trend:E.trend(),advice:{tone:'info',title:'Keep logging',text:'The System needs a few more days of data to give you a real read.'}};
   const sl=ds.filter(d=>d.sleep!=null);if(sl.length)r.sleepAvg=Math.round(sl.reduce((a,d)=>a+d.sleep,0)/sl.length*10)/10;
   const eaten=ds.filter(d=>E.totals(d).k>500);if(eaten.length)r.kcalAvg=Math.round(eaten.reduce((a,d)=>a+E.totals(d).k,0)/eaten.length);
@@ -343,11 +445,16 @@ E.rehabKeys=function(k,noHold){
 /* today's rehab as ordered groups, ready for the checklist and the guided session */
 E.rehabGroups=function(k){
   const t=E.rehabToday(k),g=[];
-  const mk=(key,e)=>({key:key,name:e[0],rx:e[1],fig:e[2]||null});
+  const mk=(key,e)=>({key:key,name:e[0],rx:e[1],fig:e[2]||null,sides:(e[4]&&e[4].sides)||null});
   const blk=t.block.map(i=>mk('b'+i,HS.BLOCK[i]));if(t.knee)blk.push(mk('b4',HS.BLOCK[4]));
   g.push({id:'block',title:'Daily block',sub:'Every day \u00B7 about '+Math.round(blk.length*1.5)+' min',items:blk});
   const fin=E.finisherItems(t);
-  if(fin.length)g.push({id:'fin',title:HS.RDAYS[t.finisher].t,sub:t.only?'The rest of Day 3 is your leg workout':'Strength and control',items:fin.map(x=>mk('d'+t.finisher+'_'+x[0],x[1]))});
+  if(fin.length)g.push({id:'fin',title:HS.RDAYS[t.finisher].t,sub:t.only?'The rest of Day 3 is your Legs workout':'Strength and control',items:fin.map(x=>mk('d'+t.finisher+'_'+x[0],x[1]))});
+  /* on a Legs day the other Day 3 moves are the gym session itself: shown here, covered when the workout is finished */
+  if(t.only&&t.finisher!=null){
+    const cov=HS.RDAYS[t.finisher].x.map((e,i)=>({e:e,i:i})).filter(o=>!o.e[3]&&t.only.indexOf(o.i)<0).map(o=>({name:o.e[0],rx:o.e[1],fig:o.e[2]||null}));
+    if(cov.length)g.push({id:'cover',title:'Also Day 3',sub:'Done in your Legs workout',cover:true,items:cov});
+  }
   if(t.aerobic)g.push({id:'aero',title:'Pain-free aerobic',sub:'30 minutes \u00B7 3 to 4 days a week',items:[{key:'aero',name:'30 minutes of easy cardio',rx:'Stay pain-free. Your incline walk counts.',fig:'walk'}]});
   if(t.bonus!=null)g.push({id:'bonus',title:'Bonus \u00B7 '+HS.RDAYS[t.bonus].t,sub:'Optional extra healing on a rest day',bonus:true,items:HS.RDAYS[t.bonus].x.map((e,i)=>e[3]?null:mk('x'+t.bonus+'_'+i,e)).filter(Boolean)});
   return{t:t,groups:g};

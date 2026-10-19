@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/avatar.css">
 <link rel="stylesheet" href="css/game.css">
+<link rel="stylesheet" href="css/v6.css">
 </head>
 <body>
 <canvas id="bg" aria-hidden="true"></canvas>
@@ -26,10 +27,10 @@
 </div>
 <nav class="dock" id="dock" role="tablist" aria-label="Main">
   <i class="dind" id="dockInd"></i>
-  <button role="tab" data-a="tab:home" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg><span>Quests</span></button>
-  <button role="tab" data-a="tab:armory" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14a8 8 0 0 1 16 0v5H4z"/><path d="M4 14h16M12 6v8M8 19v-5M16 19v-5"/></svg><span>Armory</span></button>
-  <button role="tab" data-a="tab:path" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M6 16c0-7 12-3 12-8"/></svg><span>Path</span></button>
-  <button role="tab" data-a="tab:forge" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>Forge</span></button>
+  <button role="tab" data-a="tab:home" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg><span>Today</span></button>
+  <button role="tab" data-a="tab:armory" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14a8 8 0 0 1 16 0v5H4z"/><path d="M4 14h16M12 6v8M8 19v-5M16 19v-5"/></svg><span>Hunter</span></button>
+  <button role="tab" data-a="tab:path" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M6 16c0-7 12-3 12-8"/></svg><span>Journey</span></button>
+  <button role="tab" data-a="tab:forge" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>Settings</span></button>
 </nav>
 <div id="scrim" data-a="close"></div>
 <div id="sheet" role="dialog" aria-modal="true" aria-labelledby="shT">
@@ -39,23 +40,30 @@
 </div>
 <div id="sys" role="status" aria-live="polite"><b>[SYSTEM]</b><span id="sysT"></span></div>
 <div id="ov" data-a="ovClose" role="dialog" aria-live="polite"><div class="ovb" id="ovb"></div></div>
+<script src="js/nutri-data.js"></script>
 <script src="js/data.js"></script>
 <script src="js/content.js"></script>
 <script src="js/figures.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/engine-plus.js"></script>
+<script src="js/nutri.js"></script>
 <script src="js/pwa.js"></script>
 <script src="js/native.js"></script>
 <script src="js/health.js"></script>
 <script src="js/notify.js"></script>
+<script src="js/widget-art.js"></script>
+<script src="js/widget.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/avatar.js"></script>
 <script src="js/ui-core.js"></script>
 <script src="js/ui-home.js"></script>
 <script src="js/ui-armory.js"></script>
+<script src="js/ui-nutri.js"></script>
 <script src="js/ui-path.js"></script>
 <script src="js/ui-forge.js"></script>
 <script src="js/ui-sheets.js"></script>
+<script src="js/ui-streak.js"></script>
+<script src="js/ui-health.js"></script>
 <script>HS.ui.boot();</script>
 </body>
 </html>

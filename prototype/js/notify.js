@@ -4,10 +4,10 @@
 'use strict';
 const HS=window.HS=window.HS||{};
 const E=HS.E,N=HS.notify={};
-N.DEFAULT={weigh:'08:00',lunch:'13:00',dinner:'20:00',rehab:'18:30',clear:'21:30'};
+N.DEFAULT={weigh:'08:00',lunch:'13:00',dinner:'20:00',rehab:'18:30',spark:'21:00',clear:'21:30'};
 const LN=()=>HS.native&&HS.native.plugin('LocalNotifications');
 N.available=()=>!!(HS.native&&HS.native.native()&&LN());
-const SLOTS=['weigh','lunch','dinner','rehab','clear'];
+const SLOTS=['weigh','lunch','dinner','rehab','spark','clear'];
 const MSG={
   weigh:{nice:['Morning, {n}. Scale first, then food. 15 aura waiting.','A quick weigh-in keeps the trend honest. Ten seconds.','New day, new data point. Step on and log last night’s sleep.'],
     playful:['The scale is lonely. Step on. It will not bite.','Weigh-in o’clock. Free aura, no cardio required.','Your streak is looking at your shoes. Step on the scale.'],
@@ -21,10 +21,14 @@ const MSG={
   rehab:{nice:['Ten minutes of rehab now means a healthier knee later.','Rehab time. Gentle and steady wins.','Your back and knee asked for their daily session.'],
     playful:['Rehab: boring work, legendary results. Start the guided session.','Your knee wrote you a polite reminder. Start rehab.','Healing is a quest too. Cleared one move at a time.'],
     savage:['Skip rehab and you are trading a week of progress for a few minutes of nothing.','Your knee does not negotiate. Rehab. Now.','The boring work is the work. Open the guided session.']},
+  spark:{nice:['Your {s}-day streak is still waiting for tonight. A couple of pillars and it is lit.','Light today before it ends: one meal logged, water, a weigh-in. Your flame will thank you.','Streak check: today is not lit yet. It only takes a few minutes.'],
+    playful:['Your flame is flickering. {s} days of work. Do not let it go out on a technicality.','The streak is looking at the clock. So should you. Light today.','{s} days in a row, and tonight decides day {t}. No pressure. A little pressure.'],
+    savage:['{s} days of building, and you are going to lose it to the couch? Light the day.','The flame does not care about your excuses. Light it.','Streaks end quietly, at night, when nobody is watching. Be watching.']},
   clear:{nice:['Clear the day and open your chest. Loot inside.','Almost done. Finish the quests and log honestly.','Wrap up the day. Sleep is the last quest.'],
     playful:['Your chest is waiting. So is your quest list.','The day ends soon. Clear it and claim the loot.','Plot twist: quests do not clear themselves.'],
     savage:['The day is almost over. The quest list is not. Fix one.','Midnight is when "tomorrow" lies best. Clear the day.','Open quests, closed chest. Your call.']}
 };
+const SPARK_GEN={nice:['Your streak is waiting for tonight. A couple of pillars and today is lit.','Light today before it ends: a meal logged, water, a weigh-in.'],playful:['Your flame is flickering. Light it before the day ends.','The streak is looking at the clock. So should you.'],savage:['Streaks end quietly, at night, when nobody is watching. Be watching.','Light the day. The flame does not care about your excuses.']};
 const pick=(arr,seed)=>arr[seed%arr.length];
 const hash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0};
 
@@ -50,7 +54,8 @@ N.schedule=async function(){
   if(!p||!rm.on)return;
   try{
     const lvl=S.cfg.roast==='off'?'nice':S.cfg.roast,name=S.cfg.name||'Hunter',today=E.dkey(),d=S.days[today]||{};
-    const done={weigh:!!d.weighed,lunch:!!(d.done&&d.done.lunch),dinner:!!(d.done&&d.done.dinner),rehab:!!(d.reh&&d.reh.done),clear:!!d.closed};
+    const done={weigh:!!d.weighed,lunch:!!(d.done&&d.done.lunch),dinner:!!(d.done&&d.done.dinner),rehab:!!(d.reh&&d.reh.done),spark:!!d.spark||!(E.sparkInfo().n>=2),clear:!!d.closed};
+    const sn=E.sparkInfo().n;
     const list=[],now=Date.now();
     for(let day=0;day<14;day++){
       const k=E.addDays(today,day);
@@ -58,7 +63,8 @@ N.schedule=async function(){
         if(day===0&&done[slot])return;
         const t=(rm[slot]||N.DEFAULT[slot]).split(':'),at=new Date(k+'T00:00:00');at.setHours(+t[0],+t[1],0,0);
         if(at.getTime()<=now+30000)return;
-        const body=pick(MSG[slot][lvl]||MSG[slot].nice,hash(k+slot)).replace('{n}',name);
+        const bank=slot==='spark'&&day>0?(SPARK_GEN[lvl]||SPARK_GEN.nice):(MSG[slot][lvl]||MSG[slot].nice);
+        const body=pick(bank,hash(k+slot)).replace('{n}',name).replace('{s}',String(sn)).replace('{t}',String(sn+1));
         list.push({id:1000+day*10+si,title:'HABIT SYNC',body:body,channelId:'hs-nudges',schedule:{at:at,allowWhileIdle:true},isExactNotification:false,autoCancel:true});
       });
     }

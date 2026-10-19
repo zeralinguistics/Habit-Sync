@@ -1,4 +1,5 @@
-/* ui-path.js: the Path. Final form, pace against plan, the whole campaign to 70 kg, streaks, weekly report, recovery, steps. */
+/* ui-path.js: the Journey. Where you are on the way down: the weight chart, the gates, the week, and one-tap doors to the rest
+   (stats, recovery, discipline, Samsung Health, the whole campaign). */
 (function(){
 'use strict';
 const HS=window.HS=window.HS||{};
@@ -28,78 +29,146 @@ function radar(st){
   return s+'</svg>';
 }
 
-/* ---------------- plan versus you: the line you are supposed to follow and the line you are actually on ---------------- */
-function planChart(){
-  const S=E.S(),p=E.plan(),today=Math.max(0,E.daysBetween(S.start,E.dkey()));
-  const span=Math.max(56,Math.ceil((today+42)/7)*7);
-  const W=320,H=170,pl=36,pr=8,pt=10,pb=24,pw=W-pl-pr,ph=H-pt-pb;
-  const nodes=[{d:0,kg:S.startW}];p.gates.forEach(g=>{nodes.push({d:g.week*7,kg:g.kg});if(g.camp)nodes.push({d:g.camp*7,kg:g.kg})});
-  const wAt=d=>{for(let i=1;i<nodes.length;i++){if(d<=nodes[i].d){const a=nodes[i-1],b=nodes[i],f=b.d===a.d?1:(d-a.d)/(b.d-a.d);return a.kg+(b.kg-a.kg)*f}}return S.cfg.goalW};
-  const wk=Object.keys(S.weights).sort();
-  const yMax=Math.ceil(Math.max(S.startW,wk.length?Math.max.apply(null,wk.map(k=>S.weights[k])):0)+.3),yMin=Math.floor(Math.min(wAt(span),E.trend(),wk.length?Math.min.apply(null,wk.map(k=>S.weights[k])):99)-.3);
-  const X=d=>pl+d/span*pw,Y=kg=>pt+(yMax-kg)/(yMax-yMin)*ph;
-  let g='';
-  for(let kg=yMax;kg>=yMin;kg--)g+='<line class="cg" x1="'+pl+'" y1="'+Y(kg).toFixed(1)+'" x2="'+(W-pr)+'" y2="'+Y(kg).toFixed(1)+'"/><text class="cx" x="'+(pl-6)+'" y="'+(Y(kg)+3).toFixed(1)+'" text-anchor="end">'+kg+'</text>';
-  for(let w=0;w*7<=span;w+=Math.max(1,Math.round(span/7/5)))g+='<text class="cx" x="'+X(w*7).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">W'+w+'</text>';
-  let plan='';for(let d=0;d<=span;d+=2)plan+=(d?'L':'M')+X(d).toFixed(1)+' '+Y(wAt(d)).toFixed(1);
-  let tp='',dots='';
-  const tmap={};{let t=S.startW;wk.forEach(k=>{t=t+.25*(S.weights[k]-t);tmap[k]=Math.round(t*100)/100})}   /* the running trend, computed once instead of once per point */
-  wk.forEach((k,i)=>{const d=E.daysBetween(S.start,k);if(d<0||d>span)return;tp+=(tp?'L':'M')+X(d).toFixed(1)+' '+Y(tmap[k]).toFixed(1);dots+='<circle class="cd" cx="'+X(d).toFixed(1)+'" cy="'+Y(S.weights[k]).toFixed(1)+'" r="2.4"/>'});
-  const tx=X(today).toFixed(1);
-  return `<svg class="pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight against the plan">${g}
-    <path class="cplan" d="${plan}"/>${tp?'<path class="ctrend" d="'+tp+'" pathLength="100"/>':''}${dots}
-    <line class="ctoday" x1="${tx}" y1="${pt}" x2="${tx}" y2="${pt+ph}"/><text class="cx" x="${tx}" y="${pt+8}" text-anchor="${today>span*.75?'end':'start'}" dx="${today>span*.75?-4:4}">today</text></svg>
-    <div class="legend"><span><b style="background:var(--gold)"></b>The plan</span><span><b style="background:var(--glow)"></b>Your trend</span><span><b style="background:#fff;border-radius:50%"></b>Weigh-ins</span></div>`;
+/* ---------------- the descent: your weight as a line you can read ---------------- */
+let jr='all',jpt=null;
+const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dshort=k=>{const p=k.split('-');return +p[2]+' '+MS[+p[1]-1]};
+/* a smooth curve through the points (Catmull-Rom turned into Bezier pieces) */
+function smooth(pts){
+  if(pts.length<2)return pts.length?'M'+pts[0][0].toFixed(1)+' '+pts[0][1].toFixed(1):'';
+  let d='M'+pts[0][0].toFixed(1)+' '+pts[0][1].toFixed(1);
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2,t=.18;
+    d+='C'+(p1[0]+(p2[0]-p0[0])*t).toFixed(1)+' '+(p1[1]+(p2[1]-p0[1])*t).toFixed(1)+' '+(p2[0]-(p3[0]-p1[0])*t).toFixed(1)+' '+(p2[1]-(p3[1]-p1[1])*t).toFixed(1)+' '+p2[0].toFixed(1)+' '+p2[1].toFixed(1);
+  }
+  return d;
 }
+function chartData(){
+  const S=E.S(),today=E.dkey(),ks=Object.keys(S.weights).sort();
+  const tmap={};let t=S.startW;ks.forEach(k=>{t=t+.25*(S.weights[k]-t);tmap[k]=Math.round(t*100)/100});
+  const days=Math.max(1,E.daysBetween(S.start,today));
+  const from=jr==='2w'?E.addDays(today,-13):jr==='1m'?E.addDays(today,-29):S.start;
+  const lo=from<S.start?S.start:from,span=Math.max(6,E.daysBetween(lo,today));
+  return{S:S,today:today,ks:ks.filter(k=>k>=lo),tmap:tmap,lo:lo,span:span};
+}
+function chartSvg(){
+  const D=chartData(),S=D.S,W=340,H=214,pl=38,pr=14,pt=16,pb=26,pw=W-pl-pr,ph=H-pt-pb;
+  const fut=jr==='all'?Math.max(3,Math.round(D.span*.18)):2,totalDays=D.span+fut;
+  const X=d=>pl+d/totalDays*pw,dayOf=k=>E.daysBetween(D.lo,k);
+  const wts=D.ks.map(k=>S.weights[k]),trs=D.ks.map(k=>D.tmap[k]),ng=E.nextGates(),lad=E.ladder();
+  const hasData=D.ks.length>0;
+  let vmin=hasData?Math.min.apply(null,wts.concat(trs)):S.startW-1,vmax=hasData?Math.max.apply(null,wts.concat(trs)):S.startW+.3;
+  if(ng.next)vmin=Math.min(vmin,ng.next.kg-.15);
+  const plan=E.plan();const pAt=d=>{const wk=(E.daysBetween(S.start,D.lo)+d)/7,nodes=[{w:0,kg:S.startW}];plan.gates.forEach(g=>{nodes.push({w:g.week,kg:g.kg});if(g.camp)nodes.push({w:g.camp,kg:g.kg})});for(let i=1;i<nodes.length;i++){if(wk<=nodes[i].w){const a=nodes[i-1],b=nodes[i],f=b.w===a.w?1:(wk-a.w)/(b.w-a.w);return a.kg+(b.kg-a.kg)*f}}return S.cfg.goalW};
+  const planPts=[];for(let d=0;d<=totalDays;d+=Math.max(1,Math.round(totalDays/24)))planPts.push([d,pAt(d)]);
+  planPts.forEach(p=>{vmin=Math.min(vmin,p[1]);vmax=Math.max(vmax,p[1])});
+  vmin=Math.floor((vmin-.25)*2)/2;vmax=Math.ceil((vmax+.25)*2)/2;
+  if(vmax-vmin<1.5)vmax=vmin+1.5;
+  const Y=kg=>pt+(vmax-kg)/(vmax-vmin)*ph;
+  /* gate lines inside the window */
+  let g='';
+  lad.forEach(gt=>{
+    if(gt.kg<vmin||gt.kg>vmax)return;
+    const got=S.gates.indexOf(gt.kg)>=0,nx=ng.next&&ng.next.kg===gt.kg,y=Y(gt.kg).toFixed(1);
+    g+=`<line class="jg${got?' got':''}${nx?' nx':''}${gt.boss?' boss':''}" x1="${pl}" y1="${y}" x2="${W-pr}" y2="${y}"/><text class="jl${got?' got':''}${nx?' nx':''}${gt.boss?' boss':''}" x="${pl-5}" y="${(+y+3.5).toFixed(1)}" text-anchor="end">${gt.kg%1?gt.kg.toFixed(1):gt.kg}</text>`;
+    if(got)g+=`<text class="jck" x="${W-pr-2}" y="${(+y-3).toFixed(1)}" text-anchor="end">${gt.boss?'★':'✓'}</text>`;
+    if(nx)g+=`<text class="jnx" x="${W-pr-2}" y="${(+y-4).toFixed(1)}" text-anchor="end">NEXT GATE</text>`;
+  });
+  if(!g){for(let kg=Math.ceil(vmin);kg<=vmax;kg++)g+=`<line class="jg" x1="${pl}" y1="${Y(kg).toFixed(1)}" x2="${W-pr}" y2="${Y(kg).toFixed(1)}"/><text class="jl" x="${pl-5}" y="${(Y(kg)+3.5).toFixed(1)}" text-anchor="end">${kg}</text>`}
+  /* time axis */
+  let ax='';const step=totalDays>60?14:totalDays>25?7:totalDays>12?3:2;
+  for(let d=0;d<=totalDays;d+=step){const k=E.addDays(D.lo,d);ax+=`<text class="jx" x="${X(d).toFixed(1)}" y="${H-8}" text-anchor="middle">${dshort(k)}</text>`}
+  const tp=D.ks.map(k=>[X(dayOf(k)),Y(D.tmap[k])]);
+  const line=smooth(tp);
+  const last=tp[tp.length-1],first=tp[0];
+  const area=hasData?line+`L${last[0].toFixed(1)} ${(pt+ph)}L${first[0].toFixed(1)} ${(pt+ph)}Z`:'';
+  const planPath=smooth(planPts.map(p=>[X(p[0]),Y(p[1])]));
+  let dots='',pk=null;
+  D.ks.forEach((k,i)=>{
+    const w=S.weights[k],x=X(dayOf(k)),y=Y(w),pw2=i?S.weights[D.ks[i-1]]:w,dir=w<pw2?'dn':w>pw2?'up':'';
+    dots+=`<circle class="jd ${dir}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" style="animation-delay:${(.5+i*.04).toFixed(2)}s"/>`;
+  });
+  /* gate-cleared flags where the trend crossed them */
+  let flags='';
+  Object.keys(S.gateDates).forEach(kg=>{const dk=S.gateDates[kg];if(dk<D.lo)return;const x=X(dayOf(dk)),y=Y(+kg);flags+=`<g class="jf" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><circle r="6"/><path d="M-3 0l2 2 4-4"/></g>`});
+  const me=hasData?`<g class="jme" transform="translate(${last[0].toFixed(1)} ${last[1].toFixed(1)})"><circle class="jpulse" r="9"/><circle class="jdot" r="5.5"/></g>`:'';
+  return `<svg id="jchart" class="jchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight chart: trend ${E.trend().toFixed(1)} kilograms" data-pl="${pl}" data-pw="${pw}" data-total="${totalDays}">
+    <defs><linearGradient id="jgl" x1="0" x2="1"><stop offset="0" stop-color="var(--glow-d)"/><stop offset="1" stop-color="var(--glow)"/></linearGradient><linearGradient id="jga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--glow)" stop-opacity=".34"/><stop offset="1" stop-color="var(--glow)" stop-opacity="0"/></linearGradient></defs>
+    ${g}${ax}
+    <path class="jplan" d="${planPath}"/>
+    ${hasData?`<path class="jarea" d="${area}"/><path class="jline jdraw" d="${line}" pathLength="1"/>`:''}
+    ${flags}${dots}${me}
+    <g id="jtip" class="jtip" hidden><line class="jtl" y1="${pt}" y2="${pt+ph}"/><g id="jtb"><rect rx="7" width="116" height="34"/><text class="jt1" x="8" y="14"></text><text class="jt2" x="8" y="27"></text></g></g>
+    <rect id="jhit" x="${pl}" y="${pt}" width="${pw}" height="${ph}" fill="transparent"/>
+  </svg>`;
+}
+function onChartPoint(ev){
+  const svg=$('#jchart');if(!svg)return;
+  const r=svg.getBoundingClientRect(),pl=+svg.dataset.pl,pw=+svg.dataset.pw,total=+svg.dataset.total,vbw=340;
+  const x=(ev.clientX-r.left)/r.width*vbw,d=Math.round((x-pl)/pw*total),D=chartData();
+  let best=null,bd=1e9;D.ks.forEach(k=>{const dd=Math.abs(E.daysBetween(D.lo,k)-d);if(dd<bd){bd=dd;best=k}});
+  if(!best)return;
+  const S=D.S,w=S.weights[best],tr=D.tmap[best],px=pl+E.daysBetween(D.lo,best)/total*pw;
+  const tip=$('#jtip');tip.hidden=false;
+  const bx=Math.max(pl,Math.min(340-14-116,px-58));
+  $('#jtb').setAttribute('transform','translate('+bx.toFixed(1)+' 6)');
+  tip.querySelector('.jtl').setAttribute('x1',px);tip.querySelector('.jtl').setAttribute('x2',px);
+  tip.querySelector('.jt1').textContent=dshort(best)+' · '+w.toFixed(1)+' kg';
+  const df=w-tr;tip.querySelector('.jt2').textContent='trend '+tr.toFixed(1)+(Math.abs(df)>=.05?' ('+(df>0?'+':'−')+Math.abs(df).toFixed(1)+')':'');
+  if(jpt!==best){jpt=best;F.play('tick',120+w*2)}
+}
+document.addEventListener('pointerdown',e=>{if(e.target&&e.target.id==='jhit')onChartPoint(e)});
+document.addEventListener('pointermove',e=>{if(e.target&&e.target.id==='jhit'&&(e.pressure>0||e.pointerType==='mouse'))onChartPoint(e)});
+A.jrange=function(v){jr=v;jpt=null;F.play('tick',140);U.render()};
 
-/* ---------------- the Path screen ---------------- */
+/* ---------------- the Journey screen ---------------- */
 function paceCopy(ex){
   if(!Object.keys(E.S().weights).length)return{c:'info',t:'Weigh in to see your pace'};
   if(ex.ahead>=.2)return{c:'good',t:'AHEAD OF PLAN · '+ex.ahead.toFixed(1)+' kg'};
   if(ex.ahead<=-.2)return{c:'warn',t:'BEHIND PLAN · '+Math.abs(ex.ahead).toFixed(1)+' kg. Normal. Adjust, don’t panic.'};
   return{c:'good',t:'ON PLAN'};
 }
+function bossHp(ng,tr,S){
+  if(!ng.boss)return 0;
+  const bosses=E.bossKgs(),i=bosses.indexOf(ng.boss.kg),from=i>0?bosses[i-1]:S.startW,span=from-ng.boss.kg;
+  return span>0?Math.max(0,Math.min(100,(tr-ng.boss.kg)/span*100)):100;
+}
 U.views.path=function(){
   const S=E.S(),cfg=E.cfg(),tr=E.trend(),pr=E.progress(),pl=E.plan(),ex=E.expected(),eta=E.eta(),ng=E.nextGates();
-  const lad=E.ladder(),pace=paceCopy(ex),wkNo=Math.min(pl.weeks,E.weekNo());
-  const pd=E.painDays(7),greens=pd.filter(x=>E.light(x.r)==='green').length;
-  const fat=E.fatigued(),msg=E.contractMessage('missed a session'),rep=E.report();
-  const streaks=Object.keys(HS.STREAK_NAMES).map(k=>({k:k,n:E.streak(k)}));
-  const d=E.day(),hs=S.health;
-  let h=`<div class="win rise" style="--i:0"><div class="wt">[ Final form ]</div><div class="goal">
-    ${ghost()}
-    <div class="gtxt"><div class="gname">SHADOW MONARCH</div><div class="gbig"><b id="syncNum">0</b><span>% SYNC</span></div>
-      <div class="gline2">${S.startW.toFixed(1)} → <b>${tr.toFixed(1)}</b> → ${cfg.goalW.toFixed(1)} kg</div>
+  const lad=E.ladder(),pace=paceCopy(ex),wkNo=Math.min(pl.weeks,E.weekNo()),rep=E.report();
+  const ks=Object.keys(S.weights).sort(),best=ks.length?Math.min.apply(null,ks.map(k=>S.weights[k])):null;
+  const lost=S.startW-tr,rate=rep.rate;
+  const hp=bossHp(ng,tr,S);
+  const row=(a,ic,t,s)=>`<button class="mrow" data-a="${a}"><span class="mri">${IC[ic]}</span><span class="mrm"><b>${esc(t)}</b><small>${esc(s)}</small></span><i class="chev">${IC.chev}</i></button>`;
+  const pd=E.painDays(7),greens=pd.filter(x=>E.light(x.r)==='green').length,hs=S.health,d=E.day();
+  let h=`<div class="card jhero rise" style="--i:0"><div class="jh1">${ghost()}<div class="jh2">
+      <span class="jk">TREND WEIGHT</span><div class="jbig"><b id="trendNum">${tr.toFixed(1)}</b><span>kg</span></div>
+      <div class="jsub"><b class="${lost>=0?'dn':'up'}">${lost>=0?'−':'+'}${Math.abs(lost).toFixed(1)} kg</b> since the start · <b>${Math.max(0,tr-cfg.goalW).toFixed(1)} kg</b> to ${cfg.goalW} kg</div>
       <div class="pace ${pace.c}">${esc(pace.t)}</div></div></div>
     <div class="camp"><div class="campl"><span>CAMPAIGN</span><b>${pl.weeks?'WEEK '+wkNo+' / '+pl.weeks:'NO GATES LEFT'}</b></div><div class="xp"><i style="width:${pl.weeks?wkNo/pl.weeks*100:100}%"></i></div>
-      <div class="gsmall">At plan pace you finish around <b>${U.dateY(pl.finish)}</b>${eta.real?'. At your recent pace: '+U.dateY(eta.date)+'.':'.'} Plans bend. The habit is what counts.</div></div></div>
-  <div class="win rise" style="--i:1"><div class="wt">[ Next up ]</div><div class="wb"><div class="duo">
-    <div class="tile2"><span>NEXT GATE</span><b>${ng.next?ng.next.kg+' kg':'Done'}</b><small>${ng.next?ng.toNext.toFixed(1)+' kg to go':'Every gate cleared'}</small></div>
+      <div class="gsmall"><b id="syncNum">0</b>% sync · at plan pace you finish around <b>${U.dateY(pl.finish)}</b>${eta.real?'. At your recent pace: '+U.dateY(eta.date)+'.':'.'}</div></div></div>
+  <div class="card jchartc rise" style="--i:1"><div class="jct"><span class="jk">THE DESCENT</span><div class="jtabs" role="tablist">${[['2w','2 wk'],['1m','1 mo'],['all','All']].map(t=>`<button role="tab" data-a="jrange:${t[0]}" aria-selected="${jr===t[0]}">${t[1]}</button>`).join('')}</div></div>
+    ${chartSvg()}
+    <div class="jleg"><span><b class="l1"></b>Trend</span><span><b class="l2"></b>Weigh-ins</span><span><b class="l3"></b>The plan</span><span><b class="l4"></b>Gate cleared</span></div>
+    <div class="jstats"><div><b>${best!=null?best.toFixed(1):'—'}</b><span>LOWEST KG</span></div><div><b>${ks.length}</b><span>WEIGH-INS</span></div><div><b>${rate!=null?(rate>=0?'−':'+')+Math.abs(rate).toFixed(2):'—'}</b><span>KG THIS WEEK</span></div></div></div>
+  <div class="card jgates rise" style="--i:2"><div class="jct"><span class="jk">GATES · ${S.gates.length} OF ${lad.length} CLEARED</span></div>
+    <div class="duo"><div class="tile2"><span>NEXT GATE</span><b>${ng.next?ng.next.kg+' kg':'Done'}</b><small>${ng.next?ng.toNext.toFixed(1)+' kg to go':'Every gate cleared'}</small></div>
     <div class="tile2 gold"><span>BOSS GATE</span><b>${ng.boss?ng.boss.kg+' kg':'Done'}</b><small>${ng.boss?ng.toBoss.toFixed(1)+' kg to go':'You did it'}</small></div></div>
-    <div class="stack2"><button class="btn" data-a="campaign">See the whole campaign</button></div></div></div>
-  <div class="win rise" style="--i:2"><div class="wt">[ The plan and you ]</div><div class="wb">${planChart()}</div></div>
-  <div class="win rise" style="--i:3"><div class="wt">[ The road: ${S.gates.length} of ${lad.length} gates ]</div><div class="road" id="road"><div class="rin2">
-    <div class="rnode start"><i></i><span>START<br>${S.startW}</span></div>
-    ${lad.map(g=>{const got=S.gates.includes(g.kg),nx=ng.next&&ng.next.kg===g.kg;return `<div class="rnode${got?' got':''}${nx?' nx':''}${g.boss?' boss':''}" ${nx?'id="rnext"':''}>${nx?'<em>YOU</em>':''}<i>${got?'✓':g.boss?'★':''}</i><span>${g.kg}</span></div>`}).join('')}
-  </div></div><div class="wb" style="padding-top:6px"><div class="small">${S.gates.length} shadow${S.gates.length===1?'':'s'} in your army. Each gate is ${cfg.gateStep} kg of trend. Stars are boss gates: each one opens a new realm and a camp week.</div></div></div>
-  <button class="win report rise ${E.reviewDue()?'due':''}" style="--i:4" data-a="report"><div class="wt">[ Weekly report ]${E.reviewDue()?' <em class="nw">NEW</em>':''}</div><div class="wb rp">
+    ${ng.boss?`<div class="bosshp"><div class="hp"><i style="width:${hp}%"></i></div><small>Boss HP ${Math.round(hp)}%</small></div>`:''}
+    <div class="road" id="road"><div class="rin2"><div class="rnode start"><i></i><span>START<br>${S.startW}</span></div>
+    ${lad.map(g=>{const got=S.gates.includes(g.kg),nx=ng.next&&ng.next.kg===g.kg;return `<div class="rnode${got?' got':''}${nx?' nx':''}${g.boss?' boss':''}" ${nx?'id="rnext"':''}>${nx?'<em>YOU</em>':''}<i>${got?'✓':g.boss?'★':''}</i><span>${g.kg}</span></div>`}).join('')}</div></div>
+    <div class="small" style="padding:0 14px 12px;margin-top:0">${S.gates.length} shadow${S.gates.length===1?'':'s'} in your army. Each gate is ${cfg.gateStep} kg of trend. Stars are boss gates: each one opens a new realm and a camp week.</div></div>
+  <button class="card report rise ${E.reviewDue()?'due':''}" style="--i:3;display:block;width:100%;text-align:left" data-a="report"><div class="jct"><span class="jk">WEEKLY REPORT${E.reviewDue()?' <em class="nw">NEW</em>':''}</span><i class="chev">${IC.chev}</i></div><div class="wb rp" style="padding-top:2px">
     <div class="rpg"><div><b>${rep.workouts}</b><span>WORKOUTS</span></div><div><b>${rep.rehab}</b><span>REHAB</span></div><div><b>${rep.protein}</b><span>PROTEIN</span></div><div><b>${rep.water}</b><span>WATER</span></div></div>
     <div class="adv ${rep.advice.tone}"><b>${esc(rep.advice.title)}</b><span>${esc(rep.advice.text)}</span></div></div></button>
-  <div class="win rise" style="--i:5"><div class="wt">[ Streaks ]</div><div class="wb"><div class="sgrid">${streaks.map(s=>`<button class="sg" data-a="streaks"><span>${U.flame(s.n)}</span><b>${s.n}</b><small>${esc(HS.STREAK_NAMES[s.k].replace(' streak',''))}</small></button>`).join('')}</div>
-    <div class="stack2"><button class="btn ghost" data-a="streaks">Goals and streak rewards</button></div></div></div>
-  <div class="win rise" style="--i:6"><div class="wt">[ Stats ]</div><div class="wb">${radar(S.stats)}
-    <div class="small" style="text-align:center">STR gym · VIT food and water · AGI steps and cardio · SNS rehab, sleep and honesty</div></div></div>
-  <div class="win rise" style="--i:7"><div class="wt">[ Recovery ]</div><div class="wb">
-    <div class="pbarch" role="img" aria-label="Seven day pain chart">${pd.map(x=>`<div title="${x.k}"><i class="kn" style="height:${x.r?Math.max(3,x.r.knee*10):3}%;opacity:${x.r?1:.25}"></i><i class="bk" style="height:${x.r?Math.max(3,x.r.back*10):3}%;opacity:${x.r?1:.25}"></i></div>`).join('')}</div>
-    <div class="legend"><span><b style="background:var(--glow)"></b>Right knee</span><span><b style="background:var(--violet)"></b>Lower back</span><span>${greens} green day${greens===1?'':'s'}</span><span>Rehab streak ${E.streak('rehab')}</span></div>
-    <div class="stack2"><button class="btn" data-a="rehabopen">Today’s rehab</button><button class="btn ghost" data-a="roadmap">Recovery roadmap</button><button class="btn vio" data-a="physio">Prepare physio sheet</button></div></div></div>
-  <div class="win rise" style="--i:8"><div class="wt">[ Discipline ]</div><div class="wb">
-    <div class="dis"><div><span>STATUS</span><b class="${fat?'bad':'ok'}">${fat?'FATIGUED':'READY'}</b></div><div><span>REST PASS</span><b>${E.passLeft()?'1 LEFT':'USED'}</b></div><div><span>RULES</span><b>${cap(cfg.strict).toUpperCase()}</b></div></div>
-    <div class="small">${cfg.contract?'Contract: '+esc(cfg.contract):'No habit contract yet. Add a real-world cost in the Forge. A penalty you feel works better than one you ignore.'}</div>
-    <a class="btn ghost lnk" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">Tell my accountability partner</a></div></div>
-  <div class="win rise" style="--i:9"><div class="wt">[ Steps and Samsung Health ]</div><div class="wb">
-    <div class="field"><input id="stepsIn" type="number" inputmode="numeric" min="0" placeholder="e.g. 7400" value="${esc(d.steps||'')}" aria-label="Steps today"><button data-a="saveSteps">Save</button></div>
-    ${healthBlock(hs,d)}</div></div>`;
+  <div class="card more rise" style="--i:4">
+    ${row('streaks','flame','Daily streak',E.streak('spark')+' days · best '+Math.max(S.bestStreak||0,E.streak('spark')))}
+    ${row('healthOpen','heartbeat','Samsung Health & steps',hs.on&&d.hSteps?fmt(d.hSteps)+' steps today':'Steps, sleep, calories burned')}
+    ${row('statsOpen','user','Hunter stats','STR '+S.stats.STR+' · VIT '+S.stats.VIT+' · AGI '+S.stats.AGI+' · SNS '+S.stats.SNS)}
+    ${row('recoveryOpen','rehab','Recovery and physio',greens+' green day'+(greens===1?'':'s')+' this week · rehab streak '+E.streak('rehab'))}
+    ${row('disciplineOpen','shield','Discipline',(E.fatigued()?'FATIGUED':'READY')+' · rest pass '+(E.passLeft()?'1 left':'used')+' · '+cap(cfg.strict))}
+    ${row('campaign','path','The whole campaign',pl.gates.length+' gates · '+pl.weeks+' weeks · '+pl.camps+' camp weeks')}
+  </div>`;
   $('#screen').innerHTML=h;
   requestAnimationFrame(()=>{
     const r=$('#gclipR');if(r){const gh=220*pr.pct;r.style.y=(220-gh)+'px';r.style.height=gh+'px';prev.gy=220-gh;prev.gh=gh}
@@ -107,34 +176,44 @@ U.views.path=function(){
   });
   cnt('syncNum',Math.round(pr.pct*100),null,900);
 };
-function healthBlock(hs,d){
-  const H=HS.health;
-  if(H&&H.native()){
-    if(hs.on)return `<div class="hrow"><div><b>Samsung Health is connected</b><small>${hs.last?'Last sync '+new Date(hs.last).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+(d.hSteps?' · '+fmt(d.hSteps)+' steps':'')+(d.hAct?' · '+fmt(d.hAct)+' active kcal':''):'Not synced yet'}</small></div><button class="btn ghost sm" data-a="hsync">Sync now</button></div>`;
-    return `<div class="small">Read steps, active calories, sleep and weight from Samsung Health through Health Connect. Read-only: nothing is written back and nothing leaves your phone.</div><div class="stack2"><button class="btn good" data-a="hconnect">Connect Samsung Health</button></div>`;
-  }
-  return `<div class="small">Samsung Health sync works in the Android app (it reads through Health Connect). In the browser version, type your steps. Log them for two weeks and your step goal comes from your real median.</div>`;
-}
+
+/* ---------------- the doors ---------------- */
+A.statsOpen=function(){
+  const S=E.S();U.sh={type:'stats'};F.play('nav');
+  U.openSheet('Hunter stats',radar(S.stats)+'<div class="small" style="text-align:center">STR gym · VIT food and water · AGI steps and cardio · SNS rehab, sleep and honesty</div>','<button class="btn ghost" data-a="close">Close</button>');
+};
+A.recoveryOpen=function(){
+  const pd=E.painDays(7),greens=pd.filter(x=>E.light(x.r)==='green').length;U.sh={type:'recovery'};F.play('nav');
+  U.openSheet('Recovery',`<div class="pbarch" role="img" aria-label="Seven day pain chart">${pd.map(x=>`<div title="${x.k}"><i class="kn" style="height:${x.r?Math.max(3,x.r.knee*10):3}%;opacity:${x.r?1:.25}"></i><i class="bk" style="height:${x.r?Math.max(3,x.r.back*10):3}%;opacity:${x.r?1:.25}"></i></div>`).join('')}</div>
+    <div class="legend"><span><b style="background:var(--glow)"></b>Right knee</span><span><b style="background:var(--violet)"></b>Lower back</span><span>${greens} green day${greens===1?'':'s'}</span><span>Rehab streak ${E.streak('rehab')}</span></div>
+    <div class="stack2"><button class="btn" data-a="rehabopen">Today’s rehab</button><button class="btn ghost" data-a="roadmap">Recovery roadmap</button><button class="btn vio" data-a="physio">Prepare physio sheet</button></div>`,'<button class="btn ghost" data-a="close">Close</button>');
+};
+A.disciplineOpen=function(){
+  const cfg=E.cfg(),fat=E.fatigued(),msg=E.contractMessage('missed a session');U.sh={type:'discipline'};F.play('nav');
+  U.openSheet('Discipline',`<div class="dis"><div><span>STATUS</span><b class="${fat?'bad':'ok'}">${fat?'FATIGUED':'READY'}</b></div><div><span>REST PASS</span><b>${E.passLeft()?'1 LEFT':'USED'}</b></div><div><span>RULES</span><b>${cap(cfg.strict).toUpperCase()}</b></div></div>
+    <div class="small">${cfg.contract?'Contract: '+esc(cfg.contract):'No habit contract yet. Add a real-world cost in Settings. A penalty you feel works better than one you ignore.'}</div>
+    <a class="btn ghost lnk" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">Tell my accountability partner</a>`,'<button class="btn ghost" data-a="close">Close</button>');
+};
 A.saveSteps=function(){
-  const d=E.day(),v=$('#stepsIn').value;d.steps=v;
+  const d=E.day(),v=($('#stepsIn')||{}).value;d.steps=v;
   if(+v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}
   E.save();U.sys(v?'Steps saved: '+fmt(+v)+'.':'Cleared.','good');
 };
+A.rehabopen=function(){U.rehabSheet()};
 A.hconnect=async function(){
   if(!HS.health)return;
   U.sys('Asking Android for permission...','',true);
   const r=await HS.health.connect();
   U.sys(r.ok?'Connected. Pulling today’s data...':r.msg,r.ok?'good':'bad');
   if(r.ok)await A.hsync();
-  U.render();
+  if(U.sh&&U.sh.type==='health')U.healthSheet();else U.render();
 };
 A.hsync=async function(){
   if(!HS.health)return;
   const r=await HS.health.sync();
   U.sys(r.ok?'Synced: '+(r.steps!=null?fmt(r.steps)+' steps':'')+(r.act!=null?', '+fmt(r.act)+' active kcal':'')+(r.sleep!=null?', slept '+r.sleep+' h':'')+'.':r.msg,r.ok?'good':'bad');
-  U.render();
+  if(U.sh&&U.sh.type==='health')U.healthSheet();else U.render();
 };
-A.rehabopen=function(){U.rehabSheet()};
 
 /* ---------------- the whole campaign ---------------- */
 U.campaignSheet=function(){
@@ -180,6 +259,13 @@ A.rcopen=function(v){U.sh.open[v]=!U.sh.open[v];U.keepScroll(renderCampaign)};
 A.campaign=function(){F.play('nav');U.campaignSheet()};
 
 /* ---------------- weekly report ---------------- */
+/* the log against the scale, once there are two weeks of both */
+function scaleCheck(){
+  const v=E.energyVerdict();
+  if(!v)return'<div class="sec">Log against the scale</div><div class="small">Log meals on 10 of 14 days and weigh in on 7 of them. The System then checks whether what you log matches what the scale does.</div>';
+  return `<div class="sec">Log against the scale</div><div class="adv ${v.tone}"><b>${esc(v.title)}</b><span>${esc(v.text)}</span></div>
+    <div class="small">Your two weeks imply you burn about ${fmt(v.burned)} kcal a day. The formula says ${fmt(v.maint)}.</div>`;
+}
 U.reportSheet=function(){
   U.sh={type:'report'};
   const r=E.report(),tgt=E.T(),S=E.S();
@@ -192,12 +278,14 @@ U.reportSheet=function(){
     ${row('Inside the calorie window',r.cal+' / '+r.closed,'Target '+fmt(tgt.lo)+' to '+fmt(tgt.hi)+' kcal')}
     ${row('Protein target days',r.protein+' / 7','Target '+tgt.protein+' g')}
     ${row('Workouts finished',String(r.workouts),r.skipped?r.skipped+' skipped':'')}
+    ${row('Cardio days',String(r.cardio||0),'Walking and running on rest days')}
     ${row('Rehab days',r.rehab+' / 7')}
     ${row('Water target days',r.water+' / 7','Target '+(S.cfg.water/1000).toFixed(1)+' L')}
     ${row('Weigh-ins',r.weighIns+' / 7')}
     ${row('Sleep, average',r.sleepAvg!=null?r.sleepAvg+' h':'not logged')}
     ${row('Eaten on average',r.kcalAvg!=null?fmt(r.kcalAvg)+' kcal':'no data')}
     ${row('Trend change',r.rate!=null?(r.rate>=0?'−':'+')+Math.abs(r.rate).toFixed(2)+' kg':'needs 4 weigh-ins')}
+    ${scaleCheck()}
     <div class="note">Trend is the smoothed line, not one reading. Honest logging matters more than a perfect week.</div>`,
     '<button class="btn good" data-a="shareWeek">Share this week</button><button class="btn ghost" data-a="close">Got it</button>');
   E.reviewSeen();
@@ -226,5 +314,4 @@ U.goalsSheet=function(){
     ${strk}`,
     '<button class="btn ghost" data-a="close">Close</button>');
 };
-A.streaks=function(){F.play('nav');U.goalsSheet()};
 })();

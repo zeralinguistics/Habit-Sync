@@ -4,4 +4,7 @@
     <string name="title_activity_main">Habit Sync</string>
     <string name="package_name">app.habitsync.hunter</string>
     <string name="custom_url_scheme">app.habitsync.hunter</string>
+    <string name="widget_streak_desc">Your daily streak and whether today is lit</string>
+    <string name="widget_week_desc">Your streak and the last seven days</string>
+    <string name="widget_today_desc">Calories left, protein, water, steps and your next move</string>
 </resources>

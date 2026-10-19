@@ -117,9 +117,9 @@ HS.GOALS=[
   {id:'g_clear',t:'Clear the day x4',d:'Clear four days with 3 of 4 quests.',need:4,aura:120}
 ];
 /* streak milestones: rolling, not weekly */
-HS.STREAK_STEPS=[3,7,14,30,60];
-HS.STREAK_NAMES={protein:'Protein streak',weigh:'Weigh-in streak',log:'Logging streak',water:'Hydration streak',rehab:'Rehab streak',workout:'Training streak',clear:'Clear streak'};
-HS.STREAK_AURA={3:50,7:120,14:250,30:500,60:900};
+HS.STREAK_STEPS=[3,7,14,30,60,100,200,365];
+HS.STREAK_NAMES={spark:'Daily streak',protein:'Protein streak',weigh:'Weigh-in streak',log:'Logging streak',water:'Hydration streak',rehab:'Rehab streak',workout:'Training streak',clear:'Clear streak'};
+HS.STREAK_AURA={3:50,7:120,14:250,30:500,60:900,100:1400,200:2600,365:5000};
 
 /* ---------------- voice ---------------- */
 HS.VOICE={
@@ -270,7 +270,24 @@ HS.VOICE={
    "Free points, taken.",
    "Side quest cleared."
   ],
-  "bonusall": [
+  "spark": [
+   "Day lit. The flame is {n} days old and glowing.",
+   "{n} days. The streak just got a little bit taller.",
+   "Spark landed. Tomorrow, light it again.",
+   "That is {n} in a row. The flame does not go out on your watch.",
+   "Lit. The System logged it, and so did your future self.",
+   "Another day on the board. The flame says thanks."
+  ],
+  "shield": [
+   "A streak shield took the hit. {n} days, still alive. Do not make it a habit.",
+   "Shield used. Your {n}-day streak survives. Light today for real.",
+   "That missed day was covered. The streak is intact. Never miss twice."
+  ],
+  "shieldearn": [
+   "A new streak shield. Seven days of work, one day of insurance.",
+   "Shield earned. Hold it for the day life gets in the way."
+  ],
+ "bonusall": [
    "Full bonus row. Today's chest just got fancier.",
    "Three for three. The System checked the numbers twice, then nodded.",
    "Clean sweep of the side quests. Show-off.",
@@ -450,4 +467,37 @@ HS.say=function(group,key,roastLevel,ctx){
   if(ctx&&ctx.n!=null)s=s.replace('{n}',ctx.n);
   return s;
 };
+
+/* ---------------- daily targets for micronutrients ----------------
+   ICMR-NIN 2020 Recommended Dietary Allowances for men aged 19 to 39 (reference man 65 kg, moderate activity), rounded.
+   kind 'min' means reach it, 'max' means stay under it. These are population guides, not a diagnosis. Vitamin B12 is not
+   measured in IFCT, so it is left out rather than guessed. */
+HS.RDA=[
+  {k:'fi',t:'Fibre',u:'g',v:30,kind:'min',g:'macro',note:'ICMR-NIN suggests up to about 40 g'},
+  {k:'su',t:'Free sugars',u:'g',v:25,kind:'max',g:'macro',note:'Keep it under about 25 g, as sugar is only in the treats'},
+  {k:'sf',t:'Saturated fat',u:'g',v:22,kind:'max',g:'macro',note:'About 10 % of calories'},
+  {k:'ca',t:'Calcium',u:'mg',v:1000,kind:'min',g:'min'},
+  {k:'fe',t:'Iron',u:'mg',v:19,kind:'min',g:'min'},
+  {k:'mg',t:'Magnesium',u:'mg',v:440,kind:'min',g:'min'},
+  {k:'zn',t:'Zinc',u:'mg',v:17,kind:'min',g:'min'},
+  {k:'kk',t:'Potassium',u:'mg',v:3500,kind:'min',g:'min'},
+  {k:'na',t:'Sodium',u:'mg',v:2000,kind:'max',g:'min',note:'Under 2,000 mg, which is about 5 g of salt'},
+  {k:'va',t:'Vitamin A',u:'mcg',v:1000,kind:'min',g:'vit',note:'As retinol equivalents'},
+  {k:'vc',t:'Vitamin C',u:'mg',v:80,kind:'min',g:'vit'},
+  {k:'vd',t:'Vitamin D',u:'mcg',v:15,kind:'min',g:'vit',note:'15 mcg is 600 IU. Food gives little; sunlight and a supplement do the rest'},
+  {k:'ve',t:'Vitamin E',u:'mg',v:10,kind:'min',g:'vit'},
+  {k:'vk',t:'Vitamin K',u:'mcg',v:55,kind:'min',g:'vit'},
+  {k:'b1',t:'Thiamine (B1)',u:'mg',v:1.4,kind:'min',g:'vit'},
+  {k:'b2',t:'Riboflavin (B2)',u:'mg',v:2,kind:'min',g:'vit'},
+  {k:'b3',t:'Niacin (B3)',u:'mg',v:18,kind:'min',g:'vit'},
+  {k:'b6',t:'Vitamin B6',u:'mg',v:1.9,kind:'min',g:'vit'},
+  {k:'fo',t:'Folate',u:'mcg',v:300,kind:'min',g:'vit'},
+  {k:'n3',t:'Omega-3 (ALA, EPA, DHA)',u:'g',v:null,kind:'info',g:'fat',note:'Oily fish and a fish-oil capsule are the best sources'}
+];
+/* the supplements you told the System about, with what the label says per dose (editable in Settings later) */
+HS.SUPP_DEFAULT=[
+  {id:'d3k2',t:'Vitamin D3 + K2',when:'with lunch or dinner',v:{vd:15,vk:55}},
+  {id:'camgzn',t:'Calcium, magnesium, zinc, D3',when:'after dinner',v:{ca:300,mg:94,zn:5.3,vd:7.5}},
+  {id:'omega3',t:'Omega-3 fish oil',when:'with a meal',v:{n3:.3}}
+];
 })();

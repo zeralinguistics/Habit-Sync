@@ -1,14 +1,17 @@
 /* health.js: Samsung Health through Android Health Connect, read-only.
-   Samsung Health writes steps, active calories, sleep, weight and workouts into Health Connect, and this module reads them.
+   Samsung Health writes steps, distance, floors, active calories, sleep (with stages), heart rate, weight and workouts into Health Connect, and this module reads them.
    It only runs inside the Android app. Nothing here is written back and nothing leaves the phone. */
 (function(){
 'use strict';
 const HS=window.HS=window.HS||{};
 const E=HS.E,H=HS.health={};
 const P=()=>HS.native&&HS.native.plugin('Health');
-const READ=['steps','calories','sleep','weight','workouts'];
+const READ=['steps','distance','calories','sleep','weight','workouts','restingHeartRate','heartRate','flightsClimbed'];
+/* the first version asked for these five only; an older connection has to be refreshed once to add the rest */
+const CORE=['steps','calories','sleep','weight','workouts'];
 H.native=()=>!!(HS.native&&HS.native.native()&&P());
 H.types=READ;
+H.missing=function(){const got=(E.S().health.got||[]);return E.S().health.on?READ.filter(t=>got.indexOf(t)<0):[]};
 
 H.connect=async function(){
   const p=P();
@@ -35,17 +38,32 @@ H.sync=async function(){
   const tryit=async(label,fn)=>{try{await fn()}catch(e){out.errors=(out.errors||[]).concat(label)}};
   await tryit('steps',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'steps'},day))));if(v>=0){out.steps=v;d.hSteps=v;if(v>0&&(!d.steps||+d.steps<v))d.steps=String(v);   /* a zero reading is not a logged day */if(v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}}});
   await tryit('calories',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'calories'},day))));if(v>=0){out.act=v;d.hAct=v}});
+  await tryit('distance',async()=>{const v=sum(await p.queryAggregated(Object.assign({dataType:'distance'},day)));if(v>=0){out.km=Math.round(v/10)/100;d.hDist=out.km}});
+  await tryit('floors',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'flightsClimbed'},day))));if(v>=0){out.floors=v;d.hFloors=v}});
+  await tryit('heartRate',async()=>{
+    const a=await p.queryAggregated({dataType:'heartRate',startDate:mid.toISOString(),endDate:now.toISOString(),bucket:'day',aggregation:['average','max']});
+    const b=(a&&a.samples||[])[0];
+    if(b&&b.values&&b.values.average>0)d.hHr={avg:Math.round(b.values.average),max:Math.round(b.values.max||0)};
+    else if(b&&b.value>0)d.hHr={avg:Math.round(b.value),max:0};
+  });
+  await tryit('restingHeartRate',async()=>{
+    const r=await p.readSamples({dataType:'restingHeartRate',startDate:new Date(now.getTime()-3*864e5).toISOString(),endDate:now.toISOString(),limit:5,ascending:false});
+    const x=(r.samples||[])[0];if(x&&x.value>25&&x.value<150){out.rhr=Math.round(x.value);d.hRhr=out.rhr}
+  });
   await tryit('sleep',async()=>{
     const from=new Date(mid.getTime()-6*3600e3);   /* from 6pm yesterday */
     const r=await p.readSamples({dataType:'sleep',startDate:from.toISOString(),endDate:now.toISOString(),limit:30});
-    let mins=0;
+    let mins=0;const st={deep:0,rem:0,light:0,awake:0};
     (r.samples||[]).forEach(s=>{
       if(new Date(s.endDate)<mid)return;   /* a session that ended before midnight is not last night's */
       let m=s.value||0;
-      if(s.stages&&s.stages.length)m-=s.stages.filter(x=>x.stage==='awake'||x.stage==='inBed').reduce((a,x)=>a+(x.durationMinutes||0),0);
+      if(s.stages&&s.stages.length){
+        m-=s.stages.filter(x=>x.stage==='awake'||x.stage==='inBed').reduce((a,x)=>a+(x.durationMinutes||0),0);
+        s.stages.forEach(x=>{if(st[x.stage]!=null)st[x.stage]+=x.durationMinutes||0});
+      }
       mins+=Math.max(0,m);
     });
-    if(mins>60){const hrs=Math.round(mins/60*10)/10;out.sleep=hrs;d.hSleep=hrs;if(d.sleep==null)E.logSleep(Math.round(hrs*2)/2)}
+    if(mins>60){const hrs=Math.round(mins/60*10)/10;out.sleep=hrs;d.hSleep=hrs;if(st.deep+st.rem+st.light>0)d.hSleepSt={deep:Math.round(st.deep),rem:Math.round(st.rem),light:Math.round(st.light),awake:Math.round(st.awake)};if(d.sleep==null)E.logSleep(Math.round(hrs*2)/2)}
   });
   await tryit('weight',async()=>{
     const r=await p.readSamples({dataType:'weight',startDate:new Date(now.getTime()-3*864e5).toISOString(),endDate:now.toISOString(),limit:5,ascending:false});
@@ -57,6 +75,9 @@ H.sync=async function(){
     const w=r.workouts||[];
     if(w.length){
       d.hWork={min:Math.round(w.reduce((a,x)=>a+(x.duration||0),0)/60),kcal:Math.round(w.reduce((a,x)=>a+(x.totalEnergyBurned||0),0)),types:w.map(x=>x.workoutType).slice(0,3)};
+      /* walking and running sessions on their own: these are the "walk calories" */
+      const wk=w.filter(x=>/walking|running|hiking|treadmill/i.test(x.workoutType||''));
+      d.hWalk=wk.length?{min:Math.round(wk.reduce((a,x)=>a+(x.duration||0),0)/60),kcal:Math.round(wk.reduce((a,x)=>a+(x.totalEnergyBurned||0),0))}:null;
       out.work=d.hWork;
     }
   });

@@ -48,7 +48,17 @@ const IC={
   copy:sv('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'),
   heart:sv('<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.500-7 10-7 10z"/>'),
   bolt:sv('<path d="M13 2L5 14h6l-1 8 8-12h-6z"/>'),
-  ring:sv('<circle cx="12" cy="12" r="7"/>')
+  ring:sv('<circle cx="12" cy="12" r="7"/>'),
+  shield:sv('<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/>'),
+  flame:sv('<path d="M12 3c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z"/>'),
+  info:sv('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.500v.5"/>'),
+  list:sv('<path d="M8 6h12M8 12h12M8 18h12M4 6h.5M4 12h.5M4 18h.5"/>'),
+  user:sv('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>'),
+  food:sv('<path d="M7 3v8a2 2 0 0 0 4 0V3M9 11v10M17 3c-2 2-3 5-3 8h3v10"/>'),
+  sleep:sv('<path d="M20 14.500A8 8 0 1 1 9.500 4a6.500 6.500 0 0 0 10.500 10.500z"/>'),
+  walk:sv('<circle cx="13" cy="4.500" r="1.800"/><path d="M12 8l-3 4 3 3-1 6M12 8l3 3 3 1M9 12l-4 1"/>'),
+  heartbeat:sv('<path d="M3 12h4l2-5 4 10 2-5h6"/>'),
+  widget:sv('<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>')
 };
 U.IC=IC;
 /* a small flame that grows with the streak */
@@ -307,7 +317,7 @@ U.boot=function(){
   F.applyTheme();F.startBg();
   if(HS.pwa)HS.pwa.persist();
   E.compact();
-  const sw=E.sweep(),S=E.S();
+  const sw=E.sweep(),S=E.S();E.sparkSweep();E.sparkEarn();
   E.checkUnlocks();E.checkGoals();
   U.render(true);
   if(!S.welcomed){
@@ -317,6 +327,7 @@ U.boot=function(){
   /* Samsung Health: a quiet refresh when the app opens and whenever it comes back to the front (at most every 10 minutes) */
   const hAuto=()=>{if(HS.health&&HS.health.auto)HS.health.auto().then(r=>{if(r&&r.ok&&U.tab==='home'&&!U.sh)U.render()}).catch(()=>{})};
   hAuto();document.addEventListener('visibilitychange',()=>{if(!document.hidden)hAuto()});
+  if(HS.widget)HS.widget.start();
   if(E.unreadable)setTimeout(()=>U.sys(E.recovered?'Your saved data could not be read, so yesterday\u2019s automatic copy was restored. The unreadable text is kept aside.':'Your saved data could not be read. The text is kept aside and nothing was overwritten. In the Forge, \u201cRestore yesterday\u2019s automatic copy\u201d may help.','bad'),900);
   if(sw.length){
     const missed=sw.filter(x=>!x.pass).length,pass=sw.filter(x=>x.pass).length;
@@ -338,7 +349,7 @@ U.boot=function(){
   let lastDay=E.dkey();
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)return;
-    if(E.dkey()!==lastDay){lastDay=E.dkey();if(U.sh)U.closeSheetQuiet();E.sweep();E.checkUnlocks();E.checkGoals()}   /* a sheet left open overnight belongs to yesterday */
+    if(E.dkey()!==lastDay){lastDay=E.dkey();if(U.sh)U.closeSheetQuiet();E.sweep();E.sparkSweep();E.sparkEarn();E.checkUnlocks();E.checkGoals()}   /* a sheet left open overnight belongs to yesterday */
     if(!U.sh)U.render();
   });
   setInterval(()=>{if(!document.hidden&&!U.sh&&U.tab==='home'&&!showing)U.render()},60000);   /* a quiet refresh: times and windows move on, the cards do not replay their entrance */
