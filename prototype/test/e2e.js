@@ -1280,6 +1280,31 @@ const pin = (iso) => {
     ok(sc.errs.length === 0, 'no console errors in the score checks ' + JSON.stringify(sc.errs));
   }
 
+
+  /* ---------- choosing today's session and the place in the cycle ---------- */
+  {
+    const cy = await mk();
+    await cy.goto(url); await cy.waitForTimeout(800);
+    await cy.evaluate(() => { const E = HS.E; E.reset(); E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.gymSheet(); }); await cy.waitForTimeout(500);
+    const C1 = await cy.evaluate(() => ({ btns: document.querySelectorAll('.rot button.rb').length, did: document.querySelectorAll('.didrow [data-a^="didit:"]').length }));
+    ok(C1.btns === 3 && C1.did === 3, 'the Push, Pull, Legs strip is tappable and "Already trained today?" offers all three sessions');
+    await cy.click('.rot button.rb[data-a="sess:Legs"]'); await cy.waitForTimeout(300);
+    ok(await cy.evaluate(() => HS.E.planFor() === 'Legs' && /Legs day/.test(document.querySelector('#shT').textContent)), 'tapping Legs in the strip makes Legs today\'s session');
+    const aura0 = (await S(cy)).aura;
+    await cy.click('[data-a="didit:Legs"]'); await cy.waitForTimeout(300);
+    ok(await cy.evaluate(() => !HS.E.day().workout && /Tap again/.test(document.querySelector('.didrow').textContent)), 'the first tap only asks to confirm');
+    await cy.click('[data-a="didit:Legs"]'); await cy.waitForTimeout(500);
+    const C2 = await cy.evaluate(() => { const E = HS.E, S = E.S(), d = E.day(); return { w: d.workout, sess: d.sess, next: E.ROT[S.rot.i], aura: S.aura, step: HS.ui.sh && HS.ui.sh.step }; });
+    ok(C2.w === 'done' && C2.sess === 'Legs' && C2.next === 'Rest' && C2.aura - aura0 >= 55 && C2.step === 'pain', 'the second tap marks Legs done, the cycle moves to Rest, and it pays 60 percent (' + (C2.aura - aura0) + ' aura)');
+    ok(await cy.evaluate(() => { const E = HS.E, a = E.S().aura; HS.ui.act.didit('Push'); HS.ui.act.didit('Push'); return E.S().aura === a && E.day().sess === 'Legs'; }), 'a second session cannot be marked on a day that is already done');
+    /* the place in the cycle can be set from Settings; Rest is never offered as a choice */
+    await cy.evaluate(() => { HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.act.tab('forge'); HS.ui.act.set_('routine'); }); await cy.waitForTimeout(500);
+    ok(await cy.evaluate(() => document.querySelectorAll('[data-a^="nextsess:"]').length === 3 && !document.querySelector('[data-a="nextsess:Rest"]')), 'Settings, Training routine has Push, Pull and Legs to set the place in the cycle, and no Rest');
+    await cy.click('[data-a="nextsess:Pull"]'); await cy.waitForTimeout(400);
+    ok(await cy.evaluate(() => HS.E.ROT[HS.E.S().rot.i] === 'Pull' && HS.E.setNext('Rest') === false), 'picking Pull makes Pull due next; Rest cannot be chosen');
+    ok(cy.errs.length === 0, 'no console errors in the cycle checks ' + JSON.stringify(cy.errs));
+  }
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   await b.close();
   process.exit(failed ? 1 : 0);

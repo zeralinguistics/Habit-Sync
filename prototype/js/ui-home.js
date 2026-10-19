@@ -92,7 +92,7 @@ U.nextMove=function(){
       return mk(ml,'plate','Log '+ml,mm?fmt(mm)+' kcal so far. Add more or finish the plate.':'Window '+hhmm(w[0])+' to '+hhmm(w[1])+'. Build your plate, 10 seconds.','+'+E.rateMeal(ml).stars*4);
     }
   }
-  if(open)return mk('gym','gym','Train: '+plan,E.routine(plan).length+' exercises. One tap per exercise.','+100');
+  if(open)return mk('gym','gym','Train: '+plan,E.routine(plan).length+' exercises, one tap each. Different session today? Change it inside.','+100');
   const rq=q('rehab');
   if(rq&&rq.st==='todo')return mk('rehab','rehab','Rehab session',rq.s+'. Your physio’s list, one move at a time.','+'+U.rehabAura(E.rehabProgress().total));
   if(restDay&&gq&&gq.st==='todo'&&m<1260)return mk('gym','walk','Cardio day','Rest day: an easy walk or run, then note how the knee felt.','+60');

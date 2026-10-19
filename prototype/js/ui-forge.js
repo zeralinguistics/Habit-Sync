@@ -72,7 +72,7 @@ const SECS={
         <button class="chk" data-a="backupset:"><i>✓</i><span>No backup<small>Hide the suggestion</small></span></button>
         <div class="stack2"><button class="btn vio" data-a="backupLabel">Enter my protein powder from its label</button></div>
         <div class="small">Brands differ a lot. Read the "per serving" column on your tub (for example Yogabar) and enter it: serving size in grams, calories, protein, carbs and fat.</div>`}},
-  routine:{t:'Training routine',html:()=>`<div id="rxWrap">${routineEditor()}</div>`},
+  routine:{t:'Training routine',html:()=>{const due=E.ROT[E.S().rot.i];return `<div class="sec" style="margin-top:0">Where you are in the cycle</div><div class="small" style="margin:0 0 8px">Push, Pull, Legs, Rest, then again. Pick the session that is due next. Rest comes after Legs by itself. Due now: <b>${due}</b>.</div>${seg('nextsess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],due).replace('seg2','seg2 full')}<div class="sec">Exercises</div><div id="rxWrap">${routineEditor()}</div>`}},
   rules:{t:'Rules and teasing',html:()=>{const c=E.cfg();return `<div class="small" style="margin-top:0">Penalties</div>${seg('strict',[['chill','Chill'],['standard','Standard'],['hard','Hard']],c.strict).replace('seg2','seg2 full')}
     <div class="small" id="strictTxt">${strictTxt(c.strict)}</div>
     <div class="small">Pain days never count as a skip. You also get one rest pass a week.</div>
@@ -178,6 +178,7 @@ A.roast=v=>{E.cfg().roast=v;E.save();F.play(v==='off'?'pick':'wah');refreshSet()
 A.theme=v=>{E.cfg().theme=v;E.save();F.applyTheme();F.play('pick');refreshSet()};
 A.snd=v=>{E.cfg().sound=v==='1';E.save();if(E.cfg().sound){F.unlock();F.play('pick')}refreshSet()};
 A.hap=v=>{E.cfg().haptics=v==='1';E.save();F.vib(30);refreshSet()};
+A.nextsess=v=>{if(E.setNext(v)){F.play('pick');refreshSet()}};
 A.rtab=v=>{rTab=v;$('#rxWrap').innerHTML=routineEditor()};
 A.rxs=v=>{const p=v.split(':'),x=E.routine(rTab)[+p[0]];x.sets=Math.max(1,Math.min(8,x.sets+ +p[1]));E.save();$('#rxWrap').innerHTML=routineEditor()};
 A.rxr=v=>{const p=v.split(':'),x=E.routine(rTab)[+p[0]];x.reps=Math.max(1,Math.min(30,x.reps+ +p[1]));E.save();$('#rxWrap').innerHTML=routineEditor()};

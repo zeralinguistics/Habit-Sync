@@ -473,9 +473,9 @@ E.lastMins=function(){
   const d=ks.length?S.days[ks[ks.length-1]]:null;
   return d?{lift:d.mins.lift||60,walk:d.mins.walk||0,run:d.mins.run||0,free:d.runFree!=null?d.runFree:3}:{lift:60,walk:15,run:10,free:3};
 };
-E.completeWorkout=function(plan){
+E.completeWorkout=function(plan,o){
   if(E.day().workout==='done')return{award:0,comeback:false,again:true};   /* a double tap never pays twice or skips a session in the rotation */
-  const d=E.day(),p=E.liftProgress(plan),frac=p.total?Math.min(1,p.done/p.total/.8):1;
+  const d=E.day(),p=E.liftProgress(plan),frac=o&&o.quick?.6:p.total?Math.min(1,p.done/p.total/.8):1;   /* "I already trained" with no sets logged pays 60 percent */
   const comeback=E.clearFatigue();if(comeback)S.counters.comeback++;
   const award=Math.round(100*frac);
   d.workout='done';d.sess=plan;S.rot.i=(ROT.indexOf(plan)+1)%4;   /* the rotation moves on from the session you really did */
@@ -484,6 +484,13 @@ E.completeWorkout=function(plan){
   S.missStreak=0;
   E.save();E.emit('workout',{award:award,comeback:comeback,done:p.done,total:p.total});
   return{award:award,comeback:comeback};
+};
+/* "Where am I in the cycle": the session that is due next. Rest is not offered here: it follows Legs by itself, and a rest day is never a relabel. */
+E.setNext=function(type){
+  const i=ROT.indexOf(type);if(i<0||type==='Rest')return false;
+  S.rot={i:i,from:dkey()};
+  const d=S.days[dkey()];if(d&&d.sess&&d.workout!=='done')d.sess=null;   /* today follows the cycle again */
+  E.save();return true;
 };
 /* A rest day is a cardio day: an easy walk and some running. It is optional, never punished, and it never moves the Push, Pull, Legs, Rest rotation.
    Details are optional: minutes alone use the treadmill defaults, and a distance (typed in when the phone stayed in the locker) gives the real speed. */

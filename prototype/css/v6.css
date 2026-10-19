@@ -266,12 +266,12 @@
 
 /* ---------- workout ---------- */
 .rot{display:flex;align-items:center;justify-content:space-between;gap:2px;margin-top:6px}
-.rot span{flex:1;text-align:center;padding:9px 2px 7px;border-radius:12px;border:1px solid rgba(var(--glr),.22);background:rgba(var(--glr),.04)}
-.rot span b{display:block;font:700 15px var(--display);letter-spacing:.1em;text-transform:uppercase}
-.rot span small{display:block;font-size:10.5px;color:var(--mute);min-height:13px}
-.rot span.now{border-color:var(--gold);background:linear-gradient(180deg,rgba(245,196,81,.22),rgba(245,196,81,.06));box-shadow:0 0 14px rgba(245,196,81,.3)}
-.rot span.now small{color:var(--gold)}
-.rot span.last{border-style:dashed}
+.rot span,.rot button.rb{flex:1;text-align:center;padding:9px 2px 7px;border-radius:12px;border:1px solid rgba(var(--glr),.22);background:rgba(var(--glr),.04)}
+.rot span b,.rot button.rb b{display:block;font:700 15px var(--display);letter-spacing:.1em;text-transform:uppercase}
+.rot span small,.rot button.rb small{display:block;font-size:10.5px;color:var(--mute);min-height:13px}
+.rot span.now,.rot button.rb.now{border-color:var(--gold);background:linear-gradient(180deg,rgba(245,196,81,.22),rgba(245,196,81,.06));box-shadow:0 0 14px rgba(245,196,81,.3)}
+.rot span.now small,.rot button.rb.now small{color:var(--gold)}
+.rot span.last,.rot button.rb.last{border-style:dashed}
 .rot i{font-style:normal;color:var(--mute);font-size:18px;flex:none;width:12px;text-align:center}
 .lh2{display:flex;align-items:center;gap:12px;margin:2px 0 6px}
 .lhr{position:relative;width:54px;height:54px;flex:none}
@@ -439,3 +439,9 @@
 .chk span,.mrm b,.mrm small{overflow-wrap:anywhere}
 /* the grey example in an empty field must not look like a value */
 .fr input::placeholder,.cfld input::placeholder{color:var(--mute);opacity:.4}
+
+/* the cycle strip buttons keep the look of the strip; the row for sessions already done sits under the picker */
+.rot button.rb{color:inherit;font:inherit;cursor:pointer;min-height:44px}
+.rot button.rb:active{transform:scale(.97)}
+.didrow{display:flex;gap:8px}
+.didrow .btn{flex:1;margin:0;padding:12px 4px;font-size:13px}
