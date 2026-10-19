@@ -57,8 +57,8 @@
 .fk b,.fp b{font:700 24px/1.05 var(--display);font-variant-numeric:tabular-nums}
 .fk b{color:var(--glow)}.fp b{color:var(--violet)}
 .fk span,.fp span{font-size:13px;color:var(--mute);margin-left:4px}
-.fm{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--mute);margin-top:2px}
-.fm b{color:var(--fg);font:700 14px var(--display)}
+.fmac{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--mute);margin-top:2px}
+.fmac b{color:var(--fg);font:700 14px var(--display)}
 .fbal{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 14px 10px;padding:8px 10px;border:1px solid rgba(var(--glr),.22);border-radius:10px;background:rgba(var(--glr),.06);font-size:12px;color:var(--mute)}
 .fbal b{font:700 15px var(--display);white-space:nowrap}.fbal b.good{color:var(--green)}.fbal b.warn{color:var(--amber)}
 .meals3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px 6px}
@@ -423,3 +423,19 @@
 @media (prefers-reduced-motion:reduce){.tl2.just .tli svg path{stroke-dashoffset:0!important}}
 /* the name of a food from a label is text: give it the room, left aligned */
 .fr input#cf_name{flex:1;width:auto;min-width:0;text-align:left}
+
+/* the ways out of a training day sit in the scrolling part of the sheet, so the footer stays one button tall on a small phone */
+.notrain{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+
+/* tap targets: at least 44 px on a phone */
+.wundo{width:44px;height:44px;top:0;right:0;background:transparent;border-color:transparent}
+.wundo svg{width:18px;height:18px}
+.mnav{width:44px;height:44px}
+.ptabs button{min-height:44px}
+.sidechips button{min-height:44px}
+.jtabs button{min-height:40px;white-space:nowrap;padding:0 10px}
+.fuel .snk{min-height:44px}
+/* long unbroken names (a custom food) wrap inside their row instead of being clipped */
+.chk span,.mrm b,.mrm small{overflow-wrap:anywhere}
+/* the grey example in an empty field must not look like a value */
+.fr input::placeholder,.cfld input::placeholder{color:var(--mute);opacity:.4}

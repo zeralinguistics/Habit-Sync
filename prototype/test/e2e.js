@@ -957,7 +957,7 @@ const pin = (iso) => {
       const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; const today = E.dkey(), nxt = () => E.ROT[E.S().rot.i], o = {};   /* E.reset() makes a new state object, so always ask for the current one */
       o.first = E.planFor();
       E.completeWorkout('Pull'); o.afterPull = nxt();      /* Pull was done although Push was due */
-      E.completeWorkout('Legs'); o.afterLegs = nxt();
+      E.day().workout = null; E.completeWorkout('Legs'); o.afterLegs = nxt();   /* a second session on the same day is only a test of the pointer */
       /* a rest day that passes moves the rotation on to Push */
       E.reset(); const T = E.S(); T.welcomed = true; T.start = E.keyOffset(-10); T.rot = { i: 3, from: today };
       T.swept = {}; T.swept[E.keyOffset(-3)] = 1; T.swept[E.keyOffset(-2)] = 1;
@@ -1147,6 +1147,105 @@ const pin = (iso) => {
     const OT = await ob.evaluate(() => { const o = {}; ['home', 'armory', 'path', 'forge'].forEach(t => { try { HS.ui.tab = t; HS.ui.render(); o[t] = document.querySelector('#screen').textContent.length > 200; } catch (e) { o[t] = 'ERR ' + e.message; } }); return o; });
     ok(OT.home === true && OT.armory === true && OT.path === true && OT.forge === true, 'every tab opens from the older backup ' + JSON.stringify(OT));
     ok(ob.errs.length === 0, 'no console errors from the older backup ' + JSON.stringify(ob.errs));
+  }
+
+
+  /* ---------- review fixes: what the reviewers found in version 0.6 ---------- */
+  {
+    /* an older save loads at start: a custom food from the previous version (no nutrient columns) and an upgrade boot where the pointer and the days disagree */
+    const up = await mk(() => {
+      const st = { v: 5, cfg: { name: 'X' }, welcomed: true, start: '2026-09-20', aura: 500, cycle: { a: '2026-09-20', i: 0 }, cycles: [{ a: '2026-09-20', i: 0 }],
+        custom: { 'Momos plate': { name: 'Momos plate', kcal: 350, p: 0, k100: 350, p100: 0, ug: 100, unit: 'serving', custom: true } },
+        days: { '2026-10-03': { workout: 'done', items: [{ name: 'Momos plate', meal: 'lunch', g: 100 }, null, 'x'], done: {}, lift: { 'Squats': { sets: [{ w: 30, r: 8, done: true }], pr: false } }, mins: { lift: 60, walk: 0, run: 0 } }, '2026-10-04': null }, swept: { '2026-10-02': 1 } };
+      if (!localStorage.getItem('habitsync.proto.v4')) localStorage.setItem('habitsync.proto.v4', JSON.stringify(st));
+    });
+    await up.goto(url); await up.waitForTimeout(1100);
+    const UP = await up.evaluate(() => {
+      const E = HS.E, S = E.S(), f = E.food('Momos plate'); let thrown = ''; try { HS.ui.foodSheet('Momos plate'); } catch (e) { thrown = e.message; }
+      HS.ui.closeSheet();
+      return { n: f && Array.isArray(f.n) && f.n.length === HS.NUT_COLS.length, kcal: f && f.kcal, thrown: thrown, items: S.days['2026-10-03'].items.length, sess: S.days['2026-10-03'].sess, plan3: E.planFor('2026-10-03'), rot: E.ROT[S.rot.i], aura: S.aura, unread: !!E.unreadable };
+    });
+    ok(UP.n && UP.kcal === 350 && UP.thrown === '' && !UP.unread, 'a custom food saved by an older version is rebuilt with its nutrient columns, and its facts sheet opens');
+    ok(UP.items === 1, 'a null or text entry inside a day\'s items is dropped instead of breaking the day');
+    ok(UP.sess === 'Legs' && UP.plan3 === 'Legs' && UP.rot === 'Push' && UP.aura === 500, 'on an upgrade boot a finished day keeps its own session (Legs) and the rest day after it moves the rotation to Push, with no penalty (' + UP.sess + ', ' + UP.rot + ')');
+    ok(up.errs.length === 0, 'no console errors on the upgrade boot ' + JSON.stringify(up.errs));
+  }
+  {
+    const rv = await mk();
+    await rv.goto(url); await rv.waitForTimeout(800);
+    const RV = await rv.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.start = E.keyOffset(-12); S.shield = { n: 1, used: {}, checked: {} }; const yk = E.keyOffset(-1), o = {};
+      const lit = k => { const d = E.day(k); d.weighed = true; d.done = { breakfast: true, lunch: true }; d.water = 3000; };
+      [-5, -4, -3, -2].forEach(i => lit(E.keyOffset(i)));
+      const y = E.day(yk); y.weighed = true; y.water = 3000; y.plan = 'Rest';   /* two pillars: not lit */
+      E.sparkSweep(); o.used = !!S.shield.used[yk]; o.n1 = S.shield.n;
+      E.completeCardio({ walk: 30, run: 0, free: null, det: { wSpd: 5, wInc: 0, rSpd: 9, rInc: 0 } }, yk);
+      o.back = S.shield.n; o.cleared = !S.shield.used[yk]; o.lit = E.sparkDay(yk);
+      /* a double tap on Finish never pays twice and never skips a session */
+      E.reset(); const T = E.S(); T.welcomed = true; const str0 = T.stats.STR, rot0 = T.rot.i;
+      E.completeWorkout('Push'); const r1 = T.rot.i, str1 = T.stats.STR, aura1 = T.aura;
+      const again = E.completeWorkout('Legs');
+      o.once = T.rot.i === r1 && T.stats.STR === str1 && T.aura === aura1 && again.again === true && r1 === (rot0 + 1) % 4 && str1 === str0 + 3;
+      return o;
+    });
+    ok(RV.used && RV.n1 === 0 && RV.back === 1 && RV.cleared && RV.lit === 'lit', 'a shield spent on yesterday comes back when a walk logged afterwards lights that day');
+    ok(RV.once, 'finishing a workout twice on one day pays once and does not move the rotation again');
+    const HC = await mk(() => {
+      window.Capacitor = { isNativePlatform: () => true, Plugins: { Health: {
+        isAvailable: async () => ({ available: true }), requestAuthorization: async o => ({ readAuthorized: o.read }),
+        queryAggregated: async o => { if (o.dataType === 'flightsClimbed') throw new Error('not aggregated'); return { samples: [{ value: 1000 }] }; },
+        readSamples: async o => o.dataType === 'flightsClimbed' ? { samples: [{ value: 4 }, { value: 5 }, { value: 6 }] } : { samples: [] },
+        queryWorkouts: async () => ({ workouts: [{ workoutType: 'walking', duration: 1800, totalEnergyBurned: 120 }, { workoutType: 'strengthTraining', duration: 3600, totalEnergyBurned: 250 }] } ) } } };
+      localStorage.setItem('habitsync.proto.v4', JSON.stringify({ v: 5, cfg: { name: 'X' }, welcomed: true, aura: 5, health: { on: true, last: 0 } }));
+    });
+    await HC.goto(url); await HC.waitForTimeout(1300);
+    const HW = await HC.evaluate(() => { const d = HS.E.day(); return { floors: d.hFloors, walk: d.hWalk, work: d.hWork }; });
+    ok(HW.floors === 15, 'floors climbed are read from the day\'s records and added up (' + HW.floors + ')');
+    ok(HW.walk && HW.walk.min === 30 && HW.walk.kcal === 120 && HW.work && HW.work.min === 60 && HW.work.kcal === 250, 'a recorded walk is the walk and only the strength session is the workout ' + JSON.stringify([HW.walk, HW.work]));
+  }
+  {
+    const ui = await mk();
+    await ui.goto(url); await ui.waitForTimeout(800);
+    await ui.evaluate(() => { const E = HS.E; E.reset(); E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.tab = 'home'; HS.ui.render(true); }); await ui.waitForTimeout(700);
+    /* the sheet of a training day keeps one button in its footer so a small phone still shows the picker */
+    await ui.evaluate(() => HS.ui.gymSheet()); await ui.waitForTimeout(500);
+    const GF = await ui.evaluate(() => ({ foot: document.querySelectorAll('#shFoot button').length, body: !!document.querySelector('#shBody [data-a="gym:pain"]') && !!document.querySelector('#shBody [data-a="gym:lazy"]') }));
+    ok(GF.foot === 1 && GF.body, 'the training day sheet has one footer button; pain day, rest pass and skip are in the scrolling part');
+    await ui.evaluate(() => HS.ui.closeSheet()); await ui.waitForTimeout(400);
+    /* a quick double tap on a sheet's button does not reach the tab bar underneath */
+    await ui.evaluate(() => HS.ui.act.bonusSheet()); await ui.waitForTimeout(500);
+    await ui.dblclick('#shFoot [data-a="close"]', { delay: 40 }); await ui.waitForTimeout(500);
+    ok(await ui.evaluate(() => HS.ui.tab === 'home' && !HS.ui.sh), 'a double tap on Close closes the sheet and stays on Today');
+    /* the chart tooltip appears when the chart is touched; long campaigns keep readable labels */
+    await ui.evaluate(() => { const E = HS.E, S = E.S(); S.start = E.keyOffset(-220); for (let i = 200; i >= 0; i -= 2) S.weights[E.keyOffset(-i)] = 90 - (200 - i) * .1; E.save(); HS.ui.act.tab('path'); }); await ui.waitForTimeout(1500);
+    const CH = await ui.evaluate(() => {
+      const hit = document.querySelector('#jhit'), r = hit.getBoundingClientRect();
+      hit.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + r.width * .5, clientY: r.top + 40, pointerType: 'touch' }));
+      const tip = document.querySelector('#jtip');
+      return { shown: getComputedStyle(tip).display !== 'none' && !tip.hasAttribute('hidden'), text: tip.querySelector('.jt1').textContent, xl: document.querySelectorAll('#jchart .jx').length, gl: document.querySelectorAll('#jchart .jl').length };
+    });
+    ok(CH.shown && /kg/.test(CH.text), 'touching the chart shows the tooltip (' + CH.text + ')');
+    ok(CH.xl >= 2 && CH.xl <= 9 && CH.gl <= 16, 'a 200-day chart names about ' + CH.xl + ' dates and ' + CH.gl + ' gates, not all of them');
+    /* the cardio sheet keeps its place when a stepper is pressed */
+    await ui.setViewportSize({ width: 320, height: 560 });
+    await ui.evaluate(() => { const E = HS.E; E.S().rot.i = 3; E.S().start = E.keyOffset(-20); E.day(E.keyOffset(-1)).plan = 'Rest'; HS.ui.closeSheet(); HS.ui.gymSheet(); HS.ui.act.cardioStart(); }); await ui.waitForTimeout(600);
+    const SK = await ui.evaluate(async () => { const b = document.querySelector('#shBody'); b.scrollTop = 120; const before = b.scrollTop; HS.ui.act.st('run:5'); await new Promise(r => setTimeout(r, 150)); return { before: before, after: document.querySelector('#shBody').scrollTop }; });
+    ok(SK.before > 60 && SK.after === SK.before, 'pressing a stepper in the cardio sheet keeps your place (' + SK.before + ' to ' + SK.after + ')');
+    await ui.setViewportSize({ width: 390, height: 844 });
+    /* yesterday-only entry: Today cannot be saved on a training day, and typed numbers survive */
+    const YD = await ui.evaluate(() => {
+      const E = HS.E; E.S().rot.i = 0; E.day().sess = null; HS.ui.closeSheet(); HS.ui.gymSheet(); HS.ui.act.cardioYest();
+      const t = HS.ui.sh.tmp; t.wKm = 2.8; t.walk = 35; const hadToggle = !!document.querySelector('[data-a="cday:today"]');
+      HS.ui.act.cday('today'); const kept = t.wKm === 2.8 && t.walk === 35;
+      const before = !!E.day().cardio; HS.ui.act.cardioSave();
+      return { hadToggle: hadToggle, kept: kept, saved: !!E.day().cardio && !before, toast: document.querySelector('#sysT').textContent };
+    });
+    ok(!YD.hadToggle && YD.kept && !YD.saved && /training day/i.test(YD.toast), 'from "Forgot yesterday", the day is fixed to yesterday; typed numbers survive; Today is refused on a training day');
+    /* Samsung steps typed by hand show at once */
+    await ui.evaluate(() => { HS.ui.closeSheet(); HS.ui.healthSheet(); }); await ui.waitForTimeout(500);
+    await ui.fill('#stepsIn', '7400'); await ui.click('[data-a="saveSteps"]'); await ui.waitForTimeout(500);
+    ok(await ui.evaluate(() => /7,400/.test(document.querySelector('#shBody').textContent)), 'steps typed by hand appear in the open sheet straight away');
+    ok(ui.errs.length === 0, 'no console errors in the review-fix checks ' + JSON.stringify(ui.errs));
   }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

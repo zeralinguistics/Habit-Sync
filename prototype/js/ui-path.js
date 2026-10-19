@@ -67,16 +67,18 @@ function chartSvg(){
   const Y=kg=>pt+(vmax-kg)/(vmax-vmin)*ph;
   /* gate lines inside the window */
   let g='';
-  lad.forEach(gt=>{
-    if(gt.kg<vmin||gt.kg>vmax)return;
+  /* far apart enough to read: over a long campaign only every few gates are named, the boss gates and the next gate always are */
+  const vis=lad.filter(gt=>gt.kg>=vmin&&gt.kg<=vmax),every=Math.max(1,Math.ceil(vis.length/Math.max(4,Math.floor(ph/13))));
+  vis.forEach((gt,ix)=>{
     const got=S.gates.indexOf(gt.kg)>=0,nx=ng.next&&ng.next.kg===gt.kg,y=Y(gt.kg).toFixed(1);
+    if(!(gt.boss||nx||ix%every===0))return;
     g+=`<line class="jg${got?' got':''}${nx?' nx':''}${gt.boss?' boss':''}" x1="${pl}" y1="${y}" x2="${W-pr}" y2="${y}"/><text class="jl${got?' got':''}${nx?' nx':''}${gt.boss?' boss':''}" x="${pl-5}" y="${(+y+3.5).toFixed(1)}" text-anchor="end">${gt.kg%1?gt.kg.toFixed(1):gt.kg}</text>`;
     if(got)g+=`<text class="jck" x="${W-pr-2}" y="${(+y-3).toFixed(1)}" text-anchor="end">${gt.boss?'★':'✓'}</text>`;
     if(nx)g+=`<text class="jnx" x="${W-pr-2}" y="${(+y-4).toFixed(1)}" text-anchor="end">NEXT GATE</text>`;
   });
   if(!g){for(let kg=Math.ceil(vmin);kg<=vmax;kg++)g+=`<line class="jg" x1="${pl}" y1="${Y(kg).toFixed(1)}" x2="${W-pr}" y2="${Y(kg).toFixed(1)}"/><text class="jl" x="${pl-5}" y="${(Y(kg)+3.5).toFixed(1)}" text-anchor="end">${kg}</text>`}
   /* time axis */
-  let ax='';const step=totalDays>60?14:totalDays>25?7:totalDays>12?3:2;
+  let ax='';const maxX=Math.max(2,Math.floor(pw/44)),step=[1,2,3,7,14,28,56,112,224].find(x=>totalDays/x<=maxX)||224;   /* a label about every 44 units, whatever the length of the campaign */
   for(let d=0;d<=totalDays;d+=step){const k=E.addDays(D.lo,d);ax+=`<text class="jx" x="${X(d).toFixed(1)}" y="${H-8}" text-anchor="middle">${dshort(k)}</text>`}
   const tp=D.ks.map(k=>[X(dayOf(k)),Y(D.tmap[k])]);
   const line=smooth(tp);
@@ -109,7 +111,7 @@ function onChartPoint(ev){
   let best=null,bd=1e9;D.ks.forEach(k=>{const dd=Math.abs(E.daysBetween(D.lo,k)-d);if(dd<bd){bd=dd;best=k}});
   if(!best)return;
   const S=D.S,w=S.weights[best],tr=D.tmap[best],px=pl+E.daysBetween(D.lo,best)/total*pw;
-  const tip=$('#jtip');tip.hidden=false;
+  const tip=$('#jtip');tip.removeAttribute('hidden');   /* an SVG element has no hidden property, only the attribute */
   const bx=Math.max(pl,Math.min(340-14-116,px-58));
   $('#jtb').setAttribute('transform','translate('+bx.toFixed(1)+' 6)');
   tip.querySelector('.jtl').setAttribute('x1',px);tip.querySelector('.jtl').setAttribute('x2',px);
@@ -143,14 +145,14 @@ U.views.path=function(){
   const pd=E.painDays(7),greens=pd.filter(x=>E.light(x.r)==='green').length,hs=S.health,d=E.day();
   let h=`<div class="card jhero rise" style="--i:0"><div class="jh1">${ghost()}<div class="jh2">
       <span class="jk">TREND WEIGHT</span><div class="jbig"><b id="trendNum">${tr.toFixed(1)}</b><span>kg</span></div>
-      <div class="jsub"><b class="${lost>=0?'dn':'up'}">${lost>=0?'−':'+'}${Math.abs(lost).toFixed(1)} kg</b> since the start · <b>${Math.max(0,tr-cfg.goalW).toFixed(1)} kg</b> to ${cfg.goalW} kg</div>
+      <div class="jsub"><b class="${lost>=.05?'dn':lost<=-.05?'up':''}">${Math.abs(lost)<.05?'':lost>=0?'−':'+'}${Math.abs(lost).toFixed(1)} kg</b> since the start · <b>${Math.max(0,tr-cfg.goalW).toFixed(1)} kg</b> to ${cfg.goalW} kg</div>
       <div class="pace ${pace.c}">${esc(pace.t)}</div></div></div>
     <div class="camp"><div class="campl"><span>CAMPAIGN</span><b>${pl.weeks?'WEEK '+wkNo+' / '+pl.weeks:'NO GATES LEFT'}</b></div><div class="xp"><i style="width:${pl.weeks?wkNo/pl.weeks*100:100}%"></i></div>
       <div class="gsmall"><b id="syncNum">0</b>% sync · at plan pace you finish around <b>${U.dateY(pl.finish)}</b>${eta.real?'. At your recent pace: '+U.dateY(eta.date)+'.':'.'}</div></div></div>
   <div class="card jchartc rise" style="--i:1"><div class="jct"><span class="jk">THE DESCENT</span><div class="jtabs" role="tablist">${[['2w','2 wk'],['1m','1 mo'],['all','All']].map(t=>`<button role="tab" data-a="jrange:${t[0]}" aria-selected="${jr===t[0]}">${t[1]}</button>`).join('')}</div></div>
     ${chartSvg()}
     <div class="jleg"><span><b class="l1"></b>Trend</span><span><b class="l2"></b>Weigh-ins</span><span><b class="l3"></b>The plan</span><span><b class="l4"></b>Gate cleared</span></div>
-    <div class="jstats"><div><b>${best!=null?best.toFixed(1):'—'}</b><span>LOWEST KG</span></div><div><b>${ks.length}</b><span>WEIGH-INS</span></div><div><b>${rate!=null?(rate>=0?'−':'+')+Math.abs(rate).toFixed(2):'—'}</b><span>KG THIS WEEK</span></div></div></div>
+    <div class="jstats"><div><b>${best!=null?best.toFixed(1):'—'}</b><span>LOWEST KG</span></div><div><b>${ks.length}</b><span>WEIGH-INS</span></div><div><b>${rate!=null?(Math.abs(rate)<.005?'':rate>=0?'−':'+')+Math.abs(rate).toFixed(2):'—'}</b><span>KG THIS WEEK</span></div></div></div>
   <div class="card jgates rise" style="--i:2"><div class="jct"><span class="jk">GATES · ${S.gates.length} OF ${lad.length} CLEARED</span></div>
     <div class="duo"><div class="tile2"><span>NEXT GATE</span><b>${ng.next?ng.next.kg+' kg':'Done'}</b><small>${ng.next?ng.toNext.toFixed(1)+' kg to go':'Every gate cleared'}</small></div>
     <div class="tile2 gold"><span>BOSS GATE</span><b>${ng.boss?ng.boss.kg+' kg':'Done'}</b><small>${ng.boss?ng.toBoss.toFixed(1)+' kg to go':'You did it'}</small></div></div>
@@ -198,6 +200,7 @@ A.saveSteps=function(){
   const d=E.day(),v=($('#stepsIn')||{}).value;d.steps=v;
   if(+v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}
   E.save();U.sys(v?'Steps saved: '+fmt(+v)+'.':'Cleared.','good');
+  if(U.sh&&U.sh.type==='health')U.keepScroll(U.healthSheet);   /* the ring and the bars show the new number now */
 };
 A.rehabopen=function(){U.rehabSheet()};
 A.hconnect=async function(){
@@ -235,7 +238,7 @@ function renderCampaign(){
       <div class="rcw">${r.from} → ${r.to} kg · weeks ${r.w0} to ${r.w1} · ${r.gates} gates</div>
       <div class="rcw">Eat about <b>${r.kcal0}→${r.kcal1} kcal</b> a day · protein ${S.cfg.protein} g</div>
       <div class="rcr">Boss gate at ${r.to} kg unlocks: ${rewards.length?esc(rewards.join(', ')):'new gear'}${i<pl.realms.length-1?' · then a camp week at maintenance':''}</div>
-      <button class="rcb" data-a="rcopen:${i}" aria-expanded="${open}">${open?'Hide':'Show'} the ${gates.length} gates</button>
+      <button class="rcb" data-a="rcopen:${i}" aria-expanded="${open}">${open?'Hide':'Show'} the ${gates.length} gate${gates.length===1?'':'s'}</button>
       ${open?'<div class="gl">'+gates.map(g=>`<div class="${S.gates.indexOf(g.kg)>=0?'got':''}"><b>${g.kg} kg</b><span>week ${g.week} · ${U.date(g.date)}</span><i>${S.gates.indexOf(g.kg)>=0?'✓':g.boss?'★':''}</i></div>`).join('')+'</div>':''}
     </div>`;
   };

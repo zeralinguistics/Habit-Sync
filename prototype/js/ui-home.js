@@ -94,7 +94,7 @@ U.nextMove=function(){
   }
   if(open)return mk('gym','gym','Train: '+plan,E.routine(plan).length+' exercises. One tap per exercise.','+100');
   const rq=q('rehab');
-  if(rq&&rq.st==='todo')return mk('rehab','rehab','Rehab session',rq.s+'. The boring work that heals you.','+'+U.rehabAura(E.rehabProgress().total));
+  if(rq&&rq.st==='todo')return mk('rehab','rehab','Rehab session',rq.s+'. Your physio’s list, one move at a time.','+'+U.rehabAura(E.rehabProgress().total));
   if(restDay&&gq&&gq.st==='todo'&&m<1260)return mk('gym','walk','Cardio day','Rest day: an easy walk or run, then note how the knee felt.','+60');
   if(!d.weighed)return mk('weigh','scale','Weigh in','Even late counts. Data beats guessing.','+15');
   const mpend=U.MEALS.find(ml=>{const mq=q(ml);return mq&&mq.st==='todo'&&m>U.WIN[ml][0]});
@@ -282,9 +282,9 @@ function fuelHtml(qs){
         <div class="rc"><b id="leftNum">${fmt(Math.abs(left))}</b><span>${left>=0?'KCAL LEFT':'KCAL OVER'}</span></div></div>
       <div class="fl2"><div class="fk"><b>${fmt(tot.k)}</b><span>/ ${fmt(T.kcal)} kcal${camp?' <em class="campt">camp</em>':''}</span></div>
         <div class="fp"><b>${Math.round(tot.p)}</b><span>/ ${T.protein} g protein</span></div>
-        <div class="fm"><span><b>${Math.round(tot.c||0)}</b> g carbs</span><span><b>${Math.round(tot.f||0)}</b> g fat</span><span><b>${Math.round(tot.fi||0)}</b> g fibre</span></div></div>
+        <div class="fmac"><span><b>${Math.round(tot.c||0)}</b> g carbs</span><span><b>${Math.round(tot.f||0)}</b> g fat</span><span><b>${Math.round(tot.fi||0)}</b> g fibre</span></div></div>
       <i class="chev">${IC.chev}</i></button>
-    ${hs?`<div class="fbal"><span>Burned so far (Samsung Health): about <b>${fmt(en.out)}</b> = ${fmt(en.rest)} resting + ${fmt(en.act)} active</span><b class="${en.net<=0?'good':'warn'}">${en.net<=0?'−':'+'}${fmt(Math.abs(en.net))} kcal</b></div>`:''}
+    ${hs?`<div class="fbal"><span>Burned so far (Samsung Health): about <b>${fmt(en.out)}</b> = ${fmt(en.rest)} resting + ${fmt(en.act)} active. Eaten minus burned so far:</span><b>${en.net<=0?'−':'+'}${fmt(Math.abs(en.net))} kcal</b></div>`:''}
     ${gapHtml()}
     <div class="meals3">${U.MEALS.map(m=>mealBtn(m,qs)).join('')}</div>
     <button class="link snk" data-a="snack">Ate something else? Log a snack</button></div>`;

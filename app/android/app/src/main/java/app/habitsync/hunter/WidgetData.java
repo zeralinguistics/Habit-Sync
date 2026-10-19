@@ -20,7 +20,29 @@ final class WidgetData {
     static final String PREFS = "habit_widget";
     static final String KIND_STREAK = "streak", KIND_WEEK = "week", KIND_TODAY = "today";
 
+    private static final Object LOCK = new Object();
+
     private WidgetData() {}
+
+    /** Adds water poured from a widget. The tap and the app both touch this number, so it is changed under one lock. */
+    static void addWater(Context c, int ml) {
+        synchronized (LOCK) {
+            SharedPreferences p = sp(c);
+            p.edit().putInt("pendingWater", p.getInt("pendingWater", 0) + ml).apply();
+        }
+    }
+
+    /** Returns the queued water once and clears it. */
+    static int takeWater(Context c) {
+        synchronized (LOCK) {
+            SharedPreferences p = sp(c);
+            int ml = p.getInt("pendingWater", 0);
+            if (ml != 0) {
+                p.edit().putInt("pendingWater", 0).apply();
+            }
+            return ml;
+        }
+    }
 
     static SharedPreferences sp(Context c) {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -84,6 +106,7 @@ final class WidgetData {
         boolean fresh = fresh(p), today = KIND_TODAY.equals(kind);
         int pending = p.getInt("pendingWater", 0);
         for (int id : ids) {
+            try {
             RemoteViews v = new RemoteViews(ctx.getPackageName(), today ? R.layout.widget_img_water : R.layout.widget_img);
             File f = imgFile(ctx, id);
             Bitmap bmp = f.exists() ? BitmapFactory.decodeFile(f.getPath()) : null;
@@ -103,6 +126,9 @@ final class WidgetData {
                 v.setOnClickPendingIntent(R.id.w_water_btn, PendingIntent.getBroadcast(ctx, 7, wi, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
             }
             m.updateAppWidget(id, v);
+            } catch (Throwable t) {
+                // one widget that cannot be drawn must not stop the others, or the app
+            }
         }
     }
 }

@@ -316,7 +316,7 @@ function cardioBlock(sh){
   return stp('walk','Walking','minutes',t.walk)+fld('wKm','Walk distance','km, if you know it','2.5',t.wKm)+(t.walk>0?seg('wsurf',[['inc','Treadmill incline '+(t.keepInc||E.CARDIO_DEF.wInc)+'%'],['flat','Flat or outdoors']],t.wInc>0?'inc':'flat'):'')+
     stp('run','Running','minutes',t.run)+fld('rKm','Run distance','km, if you know it','1.6',t.rKm)+
     `<div id="cSum">${lv.sum}</div>`+
-    (t.run>0?`<button class="chipbtn${t.nopain?' on':''}" data-a="noPain"><b>No knee pain while running</b><span>${t.nopain?'Yes':'Tap if so'}</span></button>`+(t.nopain?'':stp('free','Run minutes before knee pain','when it started',Math.min(t.free,t.run))):'')+
+    (t.run>0?`<button class="chipbtn${t.nopain?' on':''}" data-a="noPain" aria-pressed="${!!t.nopain}"><b>No knee pain while running</b><span>${t.nopain?'Yes':'Tap if so'}</span></button>`+(t.nopain?'':stp('free','Run minutes before knee pain','when it started',Math.min(t.free,t.run))):'')+
     `<button class="cmore" data-a="cmore" aria-expanded="${!!t.more}">Speed and incline <i>${t.more?'−':'+'}</i></button>`+
     (t.more?`<div class="cmoreb">`+stp('wSpd','Walking speed','km/h, used when no distance',t.wSpd)+stp('wInc','Walking incline','%, 0 for flat or outdoors',t.wInc)+stp('rSpd','Running speed','km/h, used when no distance',t.rSpd)+stp('rInc','Running incline','%, 0 for flat or outdoors',t.rInc)+`</div>`:'');
 }
@@ -343,16 +343,18 @@ function yestCardioBtn(){
   const yk=E.keyOffset(-1),y=E.S().days[yk];
   return E.cardioDayOk(yk)&&!(y&&y.cardio)?'<button class="cyest" data-a="cardioYest">Forgot yesterday’s walk or run? Add it</button>':'';
 }
+/* a stepper or toggle inside the sheet redraws it where you are, instead of jumping back to the top */
+const reGym=()=>U.keepScroll(renderGym);
 function renderGym(){
   const sh=U.sh,d=E.day(),plan=E.planFor();stopRest();
   if(sh.step==='cardio'){
-    const t=sh.tmp,yk=E.keyOffset(-1),canY=E.cardioDayOk(yk)&&(plan==='Rest'&&!d.sess),hw=cardioHW(t),lv=cardioLive(sh);
+    const t=sh.tmp,yk=E.keyOffset(-1),canY=E.cardioDayOk(yk)&&(plan==='Rest'&&!d.sess)&&!t.yestOnly,hw=cardioHW(t),lv=cardioLive(sh);
     const dn=t.day==='yest'?'Yesterday, '+U.date(yk):'Today';
     U.openSheet('Cardio day',
       '<div class="hint">Walking and running count. Left the phone behind? Type in the minutes and distance after, it works out your speed and calories.</div>'+
-      (canY||t.day==='yest'?seg('cday',[['today','Today'],['yest','Yesterday']],t.day||'today')+'<div class="small" style="margin:6px 0 0">Logging for: '+esc(dn)+'</div>':'')+
+      (canY?seg('cday',[['today','Today'],['yest','Yesterday']],t.day||'today')+'<div class="small" style="margin:6px 0 0">Logging for: '+esc(dn)+'</div>':t.day==='yest'?'<div class="small" style="margin:6px 0 0">Logging for: '+esc(dn)+'</div>':'')+
       cardioBlock(sh)+
-      `<div class="est" id="cEst">${lv.est}</div>`+(hw?`<button class="chipbtn${t.useH?' on':''}" data-a="useHW"><b>Samsung Health recorded ${hw.min} min of walking or running, ${fmt(hw.kcal)} kcal</b><span>${t.useH?'Using it':'Use that'}</span></button>`:'')+
+      `<div class="est" id="cEst">${lv.est}</div>`+(hw?`<button class="chipbtn${t.useH?' on':''}" data-a="useHW" aria-pressed="${!!t.useH}"><b>Samsung Health recorded ${hw.min} min of walking or running, ${fmt(hw.kcal)} kcal</b><span>${t.useH?'Using it':'Use that'}</span></button>`:'')+
       '<div class="note">Cardio is optional on a rest day. It lights your streak and earns +60 aura once. Note how the knee felt, the way you do for lifting days.</div>',
       '<button class="btn good" data-a="cardioSave">Save cardio</button>');
     return;
@@ -365,7 +367,7 @@ function renderGym(){
     const lv=cardioLive(sh),en=E.energyDay(d);
     U.openSheet(plan+' report',
       '<div class="hint">Last time’s numbers are filled in. Change only what was different today.</div>'+stp('lift','Lifting','minutes',sh.tmp.lift)+cardioBlock(sh)+
-      `<div class="est" id="cEst">${lv.est}</div>`+(d.hWork?`<button class="chipbtn${sh.tmp.useH?' on':''}" data-a="useHB"><b>Samsung Health recorded ${d.hWork.min} min, ${fmt(d.hWork.kcal)} kcal</b><span>${sh.tmp.useH?'Using it':'Use that number'}</span></button>`:'')+(en.act!=null?`<div class="note">Samsung Health counts ${fmt(en.act)} active kcal so far today, walking included.</div>`:''),
+      `<div class="est" id="cEst">${lv.est}</div>`+(d.hWork?`<button class="chipbtn${sh.tmp.useH?' on':''}" data-a="useHB" aria-pressed="${!!sh.tmp.useH}"><b>Samsung Health recorded ${d.hWork.min} min, ${fmt(d.hWork.kcal)} kcal</b><span>${sh.tmp.useH?'Using it':'Use that number'}</span></button>`:'')+(en.act!=null?`<div class="note">Samsung Health counts ${fmt(en.act)} active kcal so far today, walking included.</div>`:''),
       '<button class="btn" data-a="gymNext">Next</button>');
     return;
   }
@@ -384,8 +386,8 @@ function renderGym(){
   const capn=plan==='Legs'?'<div class="note">Your own cap: 30 to 40 kg on squats and deadlifts until your physio says otherwise.</div>':'';
   const fat=E.fatigued()?'<div class="warn" style="margin-top:0">You are fatigued. Finishing this workout is your comeback quest: it lifts the level lock and the aura penalty.</div>':'';
   const list=E.routine(plan);
-  U.openSheet(plan+' day',fat+rotStrip(plan)+'<div class="hint" style="margin-top:12px">'+list.length+' exercises, '+list.reduce((a,x)=>a+x.sets,0)+' sets. Rehab today: '+(HS.REHAB_FOR[plan]||'')+'.</div>'+'<div class="sec">Doing a different session today?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+capn+'<div class="small pen">'+penaltyLine()+'</div>',
-    '<button class="btn" data-a="liftStart">Start workout</button><button class="btn vio" data-a="gym:pain">Pain day, could not train</button>'+(E.passLeft()?'<button class="btn ghost" data-a="gym:pass">Use my weekly rest pass</button>':'')+'<button class="btn bad" data-a="gym:lazy">Skip with no excuse</button>'+yestCardioBtn());
+  U.openSheet(plan+' day',fat+rotStrip(plan)+'<div class="hint" style="margin-top:12px">'+list.length+' exercises, '+list.reduce((a,x)=>a+x.sets,0)+' sets. Rehab today: '+(HS.REHAB_FOR[plan]||'')+'.</div>'+'<div class="sec">Doing a different session today?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+capn+'<div class="sec">Not training today?</div><div class="notrain"><button class="btn vio" data-a="gym:pain">Pain day, could not train</button>'+(E.passLeft()?'<button class="btn ghost" data-a="gym:pass">Use my weekly rest pass</button>':'')+'<button class="btn bad" data-a="gym:lazy">Skip with no excuse</button></div><div class="small pen">'+penaltyLine()+'</div>'+yestCardioBtn(),
+    '<button class="btn" data-a="liftStart">Start workout</button>');
 }
 A.cardioStart=function(){
   const d=E.day(),c=E.lastCardio(),hw=d.hWalk,m=d.mins||null,det=d.cardioDet||{};
@@ -396,26 +398,27 @@ A.cardioStart=function(){
   F.play('pick');renderGym();
 };
 /* yesterday's walk or run, typed in the next day */
-A.cardioYest=function(){A.cardioStart();A.cday('yest')};
+A.cardioYest=function(){A.cardioStart();U.sh.tmp.yestOnly=true;A.cday('yest')};
 A.cday=function(v){
   const t=U.sh.tmp,yk=E.keyOffset(-1);
   if(v==='yest'&&!E.cardioDayOk(yk))return;
-  const d=v==='yest'?E.S().days[yk]:E.day(),m=d&&d.cardio&&d.mins?d.mins:null,det=d&&d.cardioDet||{},c=E.lastCardio();
+  const d=v==='yest'?E.S().days[yk]:E.day(),m=d&&d.cardio&&d.mins?d.mins:null,det=d&&d.cardioDet||{};
   t.day=v;
+  /* a day that already has a walk or run shows it; otherwise what you have typed stays as it is */
   if(m){t.walk=m.walk||0;t.run=m.run||0;t.free=d.runFree!=null?d.runFree:t.free;t.wKm=det.wKm||0;t.rKm=det.rKm||0;t.nopain=t.run>0&&d.runFree!=null&&d.runFree>=t.run}
-  else if(v==='yest'){t.walk=c.walk;t.run=c.run;t.free=c.free;t.wKm=0;t.rKm=0;t.nopain=false}
   t.useH=!!(cardioHW(t))&&!(d&&d.cardio);
-  F.play('pick');renderGym();
+  F.play('pick');reGym();
 };
-A.useHW=function(){U.sh.tmp.useH=!U.sh.tmp.useH;F.play('pick');renderGym()};
-A.wsurf=function(v){const t=U.sh.tmp;t.wInc=v==='flat'?0:(t.keepInc||E.CARDIO_DEF.wInc);F.play('pick');renderGym()};
-A.noPain=function(){const t=U.sh.tmp;t.nopain=!t.nopain;F.play('pick');renderGym()};
-A.cmore=function(){const t=U.sh.tmp;t.more=!t.more;F.play('tick',60);renderGym()};
+A.useHW=function(){U.sh.tmp.useH=!U.sh.tmp.useH;F.play('pick');reGym()};
+A.wsurf=function(v){const t=U.sh.tmp;t.wInc=v==='flat'?0:(t.keepInc||E.CARDIO_DEF.wInc);F.play('pick');reGym()};
+A.noPain=function(){const t=U.sh.tmp;t.nopain=!t.nopain;F.play('pick');reGym()};
+A.cmore=function(){const t=U.sh.tmp;t.more=!t.more;F.play('tick',60);reGym()};
 A.cardioSave=function(){
   const sh=U.sh,t=sh.tmp,yk=E.keyOffset(-1),yest=t.day==='yest';
   if(!(t.walk>0||t.run>0)){U.sys('Add some walking or running minutes first.','bad');return}
   const bad=cardioProblem(t);if(bad){U.sys(bad,'bad');return}
   if(yest&&!E.cardioDayOk(yk)){U.sys('Yesterday was not a rest day, so there is nothing to log there.','bad');return}
+  if(!yest&&!(E.planFor()==='Rest'&&!E.day().sess)){U.sys('Today is a training day. Finish your session, or log a walk for yesterday.','bad');return}
   const hw=cardioHW(t),det=cardioDetOf(t);
   if(t.useH&&hw)det.src='samsung';
   const free=t.run>0?(t.nopain?t.run:Math.min(t.free,t.run)):null;
@@ -513,7 +516,7 @@ A.st=function(v){
   t[k]=Math.round(x*10)/10;
   if(k==='run'&&t.free>t.run)t.free=t.run;
   if(k==='wInc'&&t.wInc>0)t.keepInc=t.wInc;
-  F.play('tick',t[k]*4);F.vib(5);renderGym();
+  F.play('tick',t[k]*4);F.vib(5);reGym();
 };
 /* a typed distance: update the numbers under it, not the whole sheet, so the keyboard stays up */
 document.addEventListener('input',e=>{
@@ -531,9 +534,10 @@ function victory(plan,r,p){
     fx:()=>{F.confetti(140)},
     html:'<div class="rays"></div><div class="kicker">TRAINING COMPLETE</div><div class="vav">'+HS.avatar.svg(S.equip,{mood:'proud'})+'</div><h1>'+plan.toUpperCase()+' DAY</h1><div class="vstats">'+stats.map(x=>'<div><b>'+x[0]+'</b><span>'+x[1]+'</span></div>').join('')+'</div><p>'+esc(line)+'</p>'+(r.comeback?'<p class="sub">Comeback bonus +40. Fatigue broken, your level can rise again.</p>':'')+'<p class="sub">Next up: '+E.ROT[E.S().rot.i]+'.</p>'});
 }
-A.useHB=function(){const sh=U.sh;sh.tmp.useH=!sh.tmp.useH;F.play('pick');renderGym()};
+A.useHB=function(){const sh=U.sh;sh.tmp.useH=!sh.tmp.useH;F.play('pick');reGym()};
 A.gymNext=function(){
   const sh=U.sh,d=E.day(),t=sh.tmp,plan=E.planFor();
+  if(d.workout==='done')return;   /* a double tap on Next must not pay twice */
   const bad=cardioProblem(t);if(bad){U.sys(bad,'bad');return}
   const det=cardioDetOf(t);if(t.useH&&d.hWork)det.src='samsung';
   d.mins={lift:t.lift,walk:t.walk,run:t.run};d.cardioDet=(t.walk>0||t.run>0)?det:null;

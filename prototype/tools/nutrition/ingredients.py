@@ -93,11 +93,13 @@ def build_lib(rows):
                  ('mustard', 'H013'), ('coconut', 'H007'), ('coconutdry', 'H006'), ('groundnut', 'H012'), ('cashew', 'H005'), ('almond', 'H001'), ('sesame', 'H011'),
                  ('tamarind', 'E064'), ('lemon', 'E033'), ('jaggery', 'I001'), ('coconutwater', 'K002'),
                  ('banana', 'E012'), ('papaya', 'E049'), ('watermelon', 'E065'), ('pineapple', 'E053'), ('apple', 'E001'), ('orange', 'E047'), ('grapes', 'E026'),
-                 ('guava', 'E028'), ('mango', 'E036'), ('pomegranate', 'E055'), ('sapota', 'E060'), ('muskmelon', 'E045'), ('dates', 'E017'), ('raisins', 'E057'),
+                 ('guava', 'E028'), ('pomegranate', 'E055'), ('sapota', 'E060'), ('muskmelon', 'E045'), ('dates', 'E017'), ('raisins', 'E057'),
                  ('beetroot', 'F001'), ('sweetpotato', 'F013'), ('tapioca', 'F015'), ('mushroom', 'J001')]:
         A(a, c)
     # ---- dairy, eggs, meat, fish, fats
-    A('milk_cow', 'L002'); A('paneer', 'L003'); A('khoa', 'L004')
+    A('milk_cow', 'L002'); A('khoa', 'L004')
+    # the printed paneer row (12 g carbohydrate, 15 g fat) is not what market full-fat paneer is; macros are set to typical full-fat paneer and the energy follows from IFCT's factors
+    A('paneer', 'L003', override={'p': 18.3, 'c': 2.5, 'f': 21.0, 'su': 2.5}, src='IFCT 2017 L003 with the macros set to typical full-fat market paneer (18 g protein, 21 g fat, 2.5 g carbohydrate per 100 g)', name='Paneer, full fat')
     A('milk', 'L002', override={'f': 3.0, 'sf': 1.8}, src='IFCT 2017 L002 cow milk with fat set to 3 % (toned milk, as sold)', name='Milk, toned (3 % fat)')
     L.items['milk']['tier'] = 'A'
     A('egg', 'M001'); A('eggb', 'M004'); A('eggwb', 'M005'); A('eggw', 'M002'); A('eggy', 'M003'); A('omelet', 'M007')
@@ -124,7 +126,10 @@ def build_lib(rows):
     S('softdrink', 'Soft drink, cola', {'k': 42, 'c': 10.6, 'su': 10.6, 'na': 4}, USDA + ' "Carbonated beverage, cola"', 'C')
     S('biscuit', 'Biscuit, glucose or marie (typical pack label)', {'k': 450, 'p': 7, 'c': 75, 'f': 13, 'fi': 2, 'su': 22, 'sf': 6, 'na': 350}, 'Typical glucose/marie biscuit pack label (approximate)', 'C')
     S('oats', 'Oats, rolled, dry', {'k': 389, 'p': 16.9, 'c': 55.7, 'f': 6.9, 'fi': 10.6, 'su': 1.0, 'sf': 1.2, 'na': 2, 'kk': 429, 'ca': 54, 'fe': 4.7, 'mg': 177, 'zn': 4.0, 'ph': 523, 'b1': 0.76, 'b2': 0.14, 'b3': 0.96, 'b6': 0.12, 'fo': 56}, USDA + ' "Oats"', 'C')
-    S('lotus', 'Makhana (fox nut), plain', {'k': 332, 'p': 15.4, 'c': 51.0, 'f': 2.0, 'fi': 14.5, 'su': 0, 'na': 6, 'kk': 1368, 'ca': 163, 'fe': 3.0, 'mg': 210, 'zn': 5.0}, USDA + ' "Seeds, lotus seeds, dried"', 'C')
+    S('lotus', 'Makhana (fox nut), plain', {'k': 347, 'p': 9.7, 'c': 62.5, 'f': 0.5, 'fi': 14.5, 'su': 0, 'na': 5, 'ca': 60, 'fe': 1.4, 'mg': 56}, 'Typical makhana pack label (about 9.7 g protein per 100 g); minerals approximate', 'C')
+    S('lotus_usda', 'Lotus seed, dried (USDA)', {'k': 332, 'p': 15.4, 'c': 51.0, 'f': 2.0, 'fi': 14.5, 'su': 0, 'na': 6, 'kk': 1368, 'ca': 163, 'fe': 3.0, 'mg': 210, 'zn': 5.0}, USDA + ' "Seeds, lotus seeds, dried"', 'C')
+    S('mango', 'Mango, ripe', {'p': 0.82, 'c': 13.4, 'f': 0.38, 'fi': 1.6, 'su': 13.7, 'ca': 11, 'fe': 0.16, 'mg': 10, 'ph': 14, 'kk': 168, 'zn': 0.09, 'va': 54, 'vc': 36.4, 've': 0.9, 'vk': 4.2, 'b1': 0.03, 'b2': 0.04, 'b3': 0.67, 'b6': 0.12, 'fo': 43}, USDA + ' "Mangos, raw" (the IFCT mango row prints 42 kcal, which is an unripe or very watery mango)', 'A')
+    S('chana_roast', 'Roasted chana (bhuna chana), typical', {'k': 364, 'p': 21.0, 'c': 49.5, 'f': 5.3, 'fi': 17.0, 'su': 2.0, 'sf': 0.6, 'na': 20, 'kk': 800, 'ca': 150, 'fe': 5.0, 'mg': 115, 'zn': 2.8, 'ph': 300, 'b1': 0.4, 'b2': 0.2, 'b3': 1.7, 'b6': 0.5, 'fo': 400}, 'Typical roasted chana pack label (about 364 kcal and 21 g protein per 100 g) with chickpea minerals; approximate', 'C')
     S('soya_chunks', 'Soya chunks, dry (textured soy protein)', {'k': 345, 'p': 52, 'c': 20, 'f': 0.8, 'fi': 13, 'su': 0, 'sf': 0.2, 'na': 20, 'kk': 2000, 'ca': 350, 'fe': 14, 'mg': 270, 'zn': 4.5, 'ph': 650, 'b1': 0.7, 'b2': 0.3, 'b3': 2.5, 'b6': 0.5, 'fo': 300}, 'Typical soya-chunk pack label (protein 52 g, carbohydrate 33 g incl. fibre per 100 g); minerals scaled from IFCT soya bean', 'C')
     S('whey', 'Whey protein concentrate powder', {'k': 400, 'p': 80, 'c': 8, 'f': 5, 'su': 5, 'sf': 3, 'na': 300, 'ca': 400, 'kk': 600}, 'Typical whey concentrate label (80 g protein per 100 g)', 'C')
     S('plantprot', 'Plant protein powder (pea and rice), typical', {'k': 390, 'p': 76, 'c': 8, 'f': 5, 'fi': 4, 'su': 1, 'sf': 1, 'na': 350, 'ca': 100, 'fe': 5}, 'Typical plant protein powder label (about 76 g protein per 100 g); check your tub', 'C')

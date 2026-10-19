@@ -103,9 +103,9 @@ const SECS={
       ${(()=>{const d=U.sh.day==null?di:U.sh.day,mm=HS.menuDay(d);return ['breakfast','lunch','dinner'].map(k=>`<div class="sec">${cap(k)}</div><div class="menuchips">${mm[k].map(n=>{const f=E.food(n);return `<span>${HS.emoji(n)} ${esc(n)}<small>${f?f.kcal+' kcal':''}</small></span>`}).join('')}</div>`).join('')})()}
       <div class="small">Typed from the printed IIM Kozhikode students mess menu, October 2026. The mess says the menu is tentative. When a new month’s menu arrives, send it over and it gets updated here.</div>`}},
   backup:{t:'Backup and data',html:()=>`<div id="vaultWrap">${vaultHtml()}<div class="stack2"><button class="btn bad" data-a="reset" id="resetBtn">Reset everything</button></div></div>`},
-  sources:{t:'Where the numbers come from',html:()=>`<div class="sec" style="margin-top:0">Foods</div><div class="hp2">Every food has calories, protein, carbohydrate, fat, fibre and the main vitamins and minerals per 100 g. They come from the <b>Indian Food Composition Tables 2017</b> (IFCT, National Institute of Nutrition, Hyderabad, ICMR), the national reference for Indian foods. Cooked mess dishes are <b>recipes built from those rows</b>: for example, dal tadka is about 12 g of dry toor dal, onion, tomato and 2 g of oil in every 100 g served. Packed and restaurant foods (protein bars, whey, biscuits, shawarma) are typical values and are marked <b>TYPICAL</b>.</div>
-      <div class="sec">How close is it?</div><div class="hp2">Packed and single foods are close. Mess dishes can be off by 15 to 25 percent, because oil, portion size and how thin the dal is change daily. The portion ruler, the “add from a label” form and your own weight trend are the checks. If the weight trend disagrees with the calories for two weeks, trust the trend: the Weekly report shows that cross-check.</div>
-      <div class="sec">What is not included</div><div class="hp2">Vitamin B12 is not measured in IFCT, so it is not shown. Vitamin D only counts from animal foods, because IFCT lists large D2 values in some cereals and spices that no other source supports. Cooking losses of vitamin C, folate and B vitamins are estimated. Targets are the ICMR-NIN 2020 allowances for men of your age, rounded. They are guides, not a diagnosis: ask your doctor about supplements and blood tests.</div>
+  sources:{t:'Where the numbers come from',html:()=>`<div class="sec" style="margin-top:0">Foods</div><div class="hp2">Every food has calories, protein, carbohydrate, fat, fibre and the main vitamins and minerals per 100 g. They come from the <b>Indian Food Composition Tables 2017</b> (IFCT, National Institute of Nutrition, Hyderabad, ICMR), the national reference for Indian foods. Cooked mess dishes are <b>recipes built from those rows</b>: for example, dal tadka is about 14 g of dry toor dal, onion, tomato and 2 g of oil in every 100 g served. Packed and restaurant foods (protein bars, whey, biscuits, shawarma) are typical values and are marked <b>TYPICAL</b>.</div>
+      <div class="sec">How close is it?</div><div class="hp2">Single foods such as eggs, milk and rice are usually within 10 percent, packed foods match their label, and a few rows (paneer, roasted snacks, fried foods) depend on the brand or the cook. Mess dishes can be off by 15 to 25 percent, sometimes more, because oil, portion size and how thin the dal is change daily. The portion ruler, the “add from a label” form and your own weight trend are the checks. If the weight trend disagrees with the calories for two weeks, trust the trend: the Weekly report shows that cross-check.</div>
+      <div class="sec">What is not included</div><div class="hp2">IFCT counts only available carbohydrate and part of the fibre as energy, so dals, chickpeas and rajma read about 20 percent lower than US tables such as the USDA one that most phone apps use. Both are honest; they use different rules. Vitamin B12 is not measured in IFCT, so it is not shown. Vitamin D only counts from animal foods, because IFCT lists large D2 values in some cereals and spices that no other source supports. Cooking losses of vitamin C, folate and B vitamins are estimated. Targets are the ICMR-NIN 2020 allowances for men of your age, rounded. They are guides, not a diagnosis: ask your doctor about supplements and blood tests.</div>
       <div class="note">Every dish with its recipe, the old estimate it replaced and the checks run on it are in the project folder: prototype/tools/nutrition/REPORT.md.</div>`}
 };
 function renderSetting(sec){
@@ -157,14 +157,14 @@ A.help=function(){
   U.openSheet('How it works',
     sec('Aura and levels','Everything you do earns <b>aura</b>: a weigh-in, a finished plate, a workout, rehab, water, sleep, a cleared day. Aura builds your level. Level 2 needs 200 aura and every level after that needs a little more. A new <b>rank</b> (E, D, C, B, A, S) arrives every six levels: D at level 6 (about 5,000 aura), then C, B, A, and S at level 30. Steady play reaches A around the end of the campaign. Early levels come fast so you feel progress. Later ones are earned.')+
     sec('Quests and clearing the day','Each day has quests: weigh-in with last night\u2019s sleep, three meals, a workout (or rest), rehab, protein. Four things score the day: <b>protein</b>, <b>calories inside the window</b>, <b>workout</b> and <b>rehab</b>. Three of four is a good day, four of four is a perfect one. Clearing the day pays a calorie bonus and opens a chest: common, rare for 3 of 4, epic for 4 of 4.')+
-    sec('Real penalties','Skipping a session with no pain costs aura and gives you <b>fatigue</b>: aura gains are halved and your level is locked until you train. Missing a planned session without opening the app is punished when you come back. <b>Pain days are never punished</b>, and you get <b>one rest pass a week</b>. Strictness (Chill, Standard, Hard) is in the Forge.')+
+    sec('Real penalties','Skipping a session with no pain costs aura and gives you <b>fatigue</b>: aura gains are halved and your level is locked until you train. Missing a planned session without opening the app is punished when you come back. <b>Pain days are never punished</b>, and you get <b>one rest pass a week</b>. Strictness (Chill, Standard, Hard) is in Settings, under Rules and teasing.')+
     sec('Plates and stars','Every finished plate gets up to three stars: one for logging it, one for 25 g of protein or more, one for balance (a veg side, no sugar, not more than half your day\u2019s calories). Stars pay aura. Sugar and outside food cost a little aura, on purpose.')+
     sec('Bonus quests','Under the daily quests sit three small extras: one ticks itself from your data (like logging all three meals), two you tick yourself (a short walk, ten slow breaths). They are optional and skipping them costs nothing. Finish all three and the day\u2019s chest goes up a tier. Thirty bonus quests earn a title.')+
     sec('Streaks and goals','Five weekly goals are picked fresh every Monday. Streaks pay milestone rewards at 3, 7, 14, 30 and 60 days. Training streaks skip rest days and pain days. The clear streak forgives one off day, because never missing <i>twice</i> is the rule that works.')+
     sec('Gates, bosses and realms','You are going from '+S.startW+' kg to '+c.goalW+' kg in '+pl.gates.length+' gates of '+c.gateStep+' kg of <i>trend</i>. Every fourth kilo is a <b>boss gate</b>: it opens a new realm that changes the colours, backdrop and weather of the whole app, unlocks gear, lowers your daily calories a little, and starts a <b>camp week</b> at maintenance so you recover before the next push.')+
-    sec('Gear','Gear is never bought. It unlocks when you do the work, and the closest unlock is always shown in the Armory. Wear whatever you have earned.')+
+    sec('Gear','Gear is never bought. It unlocks when you do the work, and the closest unlock is always shown on the Hunter tab. Wear whatever you have earned.')+
     sec('Rehab','Rehab comes from your physio\u2019s list, spread over the training cycle. The guided session shows one move at a time with a moving outline and a hold timer. Your pain check-in sets a traffic light: green carries on, amber holds the strength work back, red keeps it gentle and tells you to message your physio.')+
-    sec('Your data','Everything is stored on this phone only. Save a backup file now and then from the Data vault in the Forge. A reset or restore keeps one undo copy there. Your day ends at '+(c.dayStart==null?3:c.dayStart)+' am, so clearing it after midnight still counts for yesterday.'),
+    sec('Your data','Everything is stored on this phone only. Save a backup file now and then from Backup and data in Settings. A reset or restore keeps one undo copy there. Your day ends at '+(c.dayStart==null?3:c.dayStart)+' am, so clearing it after midnight still counts for yesterday.'),
     '<button class="btn" data-a="close">Got it</button>');
 };
 
@@ -244,7 +244,7 @@ function armed(el,label,again){
 }
 A.bkAuto=function(b,el){
   if(!armed(el,'Restore yesterday’s automatic copy','Tap again to replace everything with the automatic copy'))return;
-  try{const n=E.restoreAuto();U.sys('Restored '+n+' days from the automatic copy. You can undo this in the Data vault.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
+  try{const n=E.restoreAuto();U.sys('Restored '+n+' days from the automatic copy. You can undo this in Backup and data.','good');U.tab='home';U.render(true)}catch(err){U.sys(err.message,'bad')}
 };
 A.bkPaste=function(){
   $('#exWrap').innerHTML='<div class="small">Paste the backup text here, then restore. It replaces what is on this phone, and you can undo it.</div><textarea class="ta" id="pasteBk" aria-label="Backup text to restore" placeholder="Paste the backup text"></textarea><div class="stack2"><button class="btn ghost" data-a="bkPasteGo">Restore from this text</button></div>';
@@ -253,7 +253,7 @@ A.bkPaste=function(){
 A.bkPasteGo=function(v,el){
   const t=($('#pasteBk')||{}).value;if(!t||!t.trim()){U.sys('Paste the backup text first.','bad');return}
   if(!armed(el,'Restore from this text','Tap again to replace everything with this text'))return;
-  try{const n=E.importText(t.trim());U.sys('Restored '+n+' days from the pasted text. You can undo this in the Data vault.','good');U.tab='home';U.render(true)}
+  try{const n=E.importText(t.trim());U.sys('Restored '+n+' days from the pasted text. You can undo this in Backup and data.','good');U.tab='home';U.render(true)}
   catch(err){U.sys(err.message,'bad')}
 };
 A.undo=function(b,el){
@@ -262,7 +262,7 @@ A.undo=function(b,el){
 };
 A.reset=function(v,b){
   if(!armed(b,'Reset everything','Tap again to erase everything'))return;
-  E.reset();U.tab='home';F.applyTheme();U.render(true);U.sys('Everything cleared. You can undo this in the Data vault.','');
+  E.reset();U.tab='home';F.applyTheme();U.render(true);U.sys('Everything cleared. You can undo this in Backup and data.','');
 };
 document.addEventListener('input',e=>{
   const t=e.target;

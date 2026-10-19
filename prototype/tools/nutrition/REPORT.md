@@ -32,12 +32,12 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Bhaaji | 150 g katori | 123 | 1.9 | 7.3 | 9.6 | 2.8 | 100 | 82 | -18% | 2.0 | 1.3 | B |
 | Ragi dosa | 100 g pc | 132 | 2.5 | 18.2 | 5.4 | 2.4 | 130 | 132 | +2% | 3.0 | 2.5 | B |
 | Red chutney | 30 g 2 tbsp | 33 | 0.4 | 1.4 | 2.8 | 1.0 | 133 | 109 | -18% | 3.3 | 1.4 | B |
-| Omelette | 110 g pc | 187 | 18.2 | 0.0 | 12.8 | 0.0 | 150 | 170 | +13% | 10.0 | 16.5 | A |
+| Omelette | 105 g pc | 183 | 13.4 | 0.8 | 14.2 | 0.2 | 150 | 174 | +16% | 10.0 | 12.8 | B |
 | Boiled egg | 50 g pc | 74 | 6.7 | 0.0 | 5.3 | 0.0 | 156 | 148 | -5% | 12.0 | 13.4 | A |
 | Egg white | 33 g pc | 17 | 4.1 | 0.0 | 0.1 | 0.0 | 52 | 53 | +2% | 12.1 | 12.4 | A |
 | Chocos | 35 g bowl | 124 | 2.3 | 27.0 | 0.7 | 1.7 | 329 | 354 | +8% | 5.7 | 6.7 | B |
 | Corn flakes | 35 g bowl | 115 | 2.8 | 22.9 | 1.2 | 3.9 | 314 | 328 | +4% | 5.7 | 7.9 | B |
-| Boiled pulses | 100 g katori | 89 | 6.2 | 13.5 | 0.8 | 5.8 | 80 | 89 | +11% | 5.3 | 6.2 | B |
+| Boiled pulses | 100 g katori | 113 | 7.9 | 17.1 | 1.0 | 7.3 | 80 | 113 | +41% | 5.3 | 7.9 | B |
 | Banana | 100 g pc | 105 | 1.2 | 23.6 | 0.3 | 1.9 | 88 | 105 | +20% | 0.8 | 1.2 | A |
 | Papaya | 150 g cup | 36 | 0.6 | 6.9 | 0.2 | 4.2 | 40 | 24 | -40% | 0.7 | 0.4 | A |
 | Watermelon | 300 g 2 cups | 61 | 1.8 | 11.6 | 0.5 | 2.1 | 30 | 20 | -32% | 0.7 | 0.6 | A |
@@ -90,10 +90,10 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Aalu bhindi | 100 g katori | 85 | 1.3 | 5.7 | 6.3 | 2.3 | 80 | 85 | +6% | 2.0 | 1.3 | B |
 | Punjabi chole | 150 g katori | 164 | 6.8 | 15.6 | 8.0 | 9.8 | 127 | 110 | -14% | 6.0 | 4.5 | B |
 | Kadhi pakoda | 150 g katori | 155 | 5.4 | 11.2 | 9.8 | 3.4 | 133 | 103 | -23% | 4.0 | 3.6 | B |
-| Veg kofta curry | 150 g katori | 176 | 2.8 | 8.5 | 14.6 | 1.8 | 147 | 117 | -20% | 3.3 | 1.9 | B |
+| Veg kofta curry | 150 g katori | 177 | 2.8 | 7.9 | 15.0 | 1.8 | 147 | 118 | -20% | 3.3 | 1.9 | B |
 | Rajma raseela | 150 g katori | 131 | 5.2 | 13.8 | 5.9 | 5.2 | 120 | 87 | -27% | 5.3 | 3.5 | B |
 | Dondakai dum fry | 100 g katori | 78 | 1.1 | 1.8 | 7.3 | 2.6 | 73 | 78 | +6% | 1.3 | 1.1 | B |
-| Paneer lababdar | 150 g katori | 191 | 7.1 | 7.3 | 14.9 | 1.5 | 193 | 127 | -34% | 8.7 | 4.7 | B |
+| Paneer lababdar | 150 g katori | 195 | 6.9 | 4.3 | 16.8 | 1.5 | 193 | 130 | -33% | 8.7 | 4.6 | B |
 | Soya capsicum | 150 g katori | 119 | 7.0 | 4.9 | 7.2 | 3.3 | 113 | 79 | -30% | 8.7 | 4.7 | C |
 | Rajma masala | 150 g katori | 131 | 5.2 | 13.8 | 5.9 | 5.2 | 120 | 87 | -27% | 5.3 | 3.5 | B |
 | Soya curry | 150 g katori | 118 | 8.3 | 5.1 | 6.4 | 3.1 | 113 | 79 | -31% | 8.7 | 5.5 | C |
@@ -112,12 +112,12 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Fish curry (Nellore) | 150 g piece | 151 | 13.6 | 5.7 | 8.0 | 2.0 | 190 | 100 | -47% | 18.0 | 9.1 | B |
 | Kerala fish curry | 150 g piece | 191 | 14.8 | 4.2 | 12.8 | 2.2 | 200 | 127 | -36% | 18.0 | 9.8 | B |
 | Kadai chicken | 180 g katori | 257 | 14.6 | 3.4 | 20.7 | 1.9 | 187 | 143 | -23% | 17.3 | 8.1 | B |
-| Kadai paneer | 150 g katori | 171 | 7.0 | 7.0 | 12.8 | 1.8 | 193 | 114 | -41% | 9.3 | 4.7 | B |
-| Palak paneer | 150 g katori | 173 | 7.1 | 6.4 | 13.2 | 2.0 | 173 | 115 | -33% | 8.7 | 4.7 | B |
+| Kadai paneer | 150 g katori | 175 | 6.9 | 3.7 | 14.8 | 1.8 | 193 | 117 | -40% | 9.3 | 4.6 | B |
+| Palak paneer | 150 g katori | 177 | 6.9 | 3.5 | 15.1 | 2.0 | 173 | 118 | -32% | 8.7 | 4.6 | B |
 | Pahdi chicken | 180 g katori | 238 | 15.2 | 2.9 | 18.4 | 2.5 | 180 | 132 | -27% | 17.3 | 8.5 | B |
-| Shahi paneer | 150 g katori | 212 | 7.9 | 8.3 | 16.5 | 1.4 | 220 | 141 | -36% | 9.3 | 5.2 | B |
+| Shahi paneer | 150 g katori | 215 | 7.7 | 5.3 | 18.3 | 1.4 | 220 | 144 | -35% | 9.3 | 5.1 | B |
 | Chicken kolhapuri | 180 g katori | 290 | 15.1 | 4.2 | 23.8 | 3.6 | 187 | 161 | -14% | 17.3 | 8.4 | B |
-| Paneer tikka masala | 150 g katori | 193 | 7.2 | 7.5 | 15.0 | 1.8 | 207 | 129 | -38% | 10.0 | 4.8 | B |
+| Paneer tikka masala | 150 g katori | 197 | 7.1 | 4.6 | 16.9 | 1.8 | 207 | 131 | -37% | 10.0 | 4.7 | B |
 | Chicken tikka masala | 180 g katori | 282 | 15.5 | 4.7 | 22.5 | 2.0 | 200 | 156 | -22% | 18.0 | 8.6 | B |
 | Lemon rice | 250 g plate | 396 | 7.6 | 61.8 | 12.7 | 3.0 | 120 | 158 | +32% | 2.4 | 3.0 | B |
 | Curry leaves rice | 250 g plate | 394 | 8.0 | 62.7 | 11.9 | 4.2 | 120 | 158 | +31% | 2.4 | 3.2 | B |
@@ -130,7 +130,7 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Schezuan fried rice | 250 g plate | 395 | 7.0 | 61.3 | 13.1 | 3.7 | 152 | 158 | +4% | 3.2 | 2.8 | B |
 | Veg biryani | 300 g plate | 477 | 8.8 | 68.9 | 17.9 | 6.3 | 160 | 159 | -1% | 3.6 | 2.9 | B |
 | Jeera rice | 250 g plate | 368 | 6.3 | 60.9 | 10.6 | 2.6 | 112 | 147 | +32% | 2.0 | 2.5 | B |
-| Hyd paneer dum biryani | 300 g plate | 586 | 15.2 | 69.8 | 27.0 | 4.3 | 208 | 195 | -6% | 6.8 | 5.1 | B |
+| Hyd paneer dum biryani | 300 g plate | 591 | 15.0 | 65.6 | 29.6 | 4.3 | 208 | 197 | -5% | 6.8 | 5.0 | B |
 | Hyd chicken dum biryani | 300 g plate | 595 | 18.6 | 64.6 | 28.8 | 4.3 | 224 | 198 | -11% | 11.2 | 6.2 | B |
 | Bhagara rice | 250 g plate | 378 | 6.7 | 62.4 | 10.8 | 3.5 | 128 | 151 | +18% | 2.4 | 2.7 | B |
 | Veg pulao | 250 g plate | 374 | 7.0 | 61.1 | 10.7 | 4.1 | 128 | 150 | +17% | 2.8 | 2.8 | B |
@@ -153,7 +153,7 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Egg, whole, raw | 50 g pc | 67 | 6.6 | 0.0 | 4.6 | 0.0 |  | 135 |  |  | 13.3 | A |
 | Egg bhurji | 150 g serving | 233 | 14.4 | 2.2 | 18.8 | 0.9 |  | 156 |  |  | 9.6 | B |
 | Egg fried | 55 g pc | 115 | 6.6 | 0.0 | 10.0 | 0.0 |  | 210 |  |  | 12.0 | B |
-| Paneer, plain | 100 g serving | 258 | 18.9 | 12.4 | 14.8 | 0.0 |  | 258 |  |  | 18.9 | A |
+| Paneer, plain | 100 g serving | 270 | 18.3 | 2.5 | 21.0 | 0.0 |  | 270 |  |  | 18.3 | A |
 | Plant protein powder (1 scoop) | 33 g scoop | 129 | 25.1 | 2.6 | 1.7 | 1.3 |  | 390 |  |  | 76.0 | C |
 | Protein bar (20 g protein) | 60 g bar | 240 | 20.0 | 22.0 | 8.0 | 5.0 |  | 400 |  |  | 33.3 | C |
 | Protein bar (10 g protein) | 40 g bar | 160 | 10.0 | 18.0 | 6.0 | 3.0 |  | 400 |  |  | 25.0 | C |
@@ -161,8 +161,8 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Peanut butter | 16 g tbsp | 94 | 4.0 | 3.4 | 7.2 | 1.7 |  | 588 |  |  | 24.9 | B |
 | Peanuts, roasted | 30 g handful | 165 | 7.5 | 5.5 | 12.6 | 3.3 |  | 551 |  |  | 25.1 | B |
 | Almonds | 20 g handful | 122 | 3.7 | 0.6 | 11.7 | 2.6 |  | 609 |  |  | 18.4 | A |
-| Roasted chana | 30 g handful | 86 | 5.6 | 11.9 | 1.5 | 7.6 |  | 287 |  |  | 18.8 | A |
-| Makhana, roasted | 20 g cup | 66 | 3.1 | 10.2 | 0.4 | 2.9 |  | 332 |  |  | 15.4 | C |
+| Roasted chana | 30 g handful | 109 | 6.3 | 14.8 | 1.6 | 5.1 |  | 364 |  |  | 21.0 | C |
+| Makhana, roasted | 20 g cup | 69 | 1.9 | 12.5 | 0.1 | 2.9 |  | 347 |  |  | 9.7 | C |
 | Dates | 16 g 2 dates | 51 | 0.4 | 12.0 | 0.1 | 1.4 |  | 320 |  |  | 2.5 | A |
 | Oats with milk | 250 g bowl | 275 | 13.3 | 32.2 | 8.8 | 4.2 |  | 110 |  |  | 5.3 | C |
 | Tuna, canned | 100 g can | 111 | 25.5 | 0.0 | 0.8 | 0.0 |  | 111 |  |  | 25.5 | C |
@@ -173,7 +173,7 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Grapes | 100 g cup | 54 | 0.6 | 11.8 | 0.3 | 1.3 |  | 54 |  |  | 0.6 | A |
 | Guava | 100 g pc | 32 | 1.4 | 5.1 | 0.3 | 8.6 |  | 32 |  |  | 1.4 | A |
 | Pineapple | 150 g cup | 65 | 0.8 | 14.1 | 0.2 | 5.2 |  | 43 |  |  | 0.5 | A |
-| Mango | 150 g pc | 63 | 0.8 | 12.3 | 0.8 | 2.8 |  | 42 |  |  | 0.5 | A |
+| Mango | 150 g pc | 96 | 1.2 | 20.1 | 0.6 | 2.4 |  | 64 |  |  | 0.8 | A |
 | Pomegranate | 100 g katori | 55 | 1.3 | 11.6 | 0.1 | 2.8 |  | 55 |  |  | 1.3 | A |
 | Sapota (chikoo) | 100 g pc | 73 | 0.9 | 13.9 | 1.3 | 9.6 |  | 73 |  |  | 0.9 | A |
 | Muskmelon | 150 g cup | 35 | 0.6 | 6.4 | 0.5 | 2.3 |  | 23 |  |  | 0.4 | A |
@@ -189,19 +189,19 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Fried chicken (2 pc) | 180 g 2 pc | 472 | 20.5 | 16.7 | 36.2 | 1.6 | 225 | 262 | +17% | 14.0 | 11.4 | B |
 | Biscuits | 20 g 2 pc | 90 | 1.4 | 15.0 | 2.6 | 0.4 | 500 | 450 | -10% | 5.0 | 7.0 | C |
 | Soft drink | 330 g can | 139 | 0.0 | 35.0 | 0.0 | 0.0 | 42 | 42 | -1% | 0.0 | 0.0 | C |
-| Chai + biscuits | 170 g plate | 177 | 3.7 | 29.2 | 5.0 | 0.5 | 48 | 104 | +117% | 0.8 | 2.2 | C |
+| Chai + biscuits | 170 g plate | 333 | 6.7 | 54.9 | 9.5 | 1.0 | 48 | 196 | +308% | 0.8 | 3.9 | C |
 | Samosa | 70 g pc | 191 | 2.4 | 16.5 | 12.9 | 1.3 |  | 273 |  |  | 3.5 | B |
 | Vada pav | 130 g pc | 327 | 5.6 | 34.9 | 18.2 | 3.1 |  | 251 |  |  | 4.3 | B |
 | Veg momos (6 pc) | 180 g plate | 290 | 7.5 | 50.3 | 6.0 | 3.8 |  | 161 |  |  | 4.2 | B |
 | Chicken momos (6 pc) | 180 g plate | 366 | 15.3 | 48.6 | 12.0 | 2.2 |  | 204 |  |  | 8.5 | B |
 | Maggi noodles (1 pack) | 70 g pack | 280 | 5.7 | 40.4 | 10.4 | 2.0 |  | 400 |  |  | 8.2 | B |
-| French fries | 120 g serving | 254 | 1.8 | 17.9 | 19.5 | 2.1 |  | 211 |  |  | 1.5 | B |
+| French fries | 120 g serving | 322 | 4.1 | 39.3 | 16.2 | 4.5 |  | 268 |  |  | 3.4 | B |
 | Chicken biryani (Calicut) | 350 g plate | 703 | 22.2 | 79.3 | 32.6 | 5.2 |  | 201 |  |  | 6.3 | B |
 | Chicken fried rice | 300 g plate | 574 | 16.8 | 69.6 | 25.0 | 3.4 |  | 191 |  |  | 5.6 | B |
 | Egg roll | 180 g pc | 375 | 11.5 | 39.2 | 19.0 | 2.0 |  | 208 |  |  | 6.4 | B |
 | Chicken roll | 200 g pc | 457 | 14.5 | 43.5 | 24.9 | 2.1 |  | 229 |  |  | 7.2 | B |
 | Veg sandwich | 150 g pc | 346 | 5.6 | 40.3 | 17.9 | 2.0 |  | 231 |  |  | 3.7 | B |
-| Pizza slice | 110 g slice | 250 | 7.1 | 31.7 | 10.3 | 1.3 |  | 227 |  |  | 6.5 | B |
+| Pizza slice | 110 g slice | 252 | 7.0 | 30.2 | 11.3 | 1.3 |  | 229 |  |  | 6.4 | B |
 | Appam | 70 g pc | 103 | 1.9 | 18.2 | 2.4 | 1.2 |  | 147 |  |  | 2.7 | B |
 | Puttu | 120 g serving | 220 | 4.3 | 38.3 | 5.2 | 2.6 |  | 183 |  |  | 3.6 | B |
 | Pazham pori | 80 g pc | 202 | 2.4 | 25.9 | 9.9 | 1.3 |  | 253 |  |  | 3.0 | B |
@@ -214,7 +214,7 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 |---|---:|---:|---:|---:|
 | Coffee (no sugar) | 3 | 27 | 0.0 | 1.5 |
 | Tea (no sugar) | 3 | 24 | 0.0 | 1.3 |
-| Chai + biscuits | 48 | 104 | 0.8 | 2.2 |
+| Chai + biscuits | 48 | 196 | 0.8 | 3.9 |
 | Fryums | 240 | 490 | 4.0 | 5.4 |
 | Honey chilli potato | 167 | 312 | 2.0 | 2.6 |
 | Bhindi kurkure | 100 | 186 | 2.0 | 3.7 |
@@ -235,7 +235,7 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Dal makkani | 133 | 74 | 5.3 | 2.7 |
 | Semeya | 80 | 115 | 1.6 | 2.5 |
 | Egg kolhapuri | 250 | 142 | 13.0 | 6.8 |
-| Kadai paneer | 193 | 114 | 9.3 | 4.7 |
+| Boiled pulses | 80 | 113 | 5.3 | 7.9 |
 | Papaya | 40 | 24 | 0.7 | 0.4 |
 
 ## Data-quality notes from the build
@@ -250,8 +250,8 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 
 * Soya chunks, dry: 345 kcal per 100 g is outside the plausible 55 to 330
 * Peanuts, roasted: 551 kcal per 100 g is outside the plausible 70 to 260
-* Roasted chana: 287 kcal per 100 g is outside the plausible 70 to 260
-* Makhana, roasted: 332 kcal per 100 g is outside the plausible 70 to 260
+* Roasted chana: 364 kcal per 100 g is outside the plausible 70 to 260
+* Makhana, roasted: 347 kcal per 100 g is outside the plausible 70 to 260
 * Guava: kcal 32 vs macros 46 (Atwater) differ by 44%
 * Sapota (chikoo): kcal 73 vs macros 90 (Atwater) differ by 22%
 

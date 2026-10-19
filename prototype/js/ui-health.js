@@ -39,7 +39,7 @@ U.healthSheet=function(){
       ${walk!=null?`<div class="fr2"><span>Recorded walks and runs</span><b>${d.hWalk.min} min · ${fmt(walk)} kcal</b></div>`:''}
       <div class="fr2"><span>Burned so far</span><b>${fmt(en.out)} kcal</b></div><div class="fr2"><span>Eaten so far</span><b>${fmt(en.eaten)} kcal</b></div>
       <div class="fr2"><span>Balance so far</span><b class="${en.net<=0?'gd':'wn'}">${en.net<=0?'−':'+'}${fmt(Math.abs(en.net))} kcal</b></div>
-      <div class="note">Phones and watches estimate active calories from your steps and heart rate, and tend to read generous, often by 10 to 30 percent. Your weight trend is the real judge. Your calorie target already counts training, so do not eat the active calories back.</div>`;
+      <div class="note">Phones and watches estimate active calories from your steps and heart rate. Studies find they can be off by a third or more, in either direction, so treat the number as a guide. Your weight trend is the real judge. Your calorie target already counts training, so do not eat the active calories back.</div>`;
   }
   if(sleepH!=null){
     const tot=st?st.deep+st.rem+st.light+st.awake:0;

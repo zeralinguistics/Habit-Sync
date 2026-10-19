@@ -66,7 +66,7 @@ function migrate(p){
     const x=st.days[k];
     if(!x||typeof x!=='object'||Array.isArray(x)){delete st.days[k];return}
     const z=DAY0();
-    if(Array.isArray(x.items))x.items.forEach(it=>{if(it&&HS.ALIAS&&HS.ALIAS[it.name])it.name=HS.ALIAS[it.name]});
+    if(Array.isArray(x.items)){x.items=x.items.filter(it=>it&&typeof it==='object'&&typeof it.name==='string');x.items.forEach(it=>{if(HS.ALIAS&&HS.ALIAS[it.name])it.name=HS.ALIAS[it.name]})}
     Object.keys(z).forEach(f=>{if(x[f]===undefined||(x[f]===null&&z[f]!==null)||(z[f]!==null&&typeof z[f]==='object'&&kindOf(x[f])!==kindOf(z[f])))x[f]=z[f]});
   });
   if(!p||(p.v||4)<5){
@@ -93,6 +93,17 @@ function migrate(p){
   if(st.pass&&st.pass.used&&st.pass.wk&&!st.passUsed[st.pass.wk])st.passUsed[st.pass.wk]=1;
   ['Push','Pull','Legs'].forEach(t=>{if(!Array.isArray(st.routine[t]))st.routine[t]=clone(HS.ROUTINE_DEFAULT[t])});
   if(st.supps!==null&&!Array.isArray(st.supps))st.supps=null;
+  /* foods you made in an older version have no nutrient columns: rebuild them from the numbers they have */
+  Object.keys(st.custom).forEach(k=>{
+    const f=st.custom[k];
+    if(!f||typeof f!=='object'||Array.isArray(f)){delete st.custom[k];return}
+    if(!Array.isArray(f.n)||f.n.length!==HS.NUT_COLS.length){
+      const g=f.ug>0?f.ug:100,per=x=>(+x||0)*g/100;
+      st.custom[k]=HS.mkCustom({name:f.name||k,g:g,kcal:per(f.k100),p:per(f.p100),c:per(f.c100),f:per(f.f100),fi:per(f.fi100),sugarPen:f.sugar,out:f.out,unit:f.unit});
+    }
+  });
+  ['Push','Pull','Legs'].forEach(t=>{st.routine[t]=st.routine[t].filter(e=>e&&typeof e==='object'&&typeof e.n==='string')});
+  if(Array.isArray(st.supps))st.supps=st.supps.filter(e=>e&&typeof e==='object'&&typeof e.id==='string'&&e.v&&typeof e.v==='object');
   return st;
 }
 let S=blank(),mem=null;
@@ -186,7 +197,8 @@ E.setSession=function(type){
 };
 
 /* ---- nutrition ---- */
-E.food=n=>HS.DB[n]||S.custom[n]||(HS.ALIAS&&HS.DB[HS.ALIAS[n]]);
+const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);   /* a food called "constructor" is a name, not a property */
+E.food=n=>own(HS.DB,n)?HS.DB[n]:own(S.custom,n)?S.custom[n]:(HS.ALIAS&&own(HS.ALIAS,n)?HS.DB[HS.ALIAS[n]]:undefined);
 E.nut=(f,g)=>({k:f.k100*g/100,p:f.p100*g/100,c:(f.c100||0)*g/100,f:(f.f100||0)*g/100,fi:(f.fi100||0)*g/100});
 E.totals=function(d){if(d.compact&&d.sum)return d.sum;let k=0,p=0,c=0,f2=0,fi=0;d.items.forEach(i=>{const f=E.food(i.name);if(f){const n=E.nut(f,i.g);k+=n.k;p+=n.p;c+=n.c;f2+=n.f;fi+=n.fi}});return{k:k,p:p,c:c,f:f2,fi:fi}};
 E.mealKcal=function(d,m){let k=0;d.items.forEach(i=>{if(i.meal===m){const f=E.food(i.name);if(f)k+=E.nut(f,i.g).k}});return k};
@@ -198,12 +210,13 @@ E.picks=function(meal){
   return E.poolFor(meal).map(E.food).filter(f=>f&&!f.sugar&&!f.out&&f.p>=10&&f.kcal<=Math.max(150,rK*.5)).sort((a,b)=>b.p/b.kcal-a.p/a.kcal).slice(0,3).map(f=>f.name);
 };
 const NUMW={half:.5,one:1,two:2,three:3,four:4,five:5};
+const PREFER={egg:'Boiled egg',eggs:'Boiled egg',omelet:'Omelette'};   /* a bare "egg" means the whole egg, not the white */
 E.scoreFoods=function(q,meal){
   q=q.toLowerCase().trim();if(!q)return[];
   const qs=[q];if(q.endsWith('es'))qs.push(q.slice(0,-2));if(q.endsWith('s'))qs.push(q.slice(0,-1));
   const menu=new Set(E.poolFor(meal));const out=[];
   Object.values(HS.DB).concat(Object.values(S.custom)).forEach(f=>{const n=f.name.toLowerCase();let best=-1;
-    qs.forEach(x=>{const tk=x.split(/\s+/);if(tk.every(t=>n.includes(t))){const s=(menu.has(f.name)?100:0)+(n.startsWith(x)?20:0)+(n.split(/\W+/).includes(x)?10:0)-n.length/50;if(s>best)best=s}});
+    qs.forEach(x=>{const tk=x.split(/\s+/);if(tk.every(t=>n.includes(t))){const s=(menu.has(f.name)?100:0)+(PREFER[x]===f.name?60:0)+(n.startsWith(x)?20:0)+(n.split(/\W+/).includes(x)?10:0)-n.length/50;if(s>best)best=s}});
     if(best>-1)out.push({f:f,s:best})});
   return out.sort((a,b)=>b.s-a.s).map(o=>o.f);
 };
@@ -211,7 +224,7 @@ E.scoreFoods=function(q,meal){
 E.parsePart=function(p){
   p=p.trim();if(!p)return null;
   let g=null,units=null,kc=null,tn=null;
-  const m=p.match(/(\d+(?:\.\d+)?)\s*(kg|gms|gm|grams|gram|g)\b/i);
+  const m=p.match(/(\d+(?:\.\d+)?)\s*(kg|gms|gm|grams|gram|ml|g)\b/i);   /* a millilitre of milk, curd or juice weighs about a gram */
   if(m){g=parseFloat(m[1])*(m[2].toLowerCase()==='kg'?1000:1);p=p.replace(m[0],' ')}
   const k=p.match(/(\d{2,4})\s*(?:kcal|cal)\b/i);
   if(k){kc=+k[1];p=p.replace(k[0],' ')}
@@ -219,14 +232,18 @@ E.parsePart=function(p){
   if(g===null&&kc===null){
     const n=p.match(/^(\d+(?:\.\d+)?|half|one|two|three|four|five)\s*(?:x\s*)?(.*)$/i);
     if(n&&n[2]){units=isNaN(n[1])?NUMW[n[1].toLowerCase()]:parseFloat(n[1]);p=n[2]}
-    else{const t=p.match(/^(.*?)\s+(\d{2,4})$/);if(t){tn=+t[2];p=t[1]}}
+    else{
+      const t=p.match(/^(.*?)\s+(\d{2,4})$/),u=p.match(/^(.*?)\s+x?(\d{1,2}(?:\.\d+)?)$/i);
+      if(t&&!(u&&+t[2]<=20)){tn=+t[2];p=t[1]}
+      else if(u&&+u[2]>0&&+u[2]<=20){units=+u[2];p=u[1]}   /* "chapati 2" is two chapatis, "chicken 150" is 150 g */
+    }
   }
   return{name:p.trim(),g:g,units:units,kc:kc,tn:tn};
 };
 /* add a food to the plate. Returns details so the UI can animate; the sound layer reacts to the 'add' event. */
 E.addFood=function(name,grams,meal){
   const f=E.food(name);if(!f)return null;
-  const d=E.day(),T=E.T(),g=grams||f.ug;
+  const d=E.day(),T=E.T(),g=grams>0?grams:f.ug;
   const ex=d.items.find(i=>i.name===name&&i.meal===meal);
   if(ex)ex.g=Math.round((ex.g+g)*10)/10;else d.items.push({name:name,meal:meal,g:g});
   const k=E.nut(f,g).k;let pen=0;
@@ -246,7 +263,13 @@ E.customFood=function(name,kcal){
   const f=HS.mkFood(name,kcal,0,'serving','o');f.custom=true;f.p100=0;S.custom[name]=f;return f;
 };
 /* a food from a label: per serving of g grams */
-E.saveCustom=function(o){const f=HS.mkCustom(o);S.custom[f.name]=f;E.save();return f};
+E.saveCustom=function(o){
+  const nz=x=>x>0?+x:0;
+  let name=String(o.name||'').trim().slice(0,40)||'My food';
+  if(HS.DB[name]||(HS.ALIAS&&HS.ALIAS[name]))name=name+' (mine)';   /* a label never hides a food from the table */
+  const f=HS.mkCustom(Object.assign({},o,{name:name,g:o.g>0?o.g:100,kcal:nz(o.kcal),p:nz(o.p),c:nz(o.c),f:nz(o.f),fi:nz(o.fi),su:nz(o.su),na:nz(o.na)}));
+  S.custom[f.name]=f;E.save();return f;
+};
 /* the protein backup (a powder, a bar): what it gives and whether today needs it */
 E.backupFood=function(){const n=S.cfg.backup;return n?E.food(n):null};
 E.proteinGap=function(){
@@ -356,11 +379,15 @@ E.restPass=function(){const d=E.day();if(d.workout||!E.usePass())return false;d.
    A rest day that passes moves the rotation on to Push; a session you did not do stays due. */
 E.sweep=function(){
   const out=[],chill=S.cfg.strict==='chill';let touched=false;
+  const lastDone=Object.keys(S.days).filter(k=>S.days[k]&&S.days[k].workout==='done').sort().pop()||null;
   for(let i=3;i>=1;i--){
     const dt=E.now();dt.setDate(dt.getDate()-i);const k=dkey(dt);
     if(k<=S.start||S.swept[k])continue;
     S.swept[k]=1;touched=true;
-    const d0=S.days[k],due=(d0&&d0.sess)||ROT[S.rot.i];
+    const d0=S.days[k];
+    if(d0&&d0.workout==='done'){if(!d0.sess)d0.sess=sessionOfDay(S,k);continue}   /* a finished day is known by what was done, never by where the pointer is now */
+    if(lastDone&&k<lastDone)continue;   /* the rotation has already moved past a day that came before a finished session */
+    const due=(d0&&d0.sess)||ROT[S.rot.i];
     if(d0&&d0.workout){
       if(!d0.sess&&!d0.plan)d0.plan=due;
       if(due==='Rest'&&!d0.sess&&(d0.workout==='pain'||d0.workout==='pass'))S.rot.i=(S.rot.i+1)%4;
@@ -447,6 +474,7 @@ E.lastMins=function(){
   return d?{lift:d.mins.lift||60,walk:d.mins.walk||0,run:d.mins.run||0,free:d.runFree!=null?d.runFree:3}:{lift:60,walk:15,run:10,free:3};
 };
 E.completeWorkout=function(plan){
+  if(E.day().workout==='done')return{award:0,comeback:false,again:true};   /* a double tap never pays twice or skips a session in the rotation */
   const d=E.day(),p=E.liftProgress(plan),frac=p.total?Math.min(1,p.done/p.total/.8):1;
   const comeback=E.clearFatigue();if(comeback)S.counters.comeback++;
   const award=Math.round(100*frac);
@@ -476,6 +504,8 @@ E.completeCardio=function(o,k){
   d.cardioDet=o.det?{wKm:o.det.wKm>0?+o.det.wKm:0,rKm:o.det.rKm>0?+o.det.rKm:0,wSpd:o.det.wSpd,rSpd:o.det.rSpd,wInc:o.det.wInc,rInc:o.det.rInc,src:o.det.src||'est'}:null;
   d.burn=o.kcal>0?Math.round(o.kcal):E.burnEst((E.trendAt?E.trendAt(k||dkey()):E.trend())||S.startW,0,o.walk|0,o.run|0,o.det);
   if(first){E.addAura(60);E.stat('AGI',1+Math.floor(((o.walk|0)+(o.run|0))/15))}
+  /* yesterday was saved by a shield, and this walk lights it after all: the shield comes back */
+  if(k&&k!==dkey()&&S.shield&&S.shield.used&&S.shield.used[k]&&E.pillarsMet(k)>=E.sparkGoal()){delete S.shield.used[k];S.shield.n=Math.min(2,S.shield.n+1)}
   E.save();E.emit('cardio',{first:first,walk:o.walk|0,run:o.run|0,kcal:d.burn,k:k||dkey()});
   return{first:first};
 };
@@ -487,9 +517,9 @@ E.cardioDayOk=function(k){
 };
 /* Calories burned, net of resting energy (the resting part is counted separately in the energy balance). Information only.
    ACSM treadmill equations, speeds in m/min and grade as a fraction: walking 0.1 v + 1.8 v grade, running 0.2 v + 0.9 v grade, in ml of oxygen per kg per minute; 5 kcal per litre of oxygen.
-   Lifting is counted at 4.5 MET gross, so 3.5 kcal per kg per hour net. Wearables read generous; this is meant to be the more careful number. */
+   Lifting is counted at 4.5 MET gross (between the Compendium's 3.5 for light and 6 for vigorous resistance work), so 3.5 kcal per kg per hour net. Wearables can be off by a third or more either way; this is meant to be the more careful number. */
 E.burnEst=function(kg,lift,walkMin,runMin,o){
-  o=Object.assign({},E.CARDIO_DEF,o||{});
+  const od=Object.assign({},E.CARDIO_DEF);Object.keys(o||{}).forEach(x=>{if(o[x]!=null&&!isNaN(o[x]))od[x]=+o[x]});o=od;
   const L=E.CARDIO_LIM,cl=(v,r)=>Math.min(r[1],Math.max(r[0],+v||0)),m=v=>v*1000/60;
   const vw=m(cl(o.wSpd,L.walk)),vr=m(cl(o.rSpd,L.run)),gw=Math.max(0,Math.min(15,+o.wInc||0))/100,gr=Math.max(0,Math.min(15,+o.rInc||0))/100;
   const wk=(0.1*vw+1.8*vw*gw)*kg/1000*5*(walkMin||0),rn=(0.2*vr+0.9*vr*gr)*kg/1000*5*(runMin||0),lf=3.5*kg*((lift||0)/60);

@@ -53,7 +53,7 @@ function renderNutri(){
      <div class="sec">Vitamins</div>${grp('vit').map(r=>nrow(r,n)).join('')}
      <div class="sec">Omega-3</div>${grp('fat').map(r=>nrow(r,n)).join('')}
      <div class="sec">Supplements</div>
-     ${supps.map(sp=>`<button class="chk" data-a="supp:${sp.id}" aria-pressed="${E.suppTaken(sp.id)}"><i>✓</i><span>${esc(sp.t)}<small>${esc(sp.when)}</small></span></button>`).join('')}
+     ${supps.map(sp=>`<button class="chk" data-a="supp:${esc(sp.id)}" aria-pressed="${E.suppTaken(sp.id)}"><i>✓</i><span>${esc(sp.t)}<small>${esc(sp.when)}</small></span></button>`).join('')}
      <div class="small">Ticked supplements count towards the totals above, so vitamin D and calcium are honest. Ask your doctor about doses.</div>
      ${gaps.length?`<div class="sec">Low this week<small class="sub">Average of ${wk.days} logged days</small></div>`+gaps.map(g=>`<div class="gap"><b>${esc(g.r.t)} <em>${Math.round(g.p*100)}%</em></b><small>${E.richIn(g.r.k,null,4).map(esc).join(', ')} are good picks from the mess and your staples.</small></div>`).join(''):''}
      <div class="note">${esc(SRC)}</div>`,
@@ -64,7 +64,7 @@ A.supp=function(id){const on=E.toggleSupp(id);F.play(on?'quest':'tick',80);F.vib
 
 /* ---------------- one food: facts and source ---------------- */
 U.foodSheet=function(name,g){
-  const f=E.food(name);if(!f)return;
+  const f=E.food(name);if(!f||!Array.isArray(f.n))return;
   const back=U.sh&&U.sh.type==='plate'?{meal:U.sh.meal,edit:U.sh.edit}:null;
   U.sh={type:'food',name:name,back:back};
   g=g>0?g:f.ug;

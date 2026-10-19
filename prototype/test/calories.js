@@ -40,6 +40,7 @@ const f100=(name,col)=>{const f=HS.DB[name];return f?f.n[IX[col]]:NaN};
 [['Chicken breast, raw','k',100,130],['Chicken breast, raw','p',20,24],['Chicken breast, cooked','k',150,175],['Chicken breast, cooked','p',28,33],
  ['Milk','p',3,3.6],['Milk','k',55,70],['Curd','p',3,4],['Plain rice','k',115,140],['Plain rice','p',2.2,3.2],['Chapati','k',230,290],['Chapati','p',7,10],
  ['Boiled egg','k',140,160],['Boiled egg','p',12.5,14],['Boiled egg','f',9,11.5],['Egg white','p',10,12.5],['Banana','k',85,110],['Banana','c',20,26],['Apple','k',45,65],
+ ['Omelette','p',11,14],['Omelette','k',150,200],['French fries','k',250,330],['Roasted chana','k',340,390],['Roasted chana','p',18,23],['Mango','k',55,70],['Paneer, plain','f',18,24],['Paneer, plain','c',0,4],['Paneer, plain','p',17,20],['Makhana, roasted','p',8,11],
  ['Whey protein (1 scoop)','p',70,85],['Soya chunks, dry','p',48,54],['Soya chunks, dry','k',320,350],['Peanuts, roasted','k',540,600],['Almonds','k',560,620],['Peanut butter','k',570,640]
 ].forEach(a=>{const x=f100(a[0],a[1]);ok(x>=a[2]&&x<=a[3],a[0]+' '+a[1]+' per 100 g is '+Math.round(x*10)/10+', published range '+a[2]+' to '+a[3])});
 /* vitamin D: only animal foods and fortified products carry any. IFCT prints 0.7 µg per 100 g for a boiled egg (USDA 2.2), so the range spans both */
@@ -53,6 +54,9 @@ HS.STAPLES.concat(HS.OUTSIDE).forEach(nm=>ok(!!HS.DB[nm],'listed food has a row:
 ok(HS.menuFor('dinner',4).includes('Hyd chicken dum biryani')&&HS.menuFor('lunch',1).includes('Fish curry'),'Friday dinner and Tuesday lunch show their printed dishes');
 ok(HS.STAPLES.some(x=>/^Protein bar/.test(x)),'a protein bar is listed');
 
+/* a serving of a typical egg dish: two eggs are about 12 to 13 g of protein, not 18 */
+{const f=HS.DB['Omelette'],pr=f.n[IX.p]*f.ug/100;ok(pr>=11&&pr<=14.5,'a 2-egg omelette serving has 11 to 14.5 g protein, got '+Math.round(pr*10)/10)}
+
 /* ---- totals: grams times per-100 g, added up ---- */
 const S=E.S();S.days={};
 const d=E.day();d.items=[{name:'Boiled egg',g:100,meal:'breakfast'},{name:'Plain rice',g:150,meal:'lunch'}];
@@ -60,6 +64,13 @@ const t=E.totals(d),egg=HS.DB['Boiled egg'],rice=HS.DB['Plain rice'];
 near(t.k,egg.k100+rice.k100*1.5,.01,'totals add kcal');near(t.p,egg.p100+rice.p100*1.5,.01,'totals add protein');
 const nn=E.nutrients(d);near(nn.v.k,t.k,1,'nutrients() and totals() agree on kcal');near(nn.v.p,t.p,.1,'nutrients() and totals() agree on protein');
 
+/* ---- typed input ---- */
+near(E.parsePart('chapati 2').units,2,0,'"chapati 2" is two chapatis');near(E.parsePart('2 chapati').units,2,0,'"2 chapati" is two chapatis');
+near(E.parsePart('milk 250 ml').g,250,0,'250 ml of milk is about 250 g');near(E.parsePart('chicken 150').tn,150,0,'"chicken 150" stays 150 (grams)');
+ok(E.scoreFoods('egg','lunch')[0].name==='Boiled egg','a bare "egg" means the whole boiled egg, got '+E.scoreFoods('egg','lunch')[0].name);
+ok(E.food('constructor')===undefined&&E.food('toString')===undefined,'a food called like an object property is not a food');
+{const f=E.saveCustom({name:'Banana',g:50,kcal:400,p:-5,c:-1,f:-1});ok(f.name==='Banana (mine)'&&E.food('Banana (mine)').kcal===400&&E.food('Banana').kcal<200,'a label named like a table food is kept under its own name, never hidden');
+ ok(f.p===0&&f.c===0,'negative label numbers become zero')}
 /* ---- workouts: ACSM treadmill equations, net of resting energy ---- */
 /* running costs 0.2 ml O2 per kg per metre, which is 1 kcal per kg per km; walking flat is 0.1 ml, so about 0.5 kcal per kg per km */
 near(E.burnEst(82,0,0,10,{rSpd:9,rInc:0}),123,1,'82 kg, 10 min at 9 km/h = 1.5 km = 123 kcal');
@@ -73,6 +84,7 @@ ok(E.burnEst(82,0,30,0,{wInc:9})>E.burnEst(82,0,30,0,{wInc:0}),'incline adds');
 ok(E.burnEst(90,0,0,10)>E.burnEst(70,0,0,10),'heavier burns more');
 ok(E.burnEst(82,0,0,10,{rSpd:200})===E.burnEst(82,0,0,10,{rSpd:22}),'a typo speed is capped, not believed');
 ok(E.burnEst(82,0,0,0)===0&&E.burnEst(82,0,0,0,{wSpd:5})===0,'no minutes, no calories');
+ok(E.burnEst(84,0,30,0,{wSpd:undefined})===E.burnEst(84,0,30,0),'an undefined option never replaces a default');
 /* distance to speed and pace */
 near(E.speedOf(1.6,10,9),9.6,.01,'1.6 km in 10 min is 9.6 km/h');near(E.speedOf(0,10,9),9,.01,'no distance falls back to the default');
 ok(E.paceTxt(9.6)==='6:15','9.6 km/h is a 6:15 pace, got '+E.paceTxt(9.6));ok(E.paceTxt(10)==='6:00','10 km/h is 6:00, got '+E.paceTxt(10));ok(E.paceTxt(12)==='5:00','12 km/h is 5:00');

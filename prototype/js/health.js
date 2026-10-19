@@ -39,7 +39,8 @@ H.sync=async function(){
   await tryit('steps',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'steps'},day))));if(v>=0){out.steps=v;d.hSteps=v;if(v>0&&(!d.steps||+d.steps<v))d.steps=String(v);   /* a zero reading is not a logged day */if(v>0&&!d.stepsAward){d.stepsAward=true;E.stat('AGI',1)}}});
   await tryit('calories',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'calories'},day))));if(v>=0){out.act=v;d.hAct=v}});
   await tryit('distance',async()=>{const v=sum(await p.queryAggregated(Object.assign({dataType:'distance'},day)));if(v>=0){out.km=Math.round(v/10)/100;d.hDist=out.km}});
-  await tryit('floors',async()=>{const v=Math.round(sum(await p.queryAggregated(Object.assign({dataType:'flightsClimbed'},day))));if(v>=0){out.floors=v;d.hFloors=v}});
+  /* floors cannot be aggregated by the plugin, so the day's records are read and added up */
+  await tryit('floors',async()=>{const v=Math.round(sum(await p.readSamples({dataType:'flightsClimbed',startDate:mid.toISOString(),endDate:now.toISOString(),limit:500})));if(v>=0){out.floors=v;d.hFloors=v}});
   await tryit('heartRate',async()=>{
     const a=await p.queryAggregated({dataType:'heartRate',startDate:mid.toISOString(),endDate:now.toISOString(),bucket:'day',aggregation:['average','max']});
     const b=(a&&a.samples||[])[0];
@@ -74,10 +75,11 @@ H.sync=async function(){
     const r=await p.queryWorkouts({startDate:mid.toISOString(),endDate:now.toISOString(),limit:20});
     const w=r.workouts||[];
     if(w.length){
-      d.hWork={min:Math.round(w.reduce((a,x)=>a+(x.duration||0),0)/60),kcal:Math.round(w.reduce((a,x)=>a+(x.totalEnergyBurned||0),0)),types:w.map(x=>x.workoutType).slice(0,3)};
-      /* walking and running sessions on their own: these are the "walk calories" */
-      const wk=w.filter(x=>/walking|running|hiking|treadmill/i.test(x.workoutType||''));
-      d.hWalk=wk.length?{min:Math.round(wk.reduce((a,x)=>a+(x.duration||0),0)/60),kcal:Math.round(wk.reduce((a,x)=>a+(x.totalEnergyBurned||0),0))}:null;
+      /* walking and running sessions on their own: these are the "walk calories". Everything else (lifting, sport) is the workout. */
+      const isWalk=x=>/walking|running|hiking|treadmill/i.test(x.workoutType||''),wk=w.filter(isWalk),rest=w.filter(x=>!isWalk(x));
+      const tot=a=>({min:Math.round(a.reduce((m,x)=>m+(x.duration||0),0)/60),kcal:Math.round(a.reduce((m,x)=>m+(x.totalEnergyBurned||0),0))});
+      d.hWork=rest.length?Object.assign(tot(rest),{types:rest.map(x=>x.workoutType).slice(0,3)}):null;
+      d.hWalk=wk.length?tot(wk):null;
       out.work=d.hWork;
     }
   });

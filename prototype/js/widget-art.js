@@ -156,7 +156,7 @@ function streak(c,w,h,d,n,lit,risk,tier,mood){
   const st=statusLabel(d,lit,risk,n);
   /* the status ribbon and the shields */
   chip(c,w*.07,h*.075,st.t,st.fg,st.bg,st.border,Math.max(8.5,h*.062));
-  if(d.shields>0){c.save();c.font='700 '+Math.max(9,h*.065)+'px '+F_CAP;const tw=c.measureText(String(d.shields)).width;c.restore();const cw=tw+h*.2+h*.1;chip(c,w-w*.07-cw-h*.04,h*.075,String(d.shields),'#8fdcff','rgba(94,200,255,.14)','rgba(94,200,255,.5)',Math.max(8.5,h*.062),'shield')}
+  if(d.shields>0&&w>=140){c.save();c.font='700 '+Math.max(9,h*.065)+'px '+F_CAP;const tw=c.measureText(String(d.shields)).width;c.restore();const cw=tw+h*.2+h*.1;chip(c,w-w*.07-cw-h*.04,h*.075,String(d.shields),'#8fdcff','rgba(94,200,255,.14)','rgba(94,200,255,.5)',Math.max(8.5,h*.062),'shield')}
   const fh=h*.4;flame(c,w/2,h*.62,fh,tier,lit);
   if(lit){sparkle(c,w/2-fh*.55,h*.3,h*.05,.9);sparkle(c,w/2+fh*.6,h*.4,h*.04,.8);sparkle(c,w/2+fh*.3,h*.2,h*.028,.7)}
   const s=String(n),sz=fitSize(c,s,h*.3,w*.8);
@@ -168,8 +168,11 @@ function week(c,w,h,d,n,lit,risk,tier,mood){
   const fh=h*.62;flame(c,padX+h*.32,h*.74,fh,tier,lit);
   const s=String(n),sz=fitSize(c,s,h*.56,h*.9);
   text(c,s,padX+h*.78,h*.6,sz,lit?'#ffe08a':'#fff',{weight:800,stroke:sz*.07,shadow:'rgba(0,0,0,.5)',sb:6,sy:2});
-  text(c,'DAY STREAK',padX+h*.8,h*.8,Math.max(8.5,h*.12),lit?'#ffd36a':'rgba(255,255,255,.6)',{weight:700,font:F_CAP,ls:1.6});
-  const x0=padX+h*.78+Math.max(h*.62,c.measureText?h*.62:0)+h*.55,wDots=w-x0-padX,dd=Math.min(h*.36,(wDots/7)-4);
+  const lsz=Math.max(8.5,h*.12);
+  text(c,'DAY STREAK',padX+h*.8,h*.8,lsz,lit?'#ffd36a':'rgba(255,255,255,.6)',{weight:700,font:F_CAP,ls:1.6});
+  /* the dots start after whichever is wider, the number or its label, so a short widget never runs the two together */
+  c.save();c.font='800 '+sz+'px '+F_NUM;const nw=c.measureText(s).width;c.font='700 '+lsz+'px '+F_CAP;const lw=c.measureText('DAY STREAK').width+16;c.restore();
+  const x0=padX+h*.78+Math.max(nw,lw)+Math.max(8,h*.2),wDots=w-x0-padX,dd=Math.max(5,Math.min(h*.36,(wDots/7)-4));
   weekDots(c,d.week,x0,h*.2,wDots,dd,true);
 }
 function today(c,w,h,d,n,lit,risk,tier,mood){
@@ -198,7 +201,7 @@ function today(c,w,h,d,n,lit,risk,tier,mood){
   });
   /* the next move; the water button of the widget sits at the bottom right */
   const ny=h-13,nsz=Math.max(10,h*.075);
-  text(c,ellipsize(c,'› '+(d.next||'Open Habit Sync'),'700 '+nsz+'px '+F_CAP,wr-104),x0,ny,nsz,'#ffd36a',{weight:700,font:F_CAP,ls:.4});
+  text(c,ellipsize(c,'› '+(d.next||'Open Habit Sync'),'700 '+nsz+'px '+F_CAP,wr-(w>=300?104:8)),x0,ny,nsz,'#ffd36a',{weight:700,font:F_CAP,ls:.4});
 }
 A.draw=draw;
 A.sample=function(){return{streak:10,lit:false,met:1,goal:3,shields:1,hour:13,kcal:613,kcalT:2050,protein:79,proteinT:140,water:1750,waterT:3000,steps:5400,next:'Log lunch',

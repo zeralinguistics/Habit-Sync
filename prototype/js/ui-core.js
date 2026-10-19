@@ -148,7 +148,7 @@ U.openSheet=function(title,body,foot,opts){
 };
 U.hideSheet=function(){
   $('#scrim').classList.remove('on');$('#sheet').classList.remove('on');document.body.classList.remove('lock');
-  U.sh=null;
+  U.sh=null;U.sheetShutAt=Date.now();
 };
 U.closeSheet=function(){U.hideSheet();U.render();popHist()};
 U.closeSheetQuiet=function(){U.hideSheet();popHist()};
@@ -188,6 +188,8 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-a]');if(!b)return;
   /* a sheet or card that has been dismissed can still be reached by a screen reader or a keyboard: ignore it */
   const shell=b.closest('#sheet,#ov');if(shell&&!shell.classList.contains('on'))return;
+  /* a quick second tap on a sheet button lands on whatever is under the sheet once it has closed: ignore taps outside a sheet for a moment */
+  if(!shell&&Date.now()-(U.sheetShutAt||0)<250)return;
   const a=b.dataset.a,i=a.indexOf(':'),k=i<0?a:a.slice(0,i),v=i<0?'':a.slice(i+1);
   const fn=U.act[k];if(fn)fn(v,b,e);
 });
@@ -241,7 +243,7 @@ E.on('gate',g=>{
 E.on('realm',r=>{
   U.cele({kind:'realm',ms:4600,sound:'level',
     fx:()=>{setTimeout(()=>{F.applyTheme();U.render()},900);F.confetti(120)},
-    html:ray+'<div class="kicker">NEW REALM</div><h1>'+esc(r.name.toUpperCase())+'</h1><p>'+esc(r.line)+'</p><p class="sub">The look of the whole app has changed. Change it any time in the Armory.</p>'});
+    html:ray+'<div class="kicker">NEW REALM</div><h1>'+esc(r.name.toUpperCase())+'</h1><p>'+esc(r.line)+'</p><p class="sub">The look of the whole app has changed. Change it any time in Settings, under Look and sound.</p>'});
 });
 E.on('realmpick',()=>{F.applyTheme();F.play('equip');U.render()});
 /* gear that unlocks together is shown together: one card for one item, a grid for several */
@@ -256,11 +258,11 @@ function showGear(){
   if(list.length===1){
     const it=list[0],slot=(HS.SLOTS.find(s=>s[0]===it.slot)||[0,it.slot])[1];
     U.cele({kind:'item',ms:3400,fx:()=>F.confetti(70),
-      html:ray+'<div class="kicker">ITEM ACQUIRED</div><div class="icard">'+(it.slot==='title'?'<div class="ttl">\u00AB '+esc(it.name)+' \u00BB</div>':'<div class="iprev">'+HS.avatar.thumb(it,S.equip)+'</div>')+'<b>'+esc(it.name)+'</b><small>'+esc(slot)+' \u00B7 equipped</small></div><p>'+esc(it.desc)+'</p><button class="btn ovbtn" data-a="gotoArmory">Open the Armory</button>'});
+      html:ray+'<div class="kicker">ITEM ACQUIRED</div><div class="icard">'+(it.slot==='title'?'<div class="ttl">\u00AB '+esc(it.name)+' \u00BB</div>':'<div class="iprev">'+HS.avatar.thumb(it,S.equip)+'</div>')+'<b>'+esc(it.name)+'</b><small>'+esc(slot)+' \u00B7 equipped</small></div><p>'+esc(it.desc)+'</p><button class="btn ovbtn" data-a="gotoArmory">See my gear</button>'});
     return;
   }
   U.cele({kind:'item',ms:4200,fx:()=>F.confetti(110),
-    html:ray+'<div class="kicker">'+list.length+' ITEMS ACQUIRED</div><div class="igrid">'+list.slice(0,6).map(it=>'<div class="icard sm">'+(it.slot==='title'?'<div class="ttl sm">\u00AB '+esc(it.name)+' \u00BB</div>':'<div class="iprev">'+HS.avatar.thumb(it,S.equip)+'</div>')+'<b>'+esc(it.name)+'</b></div>').join('')+'</div>'+(list.length>6?'<p class="sub">and '+(list.length-6)+' more</p>':'')+'<button class="btn ovbtn" data-a="gotoArmory">Open the Armory</button>'});
+    html:ray+'<div class="kicker">'+list.length+' ITEMS ACQUIRED</div><div class="igrid">'+list.slice(0,6).map(it=>'<div class="icard sm">'+(it.slot==='title'?'<div class="ttl sm">\u00AB '+esc(it.name)+' \u00BB</div>':'<div class="iprev">'+HS.avatar.thumb(it,S.equip)+'</div>')+'<b>'+esc(it.name)+'</b></div>').join('')+'</div>'+(list.length>6?'<p class="sub">and '+(list.length-6)+' more</p>':'')+'<button class="btn ovbtn" data-a="gotoArmory">See my gear</button>'});
 }
 U.act.gotoArmory=function(){closeCele();setTimeout(()=>{U.act.tab('armory')},120)};
 E.on('goal',g=>{U.sys('Goal cleared: '+g.t+'. +'+g.aura+' aura. '+U.hype('goal'),'good',true);F.burstCenter(40)});
@@ -286,7 +288,7 @@ E.on('clear',st=>{
 E.on('reset',()=>{F.applyTheme();U.render(true)});
 /* another copy of the app saved something: show it, but never rebuild the screen under an open sheet */
 E.on('external',()=>{F.applyTheme();if(!U.sh)U.render()});
-E.on('storagefail',()=>U.sys('This phone refused to save. Storage may be full or blocked. Save a backup file now (Forge, Data vault).','bad'));
+E.on('storagefail',()=>U.sys('This phone refused to save. Storage may be full or blocked. Save a backup file now (Settings, Backup and data).','bad'));
 E.on('pwa-update',()=>U.sys('A new version is ready. Close and reopen the app to get it.','',true));
 
 /* quest combo: finishing quests back to back builds a combo with a rising note */
@@ -328,7 +330,7 @@ U.boot=function(){
   const hAuto=()=>{if(HS.health&&HS.health.auto)HS.health.auto().then(r=>{if(r&&r.ok&&U.tab==='home'&&!U.sh)U.render()}).catch(()=>{})};
   hAuto();document.addEventListener('visibilitychange',()=>{if(!document.hidden)hAuto()});
   if(HS.widget)HS.widget.start();
-  if(E.unreadable)setTimeout(()=>U.sys(E.recovered?'Your saved data could not be read, so yesterday\u2019s automatic copy was restored. The unreadable text is kept aside.':'Your saved data could not be read. The text is kept aside and nothing was overwritten. In the Forge, \u201cRestore yesterday\u2019s automatic copy\u201d may help.','bad'),900);
+  if(E.unreadable)setTimeout(()=>U.sys(E.recovered?'Your saved data could not be read, so yesterday\u2019s automatic copy was restored. The unreadable text is kept aside.':'Your saved data could not be read. The text is kept aside and nothing was overwritten. In Settings, Backup and data, \u201cRestore yesterday\u2019s automatic copy\u201d may help.','bad'),900);
   if(sw.length){
     const missed=sw.filter(x=>!x.pass).length,pass=sw.filter(x=>x.pass).length;
     setTimeout(()=>{
@@ -337,7 +339,7 @@ U.boot=function(){
     },700);
   }
   /* the Android app learns when a newer build is out */
-  if(HS.native&&HS.native.checkUpdate)HS.native.checkUpdate().then(u=>{if(u){U.update=u;setTimeout(()=>{U.sys('A newer version is ready (build '+u.latest+'). Open the Forge to download it.','good',true);U.render()},1500)}}).catch(()=>{});
+  if(HS.native&&HS.native.checkUpdate)HS.native.checkUpdate().then(u=>{if(u){U.update=u;setTimeout(()=>{U.sys('A newer version is ready (build '+u.latest+'). Open Settings to download it.','good',true);U.render()},1500)}}).catch(()=>{});
   /* manifest shortcuts: ?go=food | water | weigh */
   const go=(new URLSearchParams(location.search)).get('go');
   if(go)setTimeout(()=>{
@@ -347,11 +349,18 @@ U.boot=function(){
   },500);
   /* coming back to the app after a while: new day, new windows */
   let lastDay=E.dkey();
+  /* a new day (the app's day ends at 3 am): a sheet left open belongs to yesterday, and yesterday is settled. This also runs while the app stays open overnight. */
+  const rollDay=()=>{
+    if(E.dkey()===lastDay)return false;
+    lastDay=E.dkey();if(U.sh)U.closeSheetQuiet();
+    E.sweep();E.sparkSweep();E.sparkEarn();E.checkUnlocks();E.checkGoals();
+    return true;
+  };
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)return;
-    if(E.dkey()!==lastDay){lastDay=E.dkey();if(U.sh)U.closeSheetQuiet();E.sweep();E.sparkSweep();E.sparkEarn();E.checkUnlocks();E.checkGoals()}   /* a sheet left open overnight belongs to yesterday */
+    rollDay();
     if(!U.sh)U.render();
   });
-  setInterval(()=>{if(!document.hidden&&!U.sh&&U.tab==='home'&&!showing)U.render()},60000);   /* a quiet refresh: times and windows move on, the cards do not replay their entrance */
+  setInterval(()=>{if(document.hidden)return;const rolled=rollDay();if(!U.sh&&U.tab==='home'&&!showing)U.render(rolled)},60000);   /* a quiet refresh: times and windows move on, the cards do not replay their entrance */
 };
 })();

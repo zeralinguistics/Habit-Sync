@@ -59,7 +59,7 @@ E.pillarsFor=function(k){
   const move=plan==='Rest'&&!d.sess?(rehab||!!d.cardio||(+d.steps||0)>=6000):(d.workout==='done'||d.workout==='pain'||d.workout==='pass');
   return[
     {id:'check',t:'Check-in',ic:'scale',met:!!d.weighed,s:d.weighed?'Weighed in':'Weigh in'},
-    {id:'fuel',t:'Fuel',ic:'plate',met:meals>=2,s:meals+' of 3 meals'},
+    {id:'fuel',t:'Fuel',ic:'plate',met:meals>=2,s:meals>=2?meals+' meals logged':meals+' of 2 meals logged'},
     {id:'protein',t:'Protein',ic:'prot',met:!!d.pAward,s:d.pAward?'Target hit':'Not yet'},
     {id:'move',t:plan==='Rest'&&!d.sess?'Move':'Train',ic:'gym',met:!!move,s:d.workout==='done'?'Done':d.workout==='pain'||d.workout==='pass'?'Protected':plan==='Rest'&&!d.sess?(move?'Done':'Cardio, rehab or a walk'):'Not yet'},
     {id:'rehab',t:'Rehab',ic:'rehab',met:rehab,s:rehab?'Done':'Not yet'},

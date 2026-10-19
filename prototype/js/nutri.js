@@ -60,7 +60,7 @@ E.mealNowKey=function(){const t=E.nowMin();return t>=360&&t<660?'breakfast':t>=6
 /* ---- energy: what you ate against what the body used, once Samsung Health has told us about the day ---- */
 /* resting energy, Mifflin-St Jeor for a man; the same equation the calorie target already uses */
 E.bmr=function(kg){const c=S().cfg;return Math.round(10*(kg||E.trend()||S().startW)+6.25*c.height-5*c.age+5)};
-/* Samsung Health's active kcal (walking, steps and any recorded workout) plus resting energy. Watches and phones are estimates, often generous. */
+/* Samsung Health's active kcal (walking, steps and any recorded workout) plus resting energy. Watches and phones are estimates and can be well off in either direction. */
 E.energyDay=function(d,k){
   d=d||E.day();
   const eaten=Math.round(E.totals(d).k),bmr=E.bmr(k?E.trendAt(k):E.trend()),act=d.hAct>0?Math.round(d.hAct):null;
@@ -80,7 +80,7 @@ E.energyCheck=function(){
   const eaten=logged.reduce((a,d)=>a+E.totals(d).k,0)/logged.length;
   const dTrend=E.trendAt(E.keyOffset(-1))-E.trendAt(t0),perDay=dTrend/13;   /* kg per day, negative while losing */
   const burned=eaten-perDay*7700;                                            /* eaten minus the energy that left the body as weight */
-  return{eaten:Math.round(eaten),burned:Math.round(burned),trend:Math.round(dTrend*100)/100,predicted:Math.round(-(E.maint(E.trend())-eaten)*14/7700*100)/100,days:logged.length};
+  return{eaten:Math.round(eaten),burned:Math.round(burned),trend:Math.round(dTrend*100)/100,predicted:Math.round(-(E.maint(E.trend())-eaten)*13/7700*100)/100,days:logged.length};
 };
 /* A plain reading of the cross-check: do the logged meals and the scale agree? Over two weeks 1 kg of trend is about 7,700 kcal. */
 E.energyVerdict=function(){
