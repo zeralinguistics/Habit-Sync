@@ -280,10 +280,10 @@ E.on('bonusall',()=>{
 });
 E.on('equip',()=>{F.play('equip');F.vib(12)});
 E.on('clear',st=>{
-  const line=st.score>=3?U.hype('clear'):st.score===2?'Half a day banked. Tomorrow is a clean slate. Never miss twice.':'Rough one. It happens. The System logged it honestly, and that counts. Show up tomorrow.';
+  const line=st.score>=3?U.hype('clear'):st.score>=1?'Part of a day banked. Tomorrow is a clean slate. Never miss twice.':'Rough one. It happens. The System logged it honestly, and that counts. Show up tomorrow.';
   F.burstCenter(st.score>=3?60:20);
   U.cele({kind:'clear',ms:6000,sound:'quest',
-    html:ray+'<h1>DAY CLEARED</h1><div class="big">'+st.score+' / 4</div><p>'+esc(line)+'</p><button class="btn ovbtn" data-a="chestOpen">Open today\'s chest</button>'});
+    html:ray+'<h1>DAY CLEARED</h1><div class="big">'+st.score+' / 6</div><div class="dsl">PILLARS LIT</div><p>'+esc(line)+'</p><button class="btn ovbtn" data-a="chestOpen">Open today\'s chest</button>'});
 });
 E.on('reset',()=>{F.applyTheme();U.render(true)});
 /* another copy of the app saved something: show it, but never rebuild the screen under an open sheet */

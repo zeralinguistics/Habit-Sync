@@ -345,6 +345,8 @@ function yestCardioBtn(){
 }
 /* a stepper or toggle inside the sheet redraws it where you are, instead of jumping back to the top */
 const reGym=()=>U.keepScroll(renderGym);
+/* lifts done one side at a time: the reps are counted for each side */
+const oneSided=n=>/split squat|lunge|step[- ]?up|single[- ]?(leg|arm)|one[- ]?(leg|arm)|unilateral/i.test(n||'');
 function renderGym(){
   const sh=U.sh,d=E.day(),plan=E.planFor();stopRest();
   if(sh.step==='cardio'){
@@ -447,7 +449,7 @@ function renderLift(){
   list.forEach((ex,xi)=>{
     const st=E.exState(ex),open=sh.exEdit===xi,w0=st.sets[0]?st.sets[0].w:0,over=ex.cap&&st.sets.some(s=>s.w>HS.CAP_KG),fin=st.sets.slice(0,ex.sets).every(s=>s.done),sg=E.suggestW(ex);
     body+=`<div class="ex2${fin?' fin':''}"><div class="ex2h"><button class="ex2c" data-a="exall:${xi}" aria-pressed="${fin}" aria-label="${fin?'Undo all sets of ':'Log all sets of '}${esc(ex.n)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.500l4.500 4.500L19 7.500"/></svg></button>
-      <div class="exn"><b>${esc(ex.n)}</b><small>${esc(ex.g)} · ${ex.sets} × ${ex.reps}</small></div>
+      <div class="exn"><b>${esc(ex.n)}</b><small>${esc(ex.g)} · ${ex.sets} × ${ex.reps}${oneSided(ex.n)?' each side':''}</small></div>
       <button class="exw" data-a="exedit:${xi}" aria-pressed="${open}" aria-label="Weight ${w0?w0+' kilograms':'not set'}, tap to change"><b>${w0||'set'}</b><small>kg</small></button></div>
       <div class="sets">${st.sets.slice(0,ex.sets).map((s,si)=>`<button class="sb${s.done?' done':''}" data-a="set:${xi}:${si}" aria-pressed="${s.done}" aria-label="Set ${si+1}, ${s.r} reps"><b>${s.r}</b><small>${s.w?s.w+' kg':'reps'}</small></button>`).join('')}</div>
       <div class="exl">${esc(lastTxt(ex))}</div>
@@ -601,7 +603,7 @@ function renderRehab(){
     <button class="btn vio gstart" data-a="rguide">${pr.done?'Continue the guided session':'Start the guided session'}<small>${left} move${left===1?'':'s'} left · one at a time, left and right sides separately</small></button>
     ${rg.groups.map(g=>`<div class="sec">${esc(g.title)}${g.bonus?' <em>optional</em>':''}<small>${esc(g.sub)}</small></div>${g.items.map(g.cover?cov:row).join('')}`).join('')}
     ${t.finisher!=null&&HS.RDAYS[t.finisher].x.some(e=>e[3])?'<div class="small">Jefferson curl is left out, as you chose.</div>':''}
-    <div class="note">The moves come from your external physio’s written plan (the sheet shows age 19, so confirm it is still current at your next visit). Knee-to-chest is held for 30 seconds on each leg as you asked; the written sheet says 10 seconds, so check that with your physio. Figures are simplified outlines of the movement, not technique advice: ask your physio to show you the exact form. "S/B" is drawn as a Swiss ball.</div>
+    <div class="note">The moves come from your external physio’s written plan (the sheet shows age 19, so confirm it is still current at your next visit). Knee-to-chest is held for 30 seconds on each leg, as your physio confirmed (the printed sheet says 10 seconds). Figures are simplified outlines of the movement, not technique advice: ask your physio to show you the exact form. "S/B" is drawn as a Swiss ball.</div>
     <button class="chk" data-a="rconf" aria-pressed="${S.rehab.confirmed}"><i>✓</i><span>My physio confirmed this plan is current<small>Tick it once they have seen this</small></span></button>
     <div class="sec" id="checkin">Check-in</div>
     <div class="rngl"><span>RIGHT KNEE</span><b id="kv">${r.knee}</b></div><input class="rng" id="kr" type="range" min="0" max="10" value="${r.knee}" aria-label="Right knee pain 0 to 10">
@@ -828,12 +830,14 @@ A.wSave=function(){
 U.closeDaySheet=function(){
   U.sh={type:'close'};
   const d=E.day();
-  if(d.closed){U.openSheet('Day cleared','<div class="hint">'+d.score+' of 4 quests. Aura today: '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+'.</div>'+(d.chest?'':'<div class="stack2"><button class="btn vio" data-a="chestOpen">Open today’s chest</button></div>'),'<button class="btn ghost" data-a="close">Close</button>');return}
+  if(d.closed){U.openSheet('Day cleared','<div class="hint">'+d.score+' of 6 pillars. Aura today: '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+'.</div>'+(d.chest?'':'<div class="stack2"><button class="btn vio" data-a="chestOpen">Open today’s chest</button></div>'),'<button class="btn ghost" data-a="close">Close</button>');return}
   const open=U.quests().filter(q=>q.st==='todo'&&!q.opt&&['close','weigh','rehab'].indexOf(q.id)<0).map(q=>q.id==='gym'?'Log your workout':'Log or skip '+q.id);
   if(open.length){U.openSheet('Not yet','<div class="hint">Finish these first, so the tally is honest.</div>'+open.map(o=>'<div class="q"><span>'+esc(o)+'</span><span class="no">OPEN</span></div>').join(''),'<button class="btn ghost" data-a="close">Back</button>');return}
-  const st=E.dayStatus(),T=st.T,tot=st.tot,d2=d;
-  const q=[['Protein '+T.protein+' g',st.protOk,Math.round(tot.p)+' g'],['Calories '+fmt(T.lo)+' to '+fmt(T.hi),st.calOk,fmt(tot.k)],['Workout',st.gymOk,st.plan==='Rest'?'Rest day':({done:'Done',pain:'Pain day',pass:'Rest pass'}[d2.workout]||'Skipped')],['Rehab',st.rehOk,st.rehOk?'Done':'Missed']];
-  U.openSheet('Clear the day','<div class="hint">Last look. Clearing adds your calorie reward and opens your chest.</div>'+q.map(x=>'<div class="q"><span>'+esc(x[0])+'</span><span class="'+(x[1]?'ok':'no')+'">'+(x[1]?'✓ ':'')+esc(x[2])+'</span></div>').join('')+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal does not count. Eating too little costs muscle. If you forgot to log something, go back and add it.</div>':''),'<button class="btn" data-a="lock">Clear it</button>');
+  const st=E.dayStatus(),T=st.T,tot=st.tot;
+  /* the same six pillars as the streak, one list */
+  const rows=st.pillars.map(p=>'<div class="q"><span>'+esc(p.t)+'</span><span class="'+(p.met?'ok':'no')+'">'+(p.met?'✓ ':'')+esc(p.s)+'</span></div>').join('');
+  const cal='<div class="q"><span>Calories '+fmt(T.lo)+' to '+fmt(T.hi)+' <small class="sb2">bonus +80 aura</small></span><span class="'+(st.calOk?'ok':'no')+'">'+(st.calOk?'✓ ':'')+fmt(tot.k)+'</span></div>';
+  U.openSheet('Clear the day','<div class="hint">Last look: '+st.score+' of 6 pillars lit. Clearing opens your chest, and the calorie window pays a bonus on top.</div>'+rows+'<div class="sec">Bonus</div>'+cal+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal does not count. Eating too little costs muscle. If you forgot to log something, go back and add it.</div>':''),'<button class="btn" data-a="lock">Clear it</button>');
 };
 A.lock=function(){
   if(E.day().closed)return;

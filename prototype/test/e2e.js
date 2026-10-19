@@ -147,7 +147,7 @@ const pin = (iso) => {
   ok(await pg.evaluate(() => document.querySelectorAll('svg.fig').length) >= 10, 'every move shows a moving outline');
   await pg.click('[data-a="rguide"]'); await pg.waitForTimeout(600);
   const GN = await pg.evaluate(() => HS.ui.sh.g.list.length);
-  ok(await pg.evaluate(n => !!document.querySelector('.gd svg.fig.big') && new RegExp('1 / ' + n).test(document.querySelector('.gtop span').textContent), GN) && GN === 13, 'guided session opens at step 1 of 13: 11 moves, and knee to chest and the Pallof press each count once per side');
+  ok(await pg.evaluate(n => !!document.querySelector('.gd svg.fig.big') && new RegExp('1 / ' + n).test(document.querySelector('.gtop span').textContent), GN) && GN === 14, 'guided session opens at step 1 of 14: 11 moves, and knee to chest, the knee range-of-motion move and the Pallof press each count once per side');
   ok(await pg.evaluate(() => { const l = HS.ui.sh.g.list, kc = l.filter(x => x.key === 'b1'); return kc.length === 2 && kc[0].side === 'L' && kc[1].side === 'R' && /30 sec/.test(kc[0].rx); }), 'knee to chest is 30 seconds on the left leg, then on the right leg');
   await pg.screenshot({ path: out + 'a7-guide.png' });
   /* skip timer waits: stub the hold length by completing each move through its own set button */
@@ -1087,7 +1087,7 @@ const pin = (iso) => {
       const pg0 = E.proteinGap(), gap = pg0 && pg0.gap, late = pg0 && pg0.late, bk = E.backupFood(), t = E.totals(E.day()), n = E.nutrients();
       return { gap: gap, late: late, bk: bk && bk.name, p: Math.round(t.p), cfg: S.cfg.backup, cols: n.v.k > 0 && n.v.ca > 0 && n.v.fe > 0 && n.v.vd >= 0, k: Math.round(n.v.k), tk: Math.round(t.k) };
     });
-    ok(NU.bk === 'Plant protein powder (1 scoop)' && NU.gap > 80 && NU.late === true, 'the protein backup is ready for a short day (' + NU.gap + ' g to go, backup ' + NU.bk + ')');
+    ok(NU.bk === 'Yogabar Pro Clean Plant Protein (1 scoop)' && NU.gap > 80 && NU.late === true, 'the protein backup is ready for a short day (' + NU.gap + ' g to go, backup ' + NU.bk + ')');
     ok(NU.cols && Math.abs(NU.k - NU.tk) <= 1, 'nutrient totals include micronutrients and agree with the calorie total');
     await nu.evaluate(() => HS.ui.foodSheet('Boiled egg')); await nu.waitForTimeout(500);
     const FS = await nu.evaluate(() => document.querySelector('#shBody').textContent);
@@ -1246,6 +1246,36 @@ const pin = (iso) => {
     await ui.fill('#stepsIn', '7400'); await ui.click('[data-a="saveSteps"]'); await ui.waitForTimeout(500);
     ok(await ui.evaluate(() => /7,400/.test(document.querySelector('#shBody').textContent)), 'steps typed by hand appear in the open sheet straight away');
     ok(ui.errs.length === 0, 'no console errors in the review-fix checks ' + JSON.stringify(ui.errs));
+  }
+
+
+  /* ---------- one score: clearing the day tallies the same six pillars as the streak ---------- */
+  {
+    const sc = await mk();
+    await sc.goto(url); await sc.waitForTimeout(800);
+    const SCO = await sc.evaluate(() => {
+      const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; HS.ui.closeSheet(); HS.ui.clearCele();
+      const d = E.day(); d.weighed = true; S.weights[E.dkey()] = 84; d.done = { breakfast: true, lunch: true }; d.skip = { dinner: true }; d.water = 3000; d.workout = 'pain'; E.save();
+      HS.ui.clearCele(); HS.ui.closeDaySheet();
+      const txt = document.querySelector('#shBody').textContent, rows = document.querySelectorAll('#shBody .q').length, met = E.pillarsMet();
+      return { txt: txt, rows: rows, met: met };
+    });
+    ok(SCO.rows === 7 && ['Check-in', 'Fuel', 'Protein', 'Move', 'Rehab', 'Water'].every(w => SCO.txt.includes(w)) && /bonus \+80 aura/.test(SCO.txt) && /4 of 6 pillars/.test(SCO.txt), 'the Clear the day sheet lists the six streak pillars, with the calorie window as a bonus (' + SCO.met + ' of 6 lit)');
+    await sc.evaluate(() => { HS.ui.act.lock(); }); await sc.waitForTimeout(900);
+    const SC2 = await sc.evaluate(() => ({ score: HS.E.day().score, met: HS.E.pillarsMet(), closed: HS.E.day().closed, ov: document.querySelector('#ovb').textContent }));
+    ok(SC2.closed && SC2.score === 4 && SC2.score === SC2.met && /4 \/ 6/.test(SC2.ov), 'the cleared day keeps that score and the celebration says 4 / 6 (' + SC2.score + ')');
+    ok(await sc.evaluate(() => { const E = HS.E; E.day().chest = null; E.day().bonusAll = false; return [E.openChest(2).tier, (E.day().chest = null, E.openChest(4).tier), (E.day().chest = null, E.openChest(5).tier), (E.day().chest = null, E.openChest(6).tier)].join(); }) === 'common,rare,epic,epic', 'the chest is common below 3 pillars, rare at 3 or 4, epic at 5 or 6');
+    /* one-sided moves are counted per side: the knee range-of-motion move and split squats join knee to chest */
+    const OS = await sc.evaluate(() => {
+      const E = HS.E; E.reset(); E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.clearCele();
+      const sided = HS.BLOCK.concat(...HS.RDAYS.map(d => d.x)).filter(x => x[4] && x[4].sides === 'each').map(x => x[0]);
+      E.S().rot.i = 2; E.day().sess = null; HS.ui.gymSheet(); HS.ui.act.liftStart();
+      const lift = document.querySelector('#shBody').textContent;
+      return { sided: sided, lift: /Split squats[\s\S]{0,60}each side/.test(lift) };
+    });
+    ok(['Knee-to-chest stretch', 'Knee range-of-motion exercise', 'Pallof press', 'Side plank', 'Step-ups to the side', 'Split squats', 'Single-leg balance'].every(n => OS.sided.includes(n)), 'every one-sided rehab move is counted on each side: ' + OS.sided.join(', '));
+    ok(OS.lift, 'the leg workout says "each side" next to split squats');
+    ok(sc.errs.length === 0, 'no console errors in the score checks ' + JSON.stringify(sc.errs));
   }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

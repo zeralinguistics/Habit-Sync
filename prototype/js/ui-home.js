@@ -46,7 +46,7 @@ U.quests=function(){
     out.push(q);
   });
   out.push(d.pAward?{id:'protein',ic:'prot',st:'done',t:'Protein '+T.protein+' g',s:Math.round(tot.p)+' g locked in',r:'+60'}:{id:'protein',ic:'prot',st:'prog',t:'Protein '+T.protein+' g',s:Math.round(tot.p)+' of '+T.protein+' g',r:'+60'});
-  out.push(d.closed?{id:'close',ic:'moon',st:'done',t:'Clear the day',s:d.score+' of 4 quests',r:(d.delta>=0?'+':'−')+Math.abs(d.delta)}:{id:'close',ic:'moon',st:'todo',t:'Clear the day',s:'Final tally and your chest',r:'+80'});
+  out.push(d.closed?{id:'close',ic:'moon',st:'done',t:'Clear the day',s:d.score+' of 6 pillars',r:(d.delta>=0?'+':'−')+Math.abs(d.delta)}:{id:'close',ic:'moon',st:'todo',t:'Clear the day',s:'Final tally and your chest',r:'+80'});
   return out;
 };
 U.justRow=null;U.pulse=false;
@@ -317,7 +317,7 @@ function moreHtml(){
     ${row('goalsOpen','star','This week’s goals',gd+' of '+goals.length+' cleared · resets in '+daysLeft+' day'+(daysLeft===1?'':'s'))}
     ${row('tab:path','path',ng.boss?'Boss gate at '+ng.boss.kg+' kg':'Every boss is down',ng.boss?ng.toBoss.toFixed(1)+' kg to go · trend '+tr.toFixed(1)+' kg':'You reached your goal')}
     ${row('chest','star','Daily chest',chest,d.closed&&!d.chest)}
-    ${row('node:close','moon',d.closed?'Day cleared':'Clear the day',d.closed?d.score+' of 4 quests · '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+' aura':'closes in '+Math.floor(dl/60)+'h '+String(dl%60).padStart(2,'0')+'m',!d.closed&&E.nowMin()>=1140)}
+    ${row('node:close','moon',d.closed?'Day cleared':'Clear the day',d.closed?d.score+' of 6 pillars · '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+' aura':'closes in '+Math.floor(dl/60)+'h '+String(dl%60).padStart(2,'0')+'m',!d.closed&&E.nowMin()>=1140)}
   </div>`;
 }
 function refreshMore(){const el=$('#moreCard');if(!el)return;const t=document.createElement('div');t.innerHTML=moreHtml();el.replaceWith(t.firstElementChild);$('#moreCard').classList.remove('rise')}

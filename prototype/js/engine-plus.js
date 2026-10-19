@@ -494,7 +494,7 @@ E.rng=Math.random;
 E.openChest=function(score){
   const d=E.day();if(d.chest)return d.chest;
   const sc=(score||0)+(d.bonusAll?1:0);   /* a clean bonus row lifts the chest one tier */
-  const tier=sc>=4?'epic':sc>=3?'rare':'common',r=E.rng();let aura,crit=false;
+  const tier=sc>=5?'epic':sc>=3?'rare':'common',r=E.rng();let aura,crit=false;
   if(tier==='common')aura=15+Math.floor(r*16);
   else if(tier==='rare'){aura=30+Math.floor(r*41);if(E.rng()<.1){aura*=2;crit=true}}
   else{aura=60+Math.floor(r*61);if(E.rng()<.1){aura=200;crit=true}}
@@ -546,7 +546,8 @@ E.finishMeal=function(meal){
 E.dayStatus=function(){
   const d=E.day(),plan=E.planFor(),T=E.T(),tot=E.totals(d);
   const calOk=tot.k>=T.lo&&tot.k<=T.hi,gymOk=plan==='Rest'||d.workout==='done'||d.workout==='pain'||d.workout==='pass',rehOk=!!(d.reh&&d.reh.done);
-  return{plan:plan,T:T,tot:tot,calOk:calOk,gymOk:gymOk,rehOk:rehOk,protOk:!!d.pAward,score:(d.pAward?1:0)+(calOk?1:0)+(gymOk?1:0)+(rehOk?1:0)};
+  /* the day's score is the same six pillars the streak counts (check-in, fuel, protein, move, rehab, water). Staying inside the calorie window is a reward on top, not a seventh pillar. */
+  return{plan:plan,T:T,tot:tot,calOk:calOk,gymOk:gymOk,rehOk:rehOk,protOk:!!d.pAward,pillars:E.pillarsFor(),score:E.pillarsMet()};
 };
 E.closeDay=function(){
   const d=E.day();if(d.closed)return null;

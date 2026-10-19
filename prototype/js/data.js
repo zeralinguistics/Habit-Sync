@@ -85,19 +85,19 @@ HS.menuFor=function(meal,di){
 /* the whole day's menu in one list, for the "Today's menu" sheet */
 HS.menuDay=function(di){return{breakfast:HS.menuFor('breakfast',di),lunch:HS.menuFor('lunch',di),dinner:HS.menuFor('dinner',di)}};
 /* what you bring or buy yourself: protein you add to the mess meals, and snacks */
-HS.STAPLES=['Boiled egg','Egg white','Omelette','Chicken breast, cooked','Chicken breast, raw','Soya chunks, boiled','Soya chunks, dry','Paneer, plain','Curd','Milk','Protein bar (20 g protein)','Protein bar (10 g protein)','Plant protein powder (1 scoop)','Whey protein (1 scoop)','Peanut butter','Roasted chana','Peanuts, roasted','Almonds','Makhana, roasted','Banana','Apple','Tea (no sugar)','Coffee (no sugar)','Tea (sugar)','Black tea or coffee'];
+HS.STAPLES=['Boiled egg','Egg white','Omelette','Chicken breast, cooked','Chicken breast, raw','Soya chunks, boiled','Soya chunks, dry','Paneer, plain','Curd','Milk','Protein bar (20 g protein)','Protein bar (10 g protein)','Yogabar Pro Clean Plant Protein (1 scoop)','Plant protein powder (1 scoop)','Whey protein (1 scoop)','Peanut butter','Roasted chana','Peanuts, roasted','Almonds','Makhana, roasted','Banana','Apple','Tea (no sugar)','Coffee (no sugar)','Tea (sugar)','Black tea or coffee'];
 HS.OUTSIDE=['Shawarma (full)','Alfaham (half)','Shake','Parotta','Beef fry','Fried chicken (2 pc)','Biscuits','Soft drink','Chai + biscuits','Samosa','Vada pav','Veg momos (6 pc)','Chicken momos (6 pc)','Maggi noodles (1 pack)','French fries','Chicken biryani (Calicut)','Chicken fried rice','Egg roll','Chicken roll','Veg sandwich','Pizza slice','Pazham pori','Banana chips','Unniyappam','Fresh juice (with sugar)','Lime soda (sweet)','Sweet lassi','Peanut chikki'];
 
 /* Rehab: copied from the external physio's written plan. Third value is the animation key.
    A fourth value of 1 marks an exercise the user chose to skip. "S/B" is kept as written and drawn as a Swiss ball.
    A fifth value {sides:'each'} means do the sets on each side (knee to chest: 3 holds on the left leg, then 3 on the right);
    {sides:'alt'} means the sets alternate sides (bird dog: left, right, left, right).
-   Knee to chest is held for 30 seconds because the user asked for it; the written sheet says 10 seconds, so confirm it with the physio. */
-HS.BLOCK=[['Lumbar rotation','8 × 3','rot'],['Knee-to-chest stretch','30 sec × 3 each leg','kneechest',0,{sides:'each'}],['Cobra','10 sec × 3','cobra'],['Pelvic bridge + adductor pillow squeeze','20 sec × 3','bridge'],['Knee range-of-motion exercise','4 to 5 days a week','heelslide']];
+   Knee to chest is held for 30 seconds per leg; the physio confirmed it (the printed sheet says 10 seconds). */
+HS.BLOCK=[['Lumbar rotation','8 × 3','rot'],['Knee-to-chest stretch','30 sec × 3 each leg','kneechest',0,{sides:'each'}],['Cobra','10 sec × 3','cobra'],['Pelvic bridge + adductor pillow squeeze','20 sec × 3','bridge'],['Knee range-of-motion exercise','4 to 5 days a week, each leg','heelslide',0,{sides:'each'}]];
 HS.RDAYS=[
  {t:'Day 1: core and stability',x:[['Pallof press','10 × 3 each side','pallof',0,{sides:'each'}],['Dead bug','20 sec × 3','deadbug'],['Superman','20 sec × 3','superman'],['Push-up plank','10 sec × 3','plank'],['Jefferson curl','10 × 2',null,1],['Seated hinges','10 × 2','hinge'],['Uneven-load farmer\'s walk','3 laps × 2 sets','farmer',0,{sides:'alt'}]]},
  {t:'Day 2: S/B work',x:[['S/B lumbar extension','3 sec × 10 reps','sbext'],['S/B squats','8 × 3','sbsquat'],['S/B bridging','20 sec × 4','sbbridge'],['S/B plank','20 sec × 4','sbplank'],['S/B bird dog','20 sec × 4','birddog',0,{sides:'alt'}],['Side plank','20 sec × 2 each side','sideplank',0,{sides:'each'}],['Step-ups to the side','8 × 3 each leg','stepup',0,{sides:'each'}],['S/B calf raise','12 × 3','sbcalf'],['Static squats, eyes closed','30 sec × 2','static']]},
- {t:'Day 3: lower-body strength',x:[['Squats','8 × 3','squat'],['Trap-bar deadlift','8 × 3','trapbar'],['Split squats','8 × 3','split'],['Sumo squat','8 × 3','sumo'],['Hip thrust','10 × 3','hipthrust'],['Calf raise','15 × 3','calf'],['Single-leg balance','20 sec × 3 each leg','balance',0,{sides:'each'}]]}
+ {t:'Day 3: lower-body strength',x:[['Squats','8 × 3','squat'],['Trap-bar deadlift','8 × 3','trapbar'],['Split squats','8 × 3 each leg','split',0,{sides:'each'}],['Sumo squat','8 × 3','sumo'],['Hip thrust','10 × 3','hipthrust'],['Calf raise','15 × 3','calf'],['Single-leg balance','20 sec × 3 each leg','balance',0,{sides:'each'}]]}
 ];
 /* which rehab day goes with which gym session */
 HS.REHAB_FOR={Push:'Day 1',Pull:'Day 2',Legs:'Day 3',Rest:'Day 1 and a walk'};

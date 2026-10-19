@@ -154,6 +154,7 @@ Old = the rough estimate the app used before this update, converted to per 100 g
 | Egg bhurji | 150 g serving | 233 | 14.4 | 2.2 | 18.8 | 0.9 |  | 156 |  |  | 9.6 | B |
 | Egg fried | 55 g pc | 115 | 6.6 | 0.0 | 10.0 | 0.0 |  | 210 |  |  | 12.0 | B |
 | Paneer, plain | 100 g serving | 270 | 18.3 | 2.5 | 21.0 | 0.0 |  | 270 |  |  | 18.3 | A |
+| Yogabar Pro Clean Plant Protein (1 scoop) | 38 g scoop | 153 | 25.3 | 6.5 | 2.4 | 1.5 |  | 403 |  |  | 66.6 | C |
 | Plant protein powder (1 scoop) | 33 g scoop | 129 | 25.1 | 2.6 | 1.7 | 1.3 |  | 390 |  |  | 76.0 | C |
 | Protein bar (20 g protein) | 60 g bar | 240 | 20.0 | 22.0 | 8.0 | 5.0 |  | 400 |  |  | 33.3 | C |
 | Protein bar (10 g protein) | 40 g bar | 160 | 10.0 | 18.0 | 6.0 | 3.0 |  | 400 |  |  | 25.0 | C |
