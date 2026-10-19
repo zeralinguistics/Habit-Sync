@@ -1593,6 +1593,7 @@ HS.NUT_ROWS=[
  ["Egg bhurji","serving",150,"","B","Scrambled eggs with onion and tomato (about 2 eggs)","155.63,9.58,1.46,12.51,0.57,0.83,2.77,256.2,281.47,136.24,40.15,1.43,12.81,0.93,135.74,132.59,1.51,0.59,1.08,12.83,0.04,0.12,0.15,0.11,29.3,0.07"],
  ["Egg fried","pc",55,"","B","One fried egg","209.75,11.95,0,18.23,0,0,3.8,329.4,304.49,124.2,44.5,1.64,10.81,1.11,166.5,161.33,0,0.76,1.36,13.15,0.04,0.15,0.09,0.12,33.29,0.09"],
  ["Paneer, plain","serving",100,"","A","Fresh paneer, uncooked","270.22,18.3,2.5,21,0,2.5,8.85,0,18.04,63.53,476,0.9,26.62,2.74,330,0.37,0,0.13,0.02,0,0.02,0.1,0.13,0.04,93.31,0.23"],
+ ["Yogabar Pro Clean Plant Protein (1 scoop)","scoop",38,"","C","Your own tub. One 38 g scoop is 153 kcal and 25.3 g protein (retailer listing for the chocolate pack); the carbohydrate and fat split is an estimate. Read the back of your tub: if the numbers differ (the unflavoured pack may), use Add a food from its label.","402.6,66.6,17.1,6.3,3.9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"],
  ["Plant protein powder (1 scoop)","scoop",33,"","C","A typical 33 g scoop gives about 25 g of protein. Brands differ: put the numbers from your tub in Settings, Protein backup","390,76,8,5,4,1,1,0,350,0,100,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0"],
  ["Protein bar (20 g protein)","bar",60,"","C","Typical 60 g bar. Brands differ: add yours as a custom food from its label","400,33.3,36.7,13.3,8.3,8.3,5.5,0,280,0,150,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"],
  ["Protein bar (10 g protein)","bar",40,"","C","Typical 40 g bar. Brands differ: add yours as a custom food from its label","400,25,45,15,7.5,15,6,0,250,0,100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"],
@@ -1738,19 +1739,19 @@ HS.menuFor=function(meal,di){
 /* the whole day's menu in one list, for the "Today's menu" sheet */
 HS.menuDay=function(di){return{breakfast:HS.menuFor('breakfast',di),lunch:HS.menuFor('lunch',di),dinner:HS.menuFor('dinner',di)}};
 /* what you bring or buy yourself: protein you add to the mess meals, and snacks */
-HS.STAPLES=['Boiled egg','Egg white','Omelette','Chicken breast, cooked','Chicken breast, raw','Soya chunks, boiled','Soya chunks, dry','Paneer, plain','Curd','Milk','Protein bar (20 g protein)','Protein bar (10 g protein)','Plant protein powder (1 scoop)','Whey protein (1 scoop)','Peanut butter','Roasted chana','Peanuts, roasted','Almonds','Makhana, roasted','Banana','Apple','Tea (no sugar)','Coffee (no sugar)','Tea (sugar)','Black tea or coffee'];
+HS.STAPLES=['Boiled egg','Egg white','Omelette','Chicken breast, cooked','Chicken breast, raw','Soya chunks, boiled','Soya chunks, dry','Paneer, plain','Curd','Milk','Protein bar (20 g protein)','Protein bar (10 g protein)','Yogabar Pro Clean Plant Protein (1 scoop)','Plant protein powder (1 scoop)','Whey protein (1 scoop)','Peanut butter','Roasted chana','Peanuts, roasted','Almonds','Makhana, roasted','Banana','Apple','Tea (no sugar)','Coffee (no sugar)','Tea (sugar)','Black tea or coffee'];
 HS.OUTSIDE=['Shawarma (full)','Alfaham (half)','Shake','Parotta','Beef fry','Fried chicken (2 pc)','Biscuits','Soft drink','Chai + biscuits','Samosa','Vada pav','Veg momos (6 pc)','Chicken momos (6 pc)','Maggi noodles (1 pack)','French fries','Chicken biryani (Calicut)','Chicken fried rice','Egg roll','Chicken roll','Veg sandwich','Pizza slice','Pazham pori','Banana chips','Unniyappam','Fresh juice (with sugar)','Lime soda (sweet)','Sweet lassi','Peanut chikki'];
 
 /* Rehab: copied from the external physio's written plan. Third value is the animation key.
    A fourth value of 1 marks an exercise the user chose to skip. "S/B" is kept as written and drawn as a Swiss ball.
    A fifth value {sides:'each'} means do the sets on each side (knee to chest: 3 holds on the left leg, then 3 on the right);
    {sides:'alt'} means the sets alternate sides (bird dog: left, right, left, right).
-   Knee to chest is held for 30 seconds because the user asked for it; the written sheet says 10 seconds, so confirm it with the physio. */
-HS.BLOCK=[['Lumbar rotation','8 × 3','rot'],['Knee-to-chest stretch','30 sec × 3 each leg','kneechest',0,{sides:'each'}],['Cobra','10 sec × 3','cobra'],['Pelvic bridge + adductor pillow squeeze','20 sec × 3','bridge'],['Knee range-of-motion exercise','4 to 5 days a week','heelslide']];
+   Knee to chest is held for 30 seconds per leg; the physio confirmed it (the printed sheet says 10 seconds). */
+HS.BLOCK=[['Lumbar rotation','8 × 3','rot'],['Knee-to-chest stretch','30 sec × 3 each leg','kneechest',0,{sides:'each'}],['Cobra','10 sec × 3','cobra'],['Pelvic bridge + adductor pillow squeeze','20 sec × 3','bridge'],['Knee range-of-motion exercise','4 to 5 days a week, each leg','heelslide',0,{sides:'each'}]];
 HS.RDAYS=[
  {t:'Day 1: core and stability',x:[['Pallof press','10 × 3 each side','pallof',0,{sides:'each'}],['Dead bug','20 sec × 3','deadbug'],['Superman','20 sec × 3','superman'],['Push-up plank','10 sec × 3','plank'],['Jefferson curl','10 × 2',null,1],['Seated hinges','10 × 2','hinge'],['Uneven-load farmer\'s walk','3 laps × 2 sets','farmer',0,{sides:'alt'}]]},
  {t:'Day 2: S/B work',x:[['S/B lumbar extension','3 sec × 10 reps','sbext'],['S/B squats','8 × 3','sbsquat'],['S/B bridging','20 sec × 4','sbbridge'],['S/B plank','20 sec × 4','sbplank'],['S/B bird dog','20 sec × 4','birddog',0,{sides:'alt'}],['Side plank','20 sec × 2 each side','sideplank',0,{sides:'each'}],['Step-ups to the side','8 × 3 each leg','stepup',0,{sides:'each'}],['S/B calf raise','12 × 3','sbcalf'],['Static squats, eyes closed','30 sec × 2','static']]},
- {t:'Day 3: lower-body strength',x:[['Squats','8 × 3','squat'],['Trap-bar deadlift','8 × 3','trapbar'],['Split squats','8 × 3','split'],['Sumo squat','8 × 3','sumo'],['Hip thrust','10 × 3','hipthrust'],['Calf raise','15 × 3','calf'],['Single-leg balance','20 sec × 3 each leg','balance',0,{sides:'each'}]]}
+ {t:'Day 3: lower-body strength',x:[['Squats','8 × 3','squat'],['Trap-bar deadlift','8 × 3','trapbar'],['Split squats','8 × 3 each leg','split',0,{sides:'each'}],['Sumo squat','8 × 3','sumo'],['Hip thrust','10 × 3','hipthrust'],['Calf raise','15 × 3','calf'],['Single-leg balance','20 sec × 3 each leg','balance',0,{sides:'each'}]]}
 ];
 /* which rehab day goes with which gym session */
 HS.REHAB_FOR={Push:'Day 1',Pull:'Day 2',Legs:'Day 3',Rest:'Day 1 and a walk'};
@@ -2437,7 +2438,7 @@ const dkey=E.dkey=(d)=>{d=d||E.now();return d.getFullYear()+'-'+String(d.getMont
 /* defined this early because migrate() reads a saved game while this file is still loading */
 E.daysBetween=function(a,b){const f=s=>{const x=s.split('-').map(Number);return Date.UTC(x[0],x[1]-1,x[2])/864e5};return Math.round(f(b)-f(a))};
 const CFG0={name:'PLAYER',kcal:2050,protein:140,goalW:70,gateStep:.5,bossEvery:4,stepGoal:0,strict:'standard',theme:'auto',volume:.8,haptics:true,sound:true,contract:'',partner:'',
-  height:166,age:21,deficit:530,water:3000,roast:'playful',camp:true,autoKcal:true,dayStart:3,sparkGoal:3,backup:'Plant protein powder (1 scoop)'};
+  height:166,age:21,deficit:530,water:3000,roast:'playful',camp:true,autoKcal:true,dayStart:3,sparkGoal:3,backup:'Yogabar Pro Clean Plant Protein (1 scoop)'};
 const clone=o=>JSON.parse(JSON.stringify(o));
 const blank=()=>({v:SCHEMA,cfg:Object.assign({},CFG0),aura:0,stats:{STR:0,VIT:0,AGI:0,SNS:0},startW:84,start:dkey(),weights:{},gates:[],gateDates:{},cycle:{a:dkey(),i:0},cycles:[{a:dkey(),i:0}],rot:{i:0,from:dkey()},shield:{n:1,used:{},checked:{}},passUsed:{},days:{},custom:{},supps:null,
   rehab:{confirmed:false,next:0},routine:clone(HS.ROUTINE_DEFAULT),last:{},pr:{},fatigue:null,pass:{wk:'',used:false},missStreak:0,swept:{},
@@ -3454,7 +3455,7 @@ E.rng=Math.random;
 E.openChest=function(score){
   const d=E.day();if(d.chest)return d.chest;
   const sc=(score||0)+(d.bonusAll?1:0);   /* a clean bonus row lifts the chest one tier */
-  const tier=sc>=4?'epic':sc>=3?'rare':'common',r=E.rng();let aura,crit=false;
+  const tier=sc>=5?'epic':sc>=3?'rare':'common',r=E.rng();let aura,crit=false;
   if(tier==='common')aura=15+Math.floor(r*16);
   else if(tier==='rare'){aura=30+Math.floor(r*41);if(E.rng()<.1){aura*=2;crit=true}}
   else{aura=60+Math.floor(r*61);if(E.rng()<.1){aura=200;crit=true}}
@@ -3506,7 +3507,8 @@ E.finishMeal=function(meal){
 E.dayStatus=function(){
   const d=E.day(),plan=E.planFor(),T=E.T(),tot=E.totals(d);
   const calOk=tot.k>=T.lo&&tot.k<=T.hi,gymOk=plan==='Rest'||d.workout==='done'||d.workout==='pain'||d.workout==='pass',rehOk=!!(d.reh&&d.reh.done);
-  return{plan:plan,T:T,tot:tot,calOk:calOk,gymOk:gymOk,rehOk:rehOk,protOk:!!d.pAward,score:(d.pAward?1:0)+(calOk?1:0)+(gymOk?1:0)+(rehOk?1:0)};
+  /* the day's score is the same six pillars the streak counts (check-in, fuel, protein, move, rehab, water). Staying inside the calorie window is a reward on top, not a seventh pillar. */
+  return{plan:plan,T:T,tot:tot,calOk:calOk,gymOk:gymOk,rehOk:rehOk,protOk:!!d.pAward,pillars:E.pillarsFor(),score:E.pillarsMet()};
 };
 E.closeDay=function(){
   const d=E.day();if(d.closed)return null;
@@ -4890,10 +4892,10 @@ E.on('bonusall',()=>{
 });
 E.on('equip',()=>{F.play('equip');F.vib(12)});
 E.on('clear',st=>{
-  const line=st.score>=3?U.hype('clear'):st.score===2?'Half a day banked. Tomorrow is a clean slate. Never miss twice.':'Rough one. It happens. The System logged it honestly, and that counts. Show up tomorrow.';
+  const line=st.score>=3?U.hype('clear'):st.score>=1?'Part of a day banked. Tomorrow is a clean slate. Never miss twice.':'Rough one. It happens. The System logged it honestly, and that counts. Show up tomorrow.';
   F.burstCenter(st.score>=3?60:20);
   U.cele({kind:'clear',ms:6000,sound:'quest',
-    html:ray+'<h1>DAY CLEARED</h1><div class="big">'+st.score+' / 4</div><p>'+esc(line)+'</p><button class="btn ovbtn" data-a="chestOpen">Open today\'s chest</button>'});
+    html:ray+'<h1>DAY CLEARED</h1><div class="big">'+st.score+' / 6</div><div class="dsl">PILLARS LIT</div><p>'+esc(line)+'</p><button class="btn ovbtn" data-a="chestOpen">Open today\'s chest</button>'});
 });
 E.on('reset',()=>{F.applyTheme();U.render(true)});
 /* another copy of the app saved something: show it, but never rebuild the screen under an open sheet */
@@ -5025,7 +5027,7 @@ U.quests=function(){
     out.push(q);
   });
   out.push(d.pAward?{id:'protein',ic:'prot',st:'done',t:'Protein '+T.protein+' g',s:Math.round(tot.p)+' g locked in',r:'+60'}:{id:'protein',ic:'prot',st:'prog',t:'Protein '+T.protein+' g',s:Math.round(tot.p)+' of '+T.protein+' g',r:'+60'});
-  out.push(d.closed?{id:'close',ic:'moon',st:'done',t:'Clear the day',s:d.score+' of 4 quests',r:(d.delta>=0?'+':'−')+Math.abs(d.delta)}:{id:'close',ic:'moon',st:'todo',t:'Clear the day',s:'Final tally and your chest',r:'+80'});
+  out.push(d.closed?{id:'close',ic:'moon',st:'done',t:'Clear the day',s:d.score+' of 6 pillars',r:(d.delta>=0?'+':'−')+Math.abs(d.delta)}:{id:'close',ic:'moon',st:'todo',t:'Clear the day',s:'Final tally and your chest',r:'+80'});
   return out;
 };
 U.justRow=null;U.pulse=false;
@@ -5296,7 +5298,7 @@ function moreHtml(){
     ${row('goalsOpen','star','This week’s goals',gd+' of '+goals.length+' cleared · resets in '+daysLeft+' day'+(daysLeft===1?'':'s'))}
     ${row('tab:path','path',ng.boss?'Boss gate at '+ng.boss.kg+' kg':'Every boss is down',ng.boss?ng.toBoss.toFixed(1)+' kg to go · trend '+tr.toFixed(1)+' kg':'You reached your goal')}
     ${row('chest','star','Daily chest',chest,d.closed&&!d.chest)}
-    ${row('node:close','moon',d.closed?'Day cleared':'Clear the day',d.closed?d.score+' of 4 quests · '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+' aura':'closes in '+Math.floor(dl/60)+'h '+String(dl%60).padStart(2,'0')+'m',!d.closed&&E.nowMin()>=1140)}
+    ${row('node:close','moon',d.closed?'Day cleared':'Clear the day',d.closed?d.score+' of 6 pillars · '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+' aura':'closes in '+Math.floor(dl/60)+'h '+String(dl%60).padStart(2,'0')+'m',!d.closed&&E.nowMin()>=1140)}
   </div>`;
 }
 function refreshMore(){const el=$('#moreCard');if(!el)return;const t=document.createElement('div');t.innerHTML=moreHtml();el.replaceWith(t.firstElementChild);$('#moreCard').classList.remove('rise')}
@@ -5941,7 +5943,7 @@ const SECS={
       `<div class="fr"><span>Daily streak goal<small class="sub2">pillars to light the day</small></span>${seg('sgoalset',[[3,'Easy 3'],[4,'Steady 4'],[5,'Hard 5']],g)}</div>
        <div class="small">Starting estimates. After two to three weeks, your weight trend should decide whether to move them. The streak goal is how many of the six daily pillars light a day.</div>`}},
   protein:{t:'Protein backup',html:()=>{
-      const c=E.cfg(),cur=c.backup,opts=['Plant protein powder (1 scoop)','Whey protein (1 scoop)','Protein bar (20 g protein)','Protein bar (10 g protein)'].concat(Object.keys(E.S().custom).filter(n=>E.S().custom[n].p100>0));
+      const c=E.cfg(),cur=c.backup,opts=['Yogabar Pro Clean Plant Protein (1 scoop)','Plant protein powder (1 scoop)','Whey protein (1 scoop)','Protein bar (20 g protein)','Protein bar (10 g protein)'].concat(Object.keys(E.S().custom).filter(n=>E.S().custom[n].p100>0));
       return `<div class="hint">For the days food alone will not reach your protein target. When you are short late in the day, Today offers it in one tap.</div>
         ${opts.map(n=>{const f=E.food(n);return f?`<button class="chk" data-a="backupset:${esc(n)}" aria-pressed="${cur===n}"><i>✓</i><span>${esc(n)}<small>${f.kcal} kcal · ${Math.round(f.p)} g protein per ${f.ug} g</small></span></button>`:''}).join('')}
         <button class="chk" data-a="backupset:"><i>✓</i><span>No backup<small>Hide the suggestion</small></span></button>
@@ -6031,7 +6033,7 @@ A.help=function(){
   const sec=(t,b)=>`<div class="sec">${t}</div><div class="hp2">${b}</div>`;
   U.openSheet('How it works',
     sec('Aura and levels','Everything you do earns <b>aura</b>: a weigh-in, a finished plate, a workout, rehab, water, sleep, a cleared day. Aura builds your level. Level 2 needs 200 aura and every level after that needs a little more. A new <b>rank</b> (E, D, C, B, A, S) arrives every six levels: D at level 6 (about 5,000 aura), then C, B, A, and S at level 30. Steady play reaches A around the end of the campaign. Early levels come fast so you feel progress. Later ones are earned.')+
-    sec('Quests and clearing the day','Each day has quests: weigh-in with last night\u2019s sleep, three meals, a workout (or rest), rehab, protein. Four things score the day: <b>protein</b>, <b>calories inside the window</b>, <b>workout</b> and <b>rehab</b>. Three of four is a good day, four of four is a perfect one. Clearing the day pays a calorie bonus and opens a chest: common, rare for 3 of 4, epic for 4 of 4.')+
+    sec('Quests and clearing the day','Each day has quests: weigh-in with last night\u2019s sleep, three meals, a workout (or rest), rehab, protein. One score runs through the whole app, the <b>six pillars</b>: <b>check-in</b>, <b>fuel</b> (two meals logged), <b>protein</b>, <b>move</b> (train, or on a rest day a walk, rehab or 6,000 steps), <b>rehab</b> and <b>water</b>. The same pillars light your streak flame and fill the tally when you clear the day. Three or more is a good day. Clearing pays a bonus when your calories land inside the window and opens a chest: common, rare for 3 or 4 pillars, epic for 5 or 6.')+
     sec('Real penalties','Skipping a session with no pain costs aura and gives you <b>fatigue</b>: aura gains are halved and your level is locked until you train. Missing a planned session without opening the app is punished when you come back. <b>Pain days are never punished</b>, and you get <b>one rest pass a week</b>. Strictness (Chill, Standard, Hard) is in Settings, under Rules and teasing.')+
     sec('Plates and stars','Every finished plate gets up to three stars: one for logging it, one for 25 g of protein or more, one for balance (a veg side, no sugar, not more than half your day\u2019s calories). Stars pay aura. Sugar and outside food cost a little aura, on purpose.')+
     sec('Bonus quests','Under the daily quests sit three small extras: one ticks itself from your data (like logging all three meals), two you tick yourself (a short walk, ten slow breaths). They are optional and skipping them costs nothing. Finish all three and the day\u2019s chest goes up a tier. Thirty bonus quests earn a title.')+
@@ -6538,6 +6540,8 @@ function yestCardioBtn(){
 }
 /* a stepper or toggle inside the sheet redraws it where you are, instead of jumping back to the top */
 const reGym=()=>U.keepScroll(renderGym);
+/* lifts done one side at a time: the reps are counted for each side */
+const oneSided=n=>/split squat|lunge|step[- ]?up|single[- ]?(leg|arm)|one[- ]?(leg|arm)|unilateral/i.test(n||'');
 function renderGym(){
   const sh=U.sh,d=E.day(),plan=E.planFor();stopRest();
   if(sh.step==='cardio'){
@@ -6640,7 +6644,7 @@ function renderLift(){
   list.forEach((ex,xi)=>{
     const st=E.exState(ex),open=sh.exEdit===xi,w0=st.sets[0]?st.sets[0].w:0,over=ex.cap&&st.sets.some(s=>s.w>HS.CAP_KG),fin=st.sets.slice(0,ex.sets).every(s=>s.done),sg=E.suggestW(ex);
     body+=`<div class="ex2${fin?' fin':''}"><div class="ex2h"><button class="ex2c" data-a="exall:${xi}" aria-pressed="${fin}" aria-label="${fin?'Undo all sets of ':'Log all sets of '}${esc(ex.n)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.500l4.500 4.500L19 7.500"/></svg></button>
-      <div class="exn"><b>${esc(ex.n)}</b><small>${esc(ex.g)} · ${ex.sets} × ${ex.reps}</small></div>
+      <div class="exn"><b>${esc(ex.n)}</b><small>${esc(ex.g)} · ${ex.sets} × ${ex.reps}${oneSided(ex.n)?' each side':''}</small></div>
       <button class="exw" data-a="exedit:${xi}" aria-pressed="${open}" aria-label="Weight ${w0?w0+' kilograms':'not set'}, tap to change"><b>${w0||'set'}</b><small>kg</small></button></div>
       <div class="sets">${st.sets.slice(0,ex.sets).map((s,si)=>`<button class="sb${s.done?' done':''}" data-a="set:${xi}:${si}" aria-pressed="${s.done}" aria-label="Set ${si+1}, ${s.r} reps"><b>${s.r}</b><small>${s.w?s.w+' kg':'reps'}</small></button>`).join('')}</div>
       <div class="exl">${esc(lastTxt(ex))}</div>
@@ -6794,7 +6798,7 @@ function renderRehab(){
     <button class="btn vio gstart" data-a="rguide">${pr.done?'Continue the guided session':'Start the guided session'}<small>${left} move${left===1?'':'s'} left · one at a time, left and right sides separately</small></button>
     ${rg.groups.map(g=>`<div class="sec">${esc(g.title)}${g.bonus?' <em>optional</em>':''}<small>${esc(g.sub)}</small></div>${g.items.map(g.cover?cov:row).join('')}`).join('')}
     ${t.finisher!=null&&HS.RDAYS[t.finisher].x.some(e=>e[3])?'<div class="small">Jefferson curl is left out, as you chose.</div>':''}
-    <div class="note">The moves come from your external physio’s written plan (the sheet shows age 19, so confirm it is still current at your next visit). Knee-to-chest is held for 30 seconds on each leg as you asked; the written sheet says 10 seconds, so check that with your physio. Figures are simplified outlines of the movement, not technique advice: ask your physio to show you the exact form. "S/B" is drawn as a Swiss ball.</div>
+    <div class="note">The moves come from your external physio’s written plan (the sheet shows age 19, so confirm it is still current at your next visit). Knee-to-chest is held for 30 seconds on each leg, as your physio confirmed (the printed sheet says 10 seconds). Figures are simplified outlines of the movement, not technique advice: ask your physio to show you the exact form. "S/B" is drawn as a Swiss ball.</div>
     <button class="chk" data-a="rconf" aria-pressed="${S.rehab.confirmed}"><i>✓</i><span>My physio confirmed this plan is current<small>Tick it once they have seen this</small></span></button>
     <div class="sec" id="checkin">Check-in</div>
     <div class="rngl"><span>RIGHT KNEE</span><b id="kv">${r.knee}</b></div><input class="rng" id="kr" type="range" min="0" max="10" value="${r.knee}" aria-label="Right knee pain 0 to 10">
@@ -7021,12 +7025,14 @@ A.wSave=function(){
 U.closeDaySheet=function(){
   U.sh={type:'close'};
   const d=E.day();
-  if(d.closed){U.openSheet('Day cleared','<div class="hint">'+d.score+' of 4 quests. Aura today: '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+'.</div>'+(d.chest?'':'<div class="stack2"><button class="btn vio" data-a="chestOpen">Open today’s chest</button></div>'),'<button class="btn ghost" data-a="close">Close</button>');return}
+  if(d.closed){U.openSheet('Day cleared','<div class="hint">'+d.score+' of 6 pillars. Aura today: '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+'.</div>'+(d.chest?'':'<div class="stack2"><button class="btn vio" data-a="chestOpen">Open today’s chest</button></div>'),'<button class="btn ghost" data-a="close">Close</button>');return}
   const open=U.quests().filter(q=>q.st==='todo'&&!q.opt&&['close','weigh','rehab'].indexOf(q.id)<0).map(q=>q.id==='gym'?'Log your workout':'Log or skip '+q.id);
   if(open.length){U.openSheet('Not yet','<div class="hint">Finish these first, so the tally is honest.</div>'+open.map(o=>'<div class="q"><span>'+esc(o)+'</span><span class="no">OPEN</span></div>').join(''),'<button class="btn ghost" data-a="close">Back</button>');return}
-  const st=E.dayStatus(),T=st.T,tot=st.tot,d2=d;
-  const q=[['Protein '+T.protein+' g',st.protOk,Math.round(tot.p)+' g'],['Calories '+fmt(T.lo)+' to '+fmt(T.hi),st.calOk,fmt(tot.k)],['Workout',st.gymOk,st.plan==='Rest'?'Rest day':({done:'Done',pain:'Pain day',pass:'Rest pass'}[d2.workout]||'Skipped')],['Rehab',st.rehOk,st.rehOk?'Done':'Missed']];
-  U.openSheet('Clear the day','<div class="hint">Last look. Clearing adds your calorie reward and opens your chest.</div>'+q.map(x=>'<div class="q"><span>'+esc(x[0])+'</span><span class="'+(x[1]?'ok':'no')+'">'+(x[1]?'✓ ':'')+esc(x[2])+'</span></div>').join('')+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal does not count. Eating too little costs muscle. If you forgot to log something, go back and add it.</div>':''),'<button class="btn" data-a="lock">Clear it</button>');
+  const st=E.dayStatus(),T=st.T,tot=st.tot;
+  /* the same six pillars as the streak, one list */
+  const rows=st.pillars.map(p=>'<div class="q"><span>'+esc(p.t)+'</span><span class="'+(p.met?'ok':'no')+'">'+(p.met?'✓ ':'')+esc(p.s)+'</span></div>').join('');
+  const cal='<div class="q"><span>Calories '+fmt(T.lo)+' to '+fmt(T.hi)+' <small class="sb2">bonus +80 aura</small></span><span class="'+(st.calOk?'ok':'no')+'">'+(st.calOk?'✓ ':'')+fmt(tot.k)+'</span></div>';
+  U.openSheet('Clear the day','<div class="hint">Last look: '+st.score+' of 6 pillars lit. Clearing opens your chest, and the calorie window pays a bonus on top.</div>'+rows+'<div class="sec">Bonus</div>'+cal+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal does not count. Eating too little costs muscle. If you forgot to log something, go back and add it.</div>':''),'<button class="btn" data-a="lock">Clear it</button>');
 };
 A.lock=function(){
   if(E.day().closed)return;
