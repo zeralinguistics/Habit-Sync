@@ -992,7 +992,7 @@ const pin = (iso) => {
     await cd.evaluate(() => { const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.start = E.keyOffset(-20); S.rot = { i: 3, from: E.dkey() }; E.day(E.keyOffset(-1)).plan = 'Rest'; HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.tab = 'home'; HS.ui.render(true); });
     await cd.waitForTimeout(800);
     ok(await cd.evaluate(() => { const E = HS.E, d = E.day(); d.weighed = true; E.S().weights[E.dkey()] = 83.5; d.done = { breakfast: true, lunch: true }; d.reh = { items: {}, day: 0, knee: 0, back: 0, sharp: false, done: true, n: 5, checked: true }; E.save(); HS.ui.render(); const m = HS.ui.nextMove(); return m.id === 'gym' && /Cardio day/.test(m.title) && /Cardio day/.test(document.querySelector('.move').textContent); }), 'on a rest day, once the scale, lunch and rehab are done, the next move is the cardio day');
-    await cd.evaluate(() => HS.ui.act.gym ? HS.ui.gymSheet() : 0); await cd.waitForTimeout(500);
+    await cd.waitForTimeout(600); await cd.evaluate(() => { HS.ui.clearCele(); HS.ui.gymSheet(); }); await cd.waitForTimeout(500);   /* the day just lit up, so a celebration is in the way */
     await cd.click('[data-a="cardioStart"]'); await cd.waitForTimeout(400);
     await cd.fill('[data-f="rKm"]', '1.6'); await cd.fill('[data-f="wKm"]', '2.5'); await cd.waitForTimeout(200);
     const lv = await cd.evaluate(() => ({ sum: document.querySelector('#cSum').textContent, est: document.querySelector('#cEst').textContent, kept: document.querySelector('[data-f="rKm"]') === document.activeElement || document.querySelector('[data-f="rKm"]').value === '1.6' }));
