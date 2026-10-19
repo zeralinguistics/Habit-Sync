@@ -964,7 +964,7 @@ const pin = (iso) => {
       const aura0 = T.aura; E.sweep();
       o.restPassed = nxt(); o.restAura = T.aura === aura0; o.restFat = E.fatigued();
       /* a Push that was missed is still Push, and the miss costs aura */
-      E.reset(); const U2 = E.S(); U2.welcomed = true; U2.start = E.keyOffset(-10); U2.rot = { i: 0, from: today }; U2.aura = 500; U2.passUsed = { [E.weekKey()]: 1 };
+      E.reset(); const U2 = E.S(); U2.welcomed = true; U2.start = E.keyOffset(-10); U2.rot = { i: 0, from: today }; U2.aura = 500; U2.passUsed = { [E.weekKey()]: 1, [E.addDays(E.weekKey(), -7)]: 1 };   /* no pass left in either week, so the miss is a real one */
       U2.swept = {}; U2.swept[E.keyOffset(-3)] = 1; U2.swept[E.keyOffset(-2)] = 1;
       E.sweep(); o.missedStays = nxt(); o.missedAura = U2.aura < 500; o.yWork = (U2.days[E.keyOffset(-1)] || {}).workout;
       return o;
@@ -991,7 +991,7 @@ const pin = (iso) => {
     await cd.goto(url); await cd.waitForTimeout(800);
     await cd.evaluate(() => { const E = HS.E; E.reset(); const S = E.S(); S.welcomed = true; S.start = E.keyOffset(-20); S.rot = { i: 3, from: E.dkey() }; E.day(E.keyOffset(-1)).plan = 'Rest'; HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.tab = 'home'; HS.ui.render(true); });
     await cd.waitForTimeout(800);
-    ok(await cd.evaluate(() => { const E = HS.E, d = E.day(); d.weighed = true; d.done = { breakfast: true, lunch: true }; d.reh = { items: {}, day: 0, knee: 0, back: 0, sharp: false, done: true, n: 5, checked: true }; E.save(); HS.ui.render(); const m = HS.ui.nextMove(); return m.id === 'gym' && /Cardio day/.test(m.title) && /Cardio day/.test(document.querySelector('.move').textContent); }), 'on a rest day, once the scale, lunch and rehab are done, the next move is the cardio day');
+    ok(await cd.evaluate(() => { const E = HS.E, d = E.day(); d.weighed = true; E.S().weights[E.dkey()] = 83.5; d.done = { breakfast: true, lunch: true }; d.reh = { items: {}, day: 0, knee: 0, back: 0, sharp: false, done: true, n: 5, checked: true }; E.save(); HS.ui.render(); const m = HS.ui.nextMove(); return m.id === 'gym' && /Cardio day/.test(m.title) && /Cardio day/.test(document.querySelector('.move').textContent); }), 'on a rest day, once the scale, lunch and rehab are done, the next move is the cardio day');
     await cd.evaluate(() => HS.ui.act.gym ? HS.ui.gymSheet() : 0); await cd.waitForTimeout(500);
     await cd.click('[data-a="cardioStart"]'); await cd.waitForTimeout(400);
     await cd.fill('[data-f="rKm"]', '1.6'); await cd.fill('[data-f="wKm"]', '2.5'); await cd.waitForTimeout(200);

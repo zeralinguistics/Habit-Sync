@@ -34,7 +34,7 @@ function rehabQ(d){
 }
 U.quests=function(){
   const d=E.day(),plan=E.planFor(),t=E.nowMin(),T=E.T(),tot=E.totals(d),out=[];
-  out.push(d.weighed?{id:'weigh',ic:'scale',st:'done',t:'Weigh-in',s:E.S().weights[E.dkey()].toFixed(1)+' kg'+(d.sleep!=null?' · slept '+d.sleep+' h':''),r:'+15'}:{id:'weigh',ic:'scale',st:'todo',t:'Weigh-in',s:'Before food, plus last night’s sleep',r:'+15'});
+  out.push(d.weighed?{id:'weigh',ic:'scale',st:'done',t:'Weigh-in',s:(E.S().weights[E.dkey()]!=null?E.S().weights[E.dkey()].toFixed(1)+' kg':'Done')+(d.sleep!=null?' · slept '+d.sleep+' h':''),r:'+15'}:{id:'weigh',ic:'scale',st:'todo',t:'Weigh-in',s:'Before food, plus last night’s sleep',r:'+15'});
   U.MEALS.forEach(m=>{
     const k=E.mealKcal(d,m),n=d.items.filter(i=>i.meal===m).length,w=U.WIN[m];
     const q={id:m,ic:'plate',t:cap(m),r:''};
