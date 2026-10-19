@@ -1260,9 +1260,11 @@ const pin = (iso) => {
       const txt = document.querySelector('#shBody').textContent, rows = document.querySelectorAll('#shBody .q').length, met = E.pillarsMet();
       return { txt: txt, rows: rows, met: met };
     });
-    ok(SCO.rows === 7 && ['Check-in', 'Fuel', 'Protein', 'Move', 'Rehab', 'Water'].every(w => SCO.txt.includes(w)) && /bonus \+80 aura/.test(SCO.txt) && /4 of 6 pillars/.test(SCO.txt), 'the Clear the day sheet lists the six streak pillars, with the calorie window as a bonus (' + SCO.met + ' of 6 lit)');
-    await sc.evaluate(() => { HS.ui.act.lock(); }); await sc.waitForTimeout(900);
-    const SC2 = await sc.evaluate(() => ({ score: HS.E.day().score, met: HS.E.pillarsMet(), closed: HS.E.day().closed, ov: document.querySelector('#ovb').textContent }));
+    ok(SCO.rows === 7 && ['Check-in', 'Fuel', 'Protein', 'Rehab', 'Water'].every(w => SCO.txt.includes(w)) && /Train|Move/.test(SCO.txt) && /bonus \+80 aura/.test(SCO.txt) && /4 of 6 pillars/.test(SCO.txt), 'the Clear the day sheet lists the six streak pillars, with the calorie window as a bonus (' + SCO.met + ' of 6 lit)');
+    await sc.evaluate(() => { HS.ui.clearCele(); HS.ui.act.lock(); }); await sc.waitForTimeout(900);
+    /* the day lighting up has its own card; the cleared-day card follows it in the queue */
+    const seen = []; for (let i = 0; i < 4; i++) { seen.push(await sc.evaluate(() => document.querySelector('#ov').classList.contains('on') ? document.querySelector('#ovb').textContent : '')); await sc.evaluate(() => HS.ui.act.ovClose()); await sc.waitForTimeout(700); }
+    const SC2 = await sc.evaluate(() => ({ score: HS.E.day().score, met: HS.E.pillarsMet(), closed: HS.E.day().closed })); SC2.ov = seen.join(' | ');
     ok(SC2.closed && SC2.score === 4 && SC2.score === SC2.met && /4 \/ 6/.test(SC2.ov), 'the cleared day keeps that score and the celebration says 4 / 6 (' + SC2.score + ')');
     ok(await sc.evaluate(() => { const E = HS.E; E.day().chest = null; E.day().bonusAll = false; return [E.openChest(2).tier, (E.day().chest = null, E.openChest(4).tier), (E.day().chest = null, E.openChest(5).tier), (E.day().chest = null, E.openChest(6).tier)].join(); }) === 'common,rare,epic,epic', 'the chest is common below 3 pillars, rare at 3 or 4, epic at 5 or 6');
     /* one-sided moves are counted per side: the knee range-of-motion move and split squats join knee to chest */
