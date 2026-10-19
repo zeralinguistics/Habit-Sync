@@ -158,8 +158,7 @@ U.views.path=function(){
     <div class="tile2 gold"><span>BOSS GATE</span><b>${ng.boss?ng.boss.kg+' kg':'Done'}</b><small>${ng.boss?ng.toBoss.toFixed(1)+' kg to go':'You did it'}</small></div></div>
     ${ng.boss?`<div class="bosshp"><div class="hp"><i style="width:${hp}%"></i></div><small>Boss HP ${Math.round(hp)}%</small></div>`:''}
     <div class="road" id="road"><div class="rin2"><div class="rnode start"><i></i><span>START<br>${S.startW}</span></div>
-    ${lad.map(g=>{const got=S.gates.includes(g.kg),nx=ng.next&&ng.next.kg===g.kg;return `<div class="rnode${got?' got':''}${nx?' nx':''}${g.boss?' boss':''}" ${nx?'id="rnext"':''}>${nx?'<em>YOU</em>':''}<i>${got?'✓':g.boss?'★':''}</i><span>${g.kg}</span></div>`}).join('')}</div></div>
-    <div class="small" style="padding:0 14px 12px;margin-top:0">${S.gates.length} shadow${S.gates.length===1?'':'s'} in your army. Each gate is ${cfg.gateStep} kg of trend. Stars are boss gates: each one opens a new realm and a camp week.</div></div>
+    ${lad.map(g=>{const got=S.gates.includes(g.kg),nx=ng.next&&ng.next.kg===g.kg;return `<div class="rnode${got?' got':''}${nx?' nx':''}${g.boss?' boss':''}" ${nx?'id="rnext"':''}>${nx?'<em>YOU</em>':''}<i>${got?'✓':g.boss?'★':''}</i><span>${g.kg}</span></div>`}).join('')}</div></div></div>
   <button class="card report rise ${E.reviewDue()?'due':''}" style="--i:3;display:block;width:100%;text-align:left" data-a="report"><div class="jct"><span class="jk">WEEKLY REPORT${E.reviewDue()?' <em class="nw">NEW</em>':''}</span><i class="chev">${IC.chev}</i></div><div class="wb rp" style="padding-top:2px">
     <div class="rpg"><div><b>${rep.workouts}</b><span>WORKOUTS</span></div><div><b>${rep.rehab}</b><span>REHAB</span></div><div><b>${rep.protein}</b><span>PROTEIN</span></div><div><b>${rep.water}</b><span>WATER</span></div></div>
     <div class="adv ${rep.advice.tone}"><b>${esc(rep.advice.title)}</b><span>${esc(rep.advice.text)}</span></div></div></button>
@@ -182,7 +181,7 @@ U.views.path=function(){
 /* ---------------- the doors ---------------- */
 A.statsOpen=function(){
   const S=E.S();U.sh={type:'stats'};F.play('nav');
-  U.openSheet('Hunter stats',radar(S.stats)+'<div class="small" style="text-align:center">STR gym · VIT food and water · AGI steps and cardio · SNS rehab, sleep and honesty</div>','<button class="btn ghost" data-a="close">Close</button>');
+  U.openSheet('Hunter stats',radar(S.stats),'<button class="btn ghost" data-a="close">Close</button>');
 };
 A.recoveryOpen=function(){
   const pd=E.painDays(7),greens=pd.filter(x=>E.light(x.r)==='green').length;U.sh={type:'recovery'};F.play('nav');
@@ -193,7 +192,7 @@ A.recoveryOpen=function(){
 A.disciplineOpen=function(){
   const cfg=E.cfg(),fat=E.fatigued(),msg=E.contractMessage('missed a session');U.sh={type:'discipline'};F.play('nav');
   U.openSheet('Discipline',`<div class="dis"><div><span>STATUS</span><b class="${fat?'bad':'ok'}">${fat?'FATIGUED':'READY'}</b></div><div><span>REST PASS</span><b>${E.passLeft()?'1 LEFT':'USED'}</b></div><div><span>RULES</span><b>${cap(cfg.strict).toUpperCase()}</b></div></div>
-    <div class="small">${cfg.contract?'Contract: '+esc(cfg.contract):'No habit contract yet. Add a real-world cost in Settings. A penalty you feel works better than one you ignore.'}</div>
+    ${cfg.contract?'<div class="small">Contract: '+esc(cfg.contract)+'</div>':''}
     <a class="btn ghost lnk" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">Tell my accountability partner</a>`,'<button class="btn ghost" data-a="close">Close</button>');
 };
 A.saveSteps=function(){
@@ -244,18 +243,12 @@ function renderCampaign(){
   };
   const palace=HS.REALMS[HS.REALMS.length-1];
   U.openSheet('The campaign',
-    `<div class="hint">Your whole route from ${S.startW} kg to ${S.cfg.goalW} kg, one realm at a time.</div>
-    <div class="dis"><div><span>GATES</span><b>${pl.gates.length}</b></div><div><span>WEEKS</span><b>${pl.weeks}</b></div><div><span>CAMP WEEKS</span><b>${camps}</b></div></div>
+    `<div class="dis"><div><span>GATES</span><b>${pl.gates.length}</b></div><div><span>WEEKS</span><b>${pl.weeks}</b></div><div><span>CAMP WEEKS</span><b>${camps}</b></div></div>
     <div class="note">At plan pace you cross the finish line around <b>${U.dateY(pl.finish)}</b>. Right now you are ${ex.ahead>=.2?ex.ahead.toFixed(1)+' kg ahead of plan':ex.ahead<=-.2?Math.abs(ex.ahead).toFixed(1)+' kg behind plan':'on plan'}.</div>
     <div class="sec">The realms</div>
     ${pl.realms.map(realmCard).join('')}
     <div class="rc2 final"><div class="rch"><b>FINAL FORM</b><span>${S.gates.indexOf(S.cfg.goalW)>=0?'REACHED':'THE END'}</span></div><div class="rcn">${esc(palace.name)}</div><div class="rcw">Reach ${S.cfg.goalW} kg and the palace opens: gold light, the Halo, the Regalia and the title Shadow Monarch.</div></div>
-    <div class="sec">How the plan adapts</div>
-    <ul class="stop"><li><b>Boss gates</b> lower your daily calories a little (about 60 kcal), so the pace holds as you get lighter.</li>
-    <li><b>Camp weeks</b>: after each boss you eat at maintenance for seven days and train as normal. It protects muscle, mood and your next push.</li>
-    <li><b>Weekly report</b> looks at your real trend and tells you to hold, trim or add food. If you drop faster than about 0.9 kg a week it adds calories, because fast loss costs muscle.</li>
-    <li>Every gate is 0.5 kg of <i>trend</i>, not one scale reading. One heavy day moves it a quarter of the way at most.</li></ul>
-    <div class="small">Dates assume you hold about 0.5 kg a week. Real life varies. If you fall behind, the plan stretches. It never punishes you with a worse target.</div>`,
+`,
     '<button class="btn ghost" data-a="close">Close</button>');
 }
 A.rcopen=function(v){U.sh.open[v]=!U.sh.open[v];U.keepScroll(renderCampaign)};
@@ -265,16 +258,15 @@ A.campaign=function(){F.play('nav');U.campaignSheet()};
 /* the log against the scale, once there are two weeks of both */
 function scaleCheck(){
   const v=E.energyVerdict();
-  if(!v)return'<div class="sec">Log against the scale</div><div class="small">Log meals on 10 of 14 days and weigh in on 7 of them. The System then checks whether what you log matches what the scale does.</div>';
-  return `<div class="sec">Log against the scale</div><div class="adv ${v.tone}"><b>${esc(v.title)}</b><span>${esc(v.text)}</span></div>
-    <div class="small">Your two weeks imply you burn about ${fmt(v.burned)} kcal a day. The formula says ${fmt(v.maint)}.</div>`;
+  if(!v)return'';
+  return `<div class="sec">Log against the scale</div><div class="adv ${v.tone}"><b>${esc(v.title)}</b><span>${esc(v.text)}</span></div>`;
 }
 U.reportSheet=function(){
   U.sh={type:'report'};
   const r=E.report(),tgt=E.T(),S=E.S();
   const row=(l,v,sub)=>`<div class="q"><span>${l}${sub?'<small class="sb2">'+sub+'</small>':''}</span><span>${v}</span></div>`;
   U.openSheet('Weekly report',
-    `<div class="hint">The last seven days, read by the System.</div>
+    `
     <div class="adv ${r.advice.tone}"><b>${esc(r.advice.title)}</b><span>${esc(r.advice.text)}</span></div>
     <div class="sec">The week</div>
     ${row('Days cleared',r.closed+' / 7')}
@@ -288,8 +280,7 @@ U.reportSheet=function(){
     ${row('Sleep, average',r.sleepAvg!=null?r.sleepAvg+' h':'not logged')}
     ${row('Eaten on average',r.kcalAvg!=null?fmt(r.kcalAvg)+' kcal':'no data')}
     ${row('Trend change',r.rate!=null?(r.rate>=0?'−':'+')+Math.abs(r.rate).toFixed(2)+' kg':'needs 4 weigh-ins')}
-    ${scaleCheck()}
-    <div class="note">Trend is the smoothed line, not one reading. Honest logging matters more than a perfect week.</div>`,
+    ${scaleCheck()}`,
     '<button class="btn good" data-a="shareWeek">Share this week</button><button class="btn ghost" data-a="close">Got it</button>');
   E.reviewSeen();
 };
@@ -310,10 +301,9 @@ U.goalsSheet=function(){
     const n=E.streak(k),next=HS.STREAK_STEPS.find(x=>x>n);
     return `<div class="gl2"><div><b>${esc(HS.STREAK_NAMES[k])}</b><small>${next?next-n+' more day'+(next-n===1?'':'s')+' to the '+next+'-day reward (+'+HS.STREAK_AURA[next]+')':'Every milestone cleared. Legend.'}</small><div class="xp"><i style="width:${next?Math.min(100,n/next*100):100}%"></i></div></div><span class="fl">${U.flame(n)}<b>${n}</b></span></div>`}).join('');
   U.openSheet('Goals and streaks',
-    `<div class="hint">Five goals each week, picked fresh every Monday. They reset in ${daysLeft} day${daysLeft===1?'':'s'}.</div>
+    `<div class="hint">Resets in ${daysLeft} day${daysLeft===1?'':'s'}</div>
     ${goals.map(card).join('')}
     <div class="sec">Streaks</div>
-    <div class="small" style="margin-top:0">Milestones at ${HS.STREAK_STEPS.join(', ')} days pay ${HS.STREAK_STEPS.map(s=>'+'+HS.STREAK_AURA[s]).join(', ')} aura. Training streaks ignore rest days and pain days. The clear streak forgives one off day, because never missing <i>twice</i> is the rule that works.</div>
     ${strk}`,
     '<button class="btn ghost" data-a="close">Close</button>');
 };

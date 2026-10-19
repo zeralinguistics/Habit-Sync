@@ -16,7 +16,7 @@ function rehabMinutes(){const k=E.rehabKeys().filter(x=>x!=='aero');return Math.
 function gymQ(d,plan){
   if(plan==='Rest'&&!d.sess){
     if(d.cardio){const m=d.mins||{};return{id:'gym',ic:'check',st:'done',t:'Cardio day',s:(m.walk?m.walk+' min walk':'')+(m.walk&&m.run?' \u00B7 ':'')+(m.run?m.run+' min run':'')+(d.burn?' \u00B7 ~'+fmt(d.burn)+' kcal':''),r:'+60'}}
-    return{id:'gym',ic:'walk',st:'todo',t:'Cardio day',s:'Easy walk or a run. Optional.',r:'+60',opt:true};
+    return{id:'gym',ic:'walk',st:'todo',t:'Cardio day',s:'Easy walk or a run',r:'+60',opt:true};
   }
   const n=E.routine(plan).length;
   if(d.workout==='done')return{id:'gym',ic:'check',st:'done',t:plan+' day',s:'Done'+(d.burn?' · ~'+fmt(d.burn)+' kcal burned':''),r:'+100'};
@@ -34,7 +34,7 @@ function rehabQ(d){
 }
 U.quests=function(){
   const d=E.day(),plan=E.planFor(),t=E.nowMin(),T=E.T(),tot=E.totals(d),out=[];
-  out.push(d.weighed?{id:'weigh',ic:'scale',st:'done',t:'Weigh-in',s:(E.S().weights[E.dkey()]!=null?E.S().weights[E.dkey()].toFixed(1)+' kg':'Done')+(d.sleep!=null?' · slept '+d.sleep+' h':''),r:'+15'}:{id:'weigh',ic:'scale',st:'todo',t:'Weigh-in',s:'Before food, plus last night’s sleep',r:'+15'});
+  out.push(d.weighed?{id:'weigh',ic:'scale',st:'done',t:'Weigh-in',s:(E.S().weights[E.dkey()]!=null?E.S().weights[E.dkey()].toFixed(1)+' kg':'Done')+(d.sleep!=null?' · slept '+d.sleep+' h':''),r:'+15'}:{id:'weigh',ic:'scale',st:'todo',t:'Weigh-in',s:'Weight and sleep',r:'+15'});
   U.MEALS.forEach(m=>{
     const k=E.mealKcal(d,m),n=d.items.filter(i=>i.meal===m).length,w=U.WIN[m];
     const q={id:m,ic:'plate',t:cap(m),r:''};
@@ -70,39 +70,39 @@ U.nextMove=function(){
   if(d.closed){
     if(!d.chest)return mk('chest','star','Open today’s chest','You cleared the day. Loot is waiting.','?');
     const left=E.bonusToday().filter(b=>!b.done);
-    if(left.length)return mk('bonus','bolt','Bonus quests',left.length+' left today. Easy points, no penalty.','+'+left.reduce((a,b)=>a+b.a,0));
-    return mk('rest','moon','Day cleared','Nothing left. Sleep is the last quest: aim for 7 hours.','');
+    if(left.length)return mk('bonus','bolt','Bonus quests',left.length+' left today','+'+left.reduce((a,b)=>a+b.a,0));
+    return mk('rest','moon','Day cleared','Nothing left. Get some sleep.','');
   }
   const gq=q('gym'),restDay=plan==='Rest'&&!d.sess,open=gq&&gq.st==='todo'&&!restDay;
-  if(fat&&open)return mk('gym','gym','Break the fatigue','Finish '+plan+' day to lift the level lock and the aura penalty.','+100');
+  if(fat&&open)return mk('gym','gym','Break the fatigue','Finish '+plan+' day to lift the level lock','+100');
   /* the streak is on the line: point at the easiest pillar still dark */
   const si=E.sparkInfo();
   if(!d.spark&&si.n>=2&&m>=1080){
     const pil=E.pillarsFor(),need=E.sparkGoal()-pil.filter(p=>p.met).length,easy=['check','water','fuel','rehab','protein','move'].map(id=>pil.find(p=>p.id===id)).find(p=>!p.met);
     if(easy&&need>0){
       const to={check:'weigh',water:'water',fuel:U.mealNow()==='snack'?'dinner':U.mealNow(),rehab:'rehab',protein:'protein',move:'gym'}[easy.id];
-      return mk(to,'flame','Keep your '+si.n+'-day flame',need+' more pillar'+(need>1?'s':'')+' to light today. Easiest: '+easy.t.toLowerCase()+'.','');
+      return mk(to,'flame','Keep your '+si.n+'-day flame',need+' more pillar'+(need>1?'s':'')+' to light today. Easiest: '+easy.t.toLowerCase(),'');
     }
   }
-  if(!d.weighed&&m<720)return mk('weigh','scale','Step on the scale','Before food. Then tell the System how you slept.','+15');
+  if(!d.weighed&&m<720)return mk('weigh','scale','Step on the scale','Before food, then log your sleep','+15');
   for(let i=0;i<3;i++){
     const ml=U.MEALS[i],w=U.WIN[ml],mq=q(ml);
     if(mq&&mq.st==='todo'&&m>=w[0]-30&&m<=w[1]+90){
       const mm=E.mealKcal(d,ml);
-      return mk(ml,'plate','Log '+ml,mm?fmt(mm)+' kcal so far. Add more or finish the plate.':'Window '+hhmm(w[0])+' to '+hhmm(w[1])+'. Build your plate, 10 seconds.','+'+E.rateMeal(ml).stars*4);
+      return mk(ml,'plate','Log '+ml,mm?fmt(mm)+' kcal so far':hhmm(w[0])+' to '+hhmm(w[1]),'+'+E.rateMeal(ml).stars*4);
     }
   }
-  if(open)return mk('gym','gym','Train: '+plan,E.routine(plan).length+' exercises, one tap each. Different session today? Change it inside.','+100');
+  if(open)return mk('gym','gym','Train: '+plan,E.routine(plan).length+' exercises','+100');
   const rq=q('rehab');
-  if(rq&&rq.st==='todo')return mk('rehab','rehab','Rehab session',rq.s+'. Your physio’s list, one move at a time.','+'+U.rehabAura(E.rehabProgress().total));
-  if(restDay&&gq&&gq.st==='todo'&&m<1260)return mk('gym','walk','Cardio day','Rest day: an easy walk or run, then note how the knee felt.','+60');
-  if(!d.weighed)return mk('weigh','scale','Weigh in','Even late counts. Data beats guessing.','+15');
+  if(rq&&rq.st==='todo')return mk('rehab','rehab','Rehab session',rq.s,'+'+U.rehabAura(E.rehabProgress().total));
+  if(restDay&&gq&&gq.st==='todo'&&m<1260)return mk('gym','walk','Cardio day','Easy walk or a run','+60');
+  if(!d.weighed)return mk('weigh','scale','Weigh in','Even late counts','+15');
   const mpend=U.MEALS.find(ml=>{const mq=q(ml);return mq&&mq.st==='todo'&&m>U.WIN[ml][0]});
-  if(mpend)return mk(mpend,'plate','Log '+mpend,'Still open. Fast taps, no judgement.','+8');
-  if((d.water||0)<E.waterPace()-300)return mk('water','drop','Drink water',fmt(d.water||0)+' of '+fmt(E.cfg().water)+' ml. A bottle now catches you up.','+30');
-  if(!d.pAward)return mk('protein','prot','Close the protein gap',fmt(Math.max(0,T.protein-E.totals(d).p))+' g to go. Eggs, soya or chicken do it.','+60');
-  if(E.nowMin()>=1140||qs.every(x=>x.id==='close'||x.st!=='todo'||x.opt))return mk('close','moon','Clear the day','Final tally, then your chest.','+80');
-  return mk('close','moon','You are ahead of the day','Keep going, or clear the day when you are done.','');
+  if(mpend)return mk(mpend,'plate','Log '+mpend,'Still open','+8');
+  if((d.water||0)<E.waterPace()-300)return mk('water','drop','Drink water',fmt(d.water||0)+' of '+fmt(E.cfg().water)+' ml','+30');
+  if(!d.pAward)return mk('protein','prot','Close the protein gap',fmt(Math.max(0,T.protein-E.totals(d).p))+' g to go','+60');
+  if(E.nowMin()>=1140||qs.every(x=>x.id==='close'||x.st!=='todo'||x.opt))return mk('close','moon','Clear the day','Final tally and your chest','+80');
+  return mk('close','moon','You are ahead of the day','Clear the day when you are done','');
 };
 A.move=function(){
   const mv=U.nextMove();
@@ -147,19 +147,22 @@ const BOTTLE='M16 4h12v8c0 4 10 6 10 18v34a6 6 0 0 1-6 6H12a6 6 0 0 1-6-6V30c0-1
 function waterLevel(){const d=E.day(),c=E.cfg();return Math.max(0,Math.min(1,(d.water||0)/c.water))}
 function waterTile(){
   const d=E.day(),c=E.cfg(),y=70-waterLevel()*54,py=prev.wy!=null?prev.wy:70;
-  return `<div class="tw water${d.waterHit?' hit':''}" id="waterTile"><button class="wmain" data-a="water" aria-label="Drink 250 millilitres. ${fmt(d.water||0)} of ${fmt(c.water)}">
-    <svg class="bottle" viewBox="0 0 44 72" aria-hidden="true"><defs><clipPath id="botclip"><path d="${BOTTLE}"/></clipPath></defs>
+  return `<div class="trow water${d.waterHit?' done hit':''}" id="waterTile" style="--c:#3aa8ff"><button class="wmain" data-a="water" aria-label="Drink 250 millilitres. ${fmt(d.water||0)} of ${fmt(c.water)}">
+    <span class="tic"><svg class="bottle" viewBox="0 0 44 72" aria-hidden="true"><defs><clipPath id="botclip"><path d="${BOTTLE}"/></clipPath></defs>
       <g clip-path="url(#botclip)"><g class="wlev" id="wlev" style="transform:translateY(${py}px)"><path class="wwave" d="M-30 0q7.500-5 15 0t15 0t15 0t15 0t15 0t15 0t15 0t15 0V80H-30z"/><path class="wwave b" d="M-22 2q7.500-5 15 0t15 0t15 0t15 0t15 0t15 0t15 0t15 0V80H-22z"/></g></g>
-      <path class="botline" d="${BOTTLE}"/><rect class="botcap" x="17" y="1" width="10" height="4" rx="1.500"/></svg>
-    <span class="tv"><b id="wTxt">${((d.water||0)/1000).toFixed(2).replace(/0$/,'')}</b> / ${(c.water/1000).toFixed(1)} L</span><span class="tl" id="wLbl">${d.waterHit?'TARGET HIT':'TAP +250 ML'}</span></button>
+      <path class="botline" d="${BOTTLE}"/><rect class="botcap" x="17" y="1" width="10" height="4" rx="1.500"/></svg></span>
+    <span class="tm"><b>Water</b><small><span id="wTxt">${((d.water||0)/1000).toFixed(2).replace(/0$/,'')}</span> of ${(c.water/1000).toFixed(1)} L</small><i class="wbar"><u id="wbar" style="width:${Math.round(waterLevel()*100)}%"></u></i></span>
+    <em class="tr" id="wLbl">${d.waterHit?'Done':'+250 ml'}</em></button>
     <button class="wundo" data-a="waterUndo" aria-label="Undo 250 millilitres">${IC.minus}</button></div>`;
 }
 function setWaterVisual(){
   const d=E.day(),c=E.cfg(),y=70-waterLevel()*54;
   const lev=$('#wlev');if(lev)lev.style.transform='translateY('+y+'px)';prev.wy=y;
   const t=$('#wTxt');if(t)t.textContent=((d.water||0)/1000).toFixed(2).replace(/0$/,'');
-  const l=$('#wLbl');if(l)l.textContent=d.waterHit?'TARGET HIT':'TAP +250 ML';
-  const tile=$('#waterTile');if(tile)tile.classList.toggle('hit',!!d.waterHit);
+  const l=$('#wLbl');if(l)l.textContent=d.waterHit?'Done':'+250 ml';
+  const bar=$('#wbar');if(bar)bar.style.width=Math.round(waterLevel()*100)+'%';
+  const tile=$('#waterTile');if(tile){tile.classList.toggle('hit',!!d.waterHit);tile.classList.toggle('done',!!d.waterHit)}
+  const tc=$('#tcount');if(tc)tc.textContent=document.querySelectorAll('#taskCard .trow.done').length+' of 4';
 }
 A.water=function(){
   const hit=E.addWater(250);
@@ -177,7 +180,7 @@ let chestBusy=false;
 A.chest=function(){
   const d=E.day();
   if(d.chest){U.sys('Opened: '+d.chest.tier+' chest, +'+d.chest.aura+' aura. A new one tomorrow.','');return}
-  if(!d.closed){U.sys('Clear the day first. 3 of 4 quests makes it a rare chest, 4 of 4 an epic one.','');F.play('shake');return}
+  if(!d.closed){U.sys('Clear the day first.','');F.play('shake');return}
   A.chestOpen();
 };
 A.chestOpen=function(){
@@ -206,9 +209,9 @@ function bonusRow(b,i){
 }
 function bonusHead(row){
   const n=row.filter(b=>b.done).length;
-  return n===row.length?'3 of 3. Your chest goes up a tier.':n+' of 3 done. Optional, no penalty.';
+  return n===row.length?'3 of 3. Your chest goes up a tier.':n+' of 3 done';
 }
-function bonusBody(){const row=E.bonusToday();return `<div class="hint" id="bonusHd">${bonusHead(row)}</div><div class="bonusbox" id="bonusRows">${row.map(bonusRow).join('')}</div><div class="small">One ticks itself from your data, two you tick yourself. A clean row of three lifts the day's chest one tier.</div>`}
+function bonusBody(){const row=E.bonusToday();return `<div class="hint" id="bonusHd">${bonusHead(row)}</div><div class="bonusbox" id="bonusRows">${row.map(bonusRow).join('')}</div>`}
 A.bonusSheet=function(){F.play('tap');U.sh={type:'bonus'};U.openSheet('Bonus quests',bonusBody(),'<button class="btn ghost" data-a="close">Close</button>')};
 /* redraw the bonus rows in the open sheet, so the rest of the screen does not move */
 U.refreshBonus=function(justId){
@@ -229,30 +232,12 @@ A.bonus=function(id){
   if(on&&fresh){const el=document.querySelector('#bonusRows [data-a="bonus:'+id+'"]');if(el)F.burstAt(el.querySelector('.qic')||el,18,['#f5c451','#ffffff','#3aa8ff']);U.bubble(U.hype('bonus'),'good');U.bump()}
 };
 
-/* ---------------- the streak card ---------------- */
-const dayDot={lit:'lit',shield:'shield',safe:'safe',open:'open',miss:'miss',future:'future',before:'future'};
-function weekRow(){
-  return '<div class="skw" role="img" aria-label="This week">'+E.sparkWeek().map(x=>`<div class="skd ${dayDot[x.st]}${x.today?' today':''}${x.n>=6&&x.st==='lit'?' perfect':''}"><i>${x.st==='lit'?'<svg viewBox="-14 -44 28 46"><path d="M0 0 C-10 -4 -12 -16 -4 -24 C-3 -18 0 -16 1 -20 C2 -28 -2 -32 2 -40 C10 -30 14 -14 8 -4 C6 -1 3 0 0 0 Z"/></svg>':x.st==='shield'?IC.shield:x.st==='safe'?IC.heart:x.st==='miss'?'':''}</i><b>${x.d}</b></div>`).join('')+'</div>';
+/* ---------------- the streak: a small chip in the top bar. The week, the pillars and the shields are in the sheet behind it ---------------- */
+function streakChip(){
+  const n=E.sparkInfo().n,goal=E.sparkGoal(),met=E.pillarsMet(),lit=met>=goal||!!E.day().spark,risk=!lit&&n>=2&&E.nowMin()>=1080;
+  return `<button class="chip skc ${lit?'lit':risk?'risk':n?'warm':'cold'}" data-a="streaks" id="skCard" aria-label="${n} day streak. ${met} of 6 pillars lit today, ${goal} needed.">${U.flame(lit||n?n:0)}<b>${n}</b></button>`;
 }
-function streakNote(si,met,goal,lit){
-  const hr=E.nowMin()/60,n=si.n;
-  if(lit)return{c:'good',t:met>=6?'Perfect day. All six pillars lit.':'Today’s flame is lit. '+(met<6?(6-met)+' more for a perfect day.':'')};
-  const need=goal-met;
-  if(n>=2&&hr>=18)return{c:'risk',t:need+' more pillar'+(need>1?'s':'')+' to keep your '+n+'-day flame. Tonight counts.'};
-  if(n>=1)return{c:'info',t:need+' more pillar'+(need>1?'s':'')+' to light today and make it '+(n+1)+'.'};
-  return{c:'info',t:'Light '+goal+' pillars today to start a streak.'};
-}
-function streakHtml(){
-  const si=E.sparkInfo(),n=si.n,goal=E.sparkGoal(),pil=E.pillarsFor(),met=pil.filter(p=>p.met).length,lit=met>=goal,note=streakNote(si,met,goal,lit),sh=E.S().shield.n,best=Math.max(E.S().bestStreak||0,n);
-  return `<button class="sk ${lit?'lit':note.c==='risk'?'risk':''}" data-a="streaks" id="skCard" aria-label="${n} day streak. ${met} of 6 pillars lit today, ${goal} needed.">
-    <div class="skt"><div class="skf">${U.flame(lit||n?n:0)}</div>
-      <div class="skm"><b>${n}</b><span>day streak</span></div>
-      <div class="sks" title="Streak shields">${IC.shield}<b>${sh}</b></div></div>
-    ${weekRow()}
-    <div class="skp"><div class="skb">${pil.map(p=>`<i class="${p.met?'on':''}"></i>`).join('')}<u style="left:${goal/6*100}%"></u></div><span class="skn ${note.c}">${esc(note.t)}</span></div>
-    ${best>n?'<small class="skbest">Best '+best+' days</small>':''}</button>`;
-}
-function refreshStreak(){const el=$('#skCard');if(!el)return;const t=document.createElement('div');t.innerHTML=streakHtml();el.replaceWith(t.firstElementChild)}
+function refreshStreak(){const el=$('#skCard');if(!el)return;const t=document.createElement('div');t.innerHTML=streakChip();el.replaceWith(t.firstElementChild)}
 
 /* ---------------- fuel: calories, protein, macros, meals ---------------- */
 function mealBtn(m,qs){
@@ -272,8 +257,7 @@ A.backupAdd=function(){
   U.sys(f.name+' added: +'+Math.round(f.p)+' g protein.','good',true);U.render();
 };
 function fuelHtml(qs){
-  const d=E.day(),T=E.T(),tot=E.totals(d),camp=E.campInfo(),left=T.kcal-tot.k,kp=Math.min(100,tot.k/T.kcal*100),pp=Math.min(100,tot.p/T.protein*100),en=E.energyDay(d);
-  const hs=E.S().health&&E.S().health.on&&en.act!=null;
+  const d=E.day(),T=E.T(),tot=E.totals(d),camp=E.campInfo(),left=T.kcal-tot.k,kp=Math.min(100,tot.k/T.kcal*100),pp=Math.min(100,tot.p/T.protein*100);
   return `<div class="card fuel rise" style="--i:2">
     <button class="fuelt" data-a="nutri" aria-label="Open today's nutrition">
       <div class="rings${U.pulse?' pulse':''}" role="img" aria-label="${fmt(tot.k)} of ${fmt(T.kcal)} kilocalories, ${Math.round(tot.p)} of ${T.protein} grams protein"><svg viewBox="0 0 100 100" aria-hidden="true">
@@ -284,26 +268,26 @@ function fuelHtml(qs){
         <div class="fp"><b>${Math.round(tot.p)}</b><span>/ ${T.protein} g protein</span></div>
         <div class="fmac"><span><b>${Math.round(tot.c||0)}</b> g carbs</span><span><b>${Math.round(tot.f||0)}</b> g fat</span><span><b>${Math.round(tot.fi||0)}</b> g fibre</span></div></div>
       <i class="chev">${IC.chev}</i></button>
-    ${hs?`<div class="fbal"><span>Burned so far (Samsung Health): about <b>${fmt(en.out)}</b> = ${fmt(en.rest)} resting + ${fmt(en.act)} active. Eaten minus burned so far:</span><b>${en.net<=0?'−':'+'}${fmt(Math.abs(en.net))} kcal</b></div>`:''}
     ${gapHtml()}
     <div class="meals3">${U.MEALS.map(m=>mealBtn(m,qs)).join('')}</div>
     <button class="link snk" data-a="snack">Ate something else? Log a snack</button></div>`;
 }
 
-/* ---------------- train, rehab, check-in tiles ---------------- */
-function tile(id,ic,title,sub,st,reward,extra){
-  return `<button class="tl2 ${st}${U.justRow===id&&st==='done'?' just':''}" data-a="node:${id}" aria-label="${esc(title+', '+sub)}"><span class="tli">${st==='done'?IC.check:IC[ic]}</span><b>${esc(title)}</b><small>${esc(sub)}</small>${reward&&st!=='done'?'<em>'+esc(reward)+'</em>':''}${extra||''}</button>`;
+/* ---------------- today's tasks: one clean list ---------------- */
+function trow(id,ic,title,sub,st,reward,c){
+  const mark=st==='done'?IC.check:st==='miss'?IC.x:IC[ic];
+  return `<button class="trow ${st}${U.justRow===id&&st==='done'?' just':''}" data-a="node:${id}" style="--c:${c}" aria-label="${esc(title+', '+sub)}"><span class="tic">${mark}</span><span class="tm"><b>${esc(title)}</b><small>${esc(sub)}</small></span>${reward&&st!=='done'?'<em class="tr">'+esc(reward)+'</em>':''}</button>`;
 }
-function tilesHtml(qs){
-  const d=E.day(),plan=E.planFor(),g=qs.find(x=>x.id==='gym'),r=qs.find(x=>x.id==='rehab'),w=qs.find(x=>x.id==='weigh'),t=E.rehabToday();
+function tasksHtml(qs){
+  const d=E.day(),plan=E.planFor(),g=qs.find(x=>x.id==='gym'),r=qs.find(x=>x.id==='rehab'),w=qs.find(x=>x.id==='weigh');
   const gSt=g.st==='todo'?'todo':g.st==='miss'?'miss':g.st==='skip'?'skip':'done';
   const rest=plan==='Rest'&&!d.sess;
   const gTitle=rest?'Cardio day':d.workout==='done'?plan+' done':'Train · '+plan;
-  const gSub=rest&&!d.cardio?'Rest from lifting. Easy walk or a run':g.s;
-  const nxt=E.ROT[(E.ROT.indexOf(plan)+1)%4];
-  const rSub=r.st==='done'?r.s:(HS.REHAB_FOR[plan]||'Daily block')+' · '+r.s.replace(/ · gentle.*/,'');
-  return `<div class="duo2 rise" style="--i:3">${tile('gym',rest?'walk':'gym',gTitle,gSub,rest&&!d.cardio?'rest':gSt,g.r)}${tile('rehab','rehab','Rehab',rSub,r.st==='done'?'done':'todo',r.r)}</div>
-    <div class="duo2 rise" style="--i:4">${tile('weigh','scale','Check-in',w.s,w.st==='done'?'done':'todo',w.r)}${waterTile()}</div>`;
+  const gSub=rest&&!d.cardio?'Easy walk or a run':g.s;
+  const rSub=r.st==='done'?r.s:(HS.REHAB_FOR[plan]||'Daily block').replace(/ and a walk/,'')+' · '+r.s.replace(/ · gentle.*/,'').replace(/ · about /,' · ');
+  const n=[w.st==='done',gSt==='done',r.st==='done',!!d.waterHit].filter(Boolean).length;
+  return `<div class="sect rise" style="--i:3"><h3>Today</h3><span id="tcount">${n} of 4</span></div>
+    <div class="card tlist rise" style="--i:3" id="taskCard">${trow('weigh','scale','Check-in',w.s,w.st==='done'?'done':'todo',w.r,'#8b5cff')}${trow('gym',rest?'walk':'gym',gTitle,gSub,rest&&!d.cardio?'cardio':gSt,g.r,'#ff7a45')}${trow('rehab','rehab','Rehab',rSub,r.st==='done'?'done':'todo',r.r,'#3ddc97')}${waterTile()}</div>`;
 }
 
 /* ---------------- the quiet list at the bottom ---------------- */
@@ -311,47 +295,43 @@ function moreHtml(){
   const goals=E.goalsActive(),gd=goals.filter(g=>g.done).length,bn=E.bonusToday(),bd=bn.filter(b=>b.done).length,d=E.day(),ng=E.nextGates(),tr=E.trend();
   const daysLeft=7-E.di(),dl=Math.max(0,1440+(E.cfg().dayStart||0)*60-E.nowMin());
   const row=(a,ic,t,s,hi)=>`<button class="mrow${hi?' hi':''}" data-a="${a}"><span class="mri">${IC[ic]}</span><span class="mrm"><b>${esc(t)}</b><small>${esc(s)}</small></span><i class="chev">${IC.chev}</i></button>`;
-  const chest=d.chest?'Opened: '+d.chest.tier+', +'+d.chest.aura+' aura':d.closed?'Ready to open':'Opens when you clear the day';
-  return `<div class="card more rise" id="moreCard" style="--i:5">
-    ${row('bonusSheet','bolt','Bonus quests',bd+' of 3 · optional, no penalty')}
-    ${row('goalsOpen','star','This week’s goals',gd+' of '+goals.length+' cleared · resets in '+daysLeft+' day'+(daysLeft===1?'':'s'))}
-    ${row('tab:path','path',ng.boss?'Boss gate at '+ng.boss.kg+' kg':'Every boss is down',ng.boss?ng.toBoss.toFixed(1)+' kg to go · trend '+tr.toFixed(1)+' kg':'You reached your goal')}
-    ${row('chest','star','Daily chest',chest,d.closed&&!d.chest)}
-    ${row('node:close','moon',d.closed?'Day cleared':'Clear the day',d.closed?d.score+' of 6 pillars · '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+' aura':'closes in '+Math.floor(dl/60)+'h '+String(dl%60).padStart(2,'0')+'m',!d.closed&&E.nowMin()>=1140)}
-  </div>`;
+  const ready=d.closed&&!d.chest;
+  const clear=d.closed
+    ?`<div class="clearbar done"><span class="tic">${IC.check}</span><span class="tm"><b>Day cleared</b><small>${d.score} of 6 pillars · ${d.delta>=0?'+':'−'}${Math.abs(d.delta)} aura</small></span></div>`
+    :`<button class="clearbar${E.nowMin()>=1140?' hi':''}" data-a="node:close"><span class="tic">${IC.moon}</span><span class="tm"><b>Clear the day</b><small>closes in ${Math.floor(dl/60)}h ${String(dl%60).padStart(2,'0')}m</small></span><em class="tr">+80</em></button>`;
+  return `<div id="moreCard" class="moreg rise" style="--i:5"><div class="card tlist">
+    ${row('bonusSheet','bolt','Bonus quests',bd+' of 3')}
+    ${row('goalsOpen','star','Weekly goals',gd+' of '+goals.length+' · '+daysLeft+' day'+(daysLeft===1?'':'s')+' left')}
+    ${row('tab:path','path',ng.boss?'Boss gate · '+ng.boss.kg+' kg':'Every boss is down',ng.boss?ng.toBoss.toFixed(1)+' kg to go':'Goal reached')}
+    ${ready?row('chest','star','Open today’s chest','Ready',true):''}
+  </div>${clear}</div>`;
 }
 function refreshMore(){const el=$('#moreCard');if(!el)return;const t=document.createElement('div');t.innerHTML=moreHtml();el.replaceWith(t.firstElementChild);$('#moreCard').classList.remove('rise')}
 A.goalsOpen=function(){F.play('nav');U.goalsSheet()};
 
 /* ---------------- the home screen ---------------- */
-function bossHpPct(ng,tr,S){
-  if(!ng.boss)return 0;
-  const bosses=E.bossKgs(),i=bosses.indexOf(ng.boss.kg),from=i>0?bosses[i-1]:S.startW;
-  const span=from-ng.boss.kg;
-  return span>0?Math.max(0,Math.min(100,(tr-ng.boss.kg)/span*100)):100;
-}
 U.views.home=function(){
   const S=E.S(),cfg=E.cfg(),L=E.lv(),fat=E.fatigued(),qs=U.quests(),mv=U.nextMove(),camp=E.campInfo(),bl=bubbleLine(),d=E.day(),T=E.T(),tot=E.totals(d);
   const title=(HS.ITEM_BY_ID[S.equip.title]||{}).name||'Rookie Hunter';
-  const kp=Math.min(100,tot.k/T.kcal*100),pp=Math.min(100,tot.p/T.protein*100);
-  let h=`<section class="scene short${fat?' fat':''}" style="--rc:var(--glow);--pw:${Math.min(1,L.L/40).toFixed(2)}">
-    ${HS.avatar.scene(S.realm)}
-    <div class="aglow"></div>
-    <div class="ground"><svg viewBox="0 0 300 300" aria-hidden="true"><circle cx="150" cy="150" r="140" class="r1"/><circle cx="150" cy="150" r="108" class="r2"/><circle cx="150" cy="150" r="76" class="r3"/></svg></div>
-    <div class="army">${HS.avatar.army(S.gates.length)}</div>
+  const kp=Math.min(100,tot.k/T.kcal*100),pp=Math.min(100,tot.p/T.protein*100),sh=S.shield.n;
+  let h=`<header class="hb rise${fat?' fat':''}" style="--i:0">
+    <button class="hb-id" data-a="tab:armory" aria-label="Your hunter">
+      <span class="rbadge" style="color:${RCOL[L.rank]}"><svg viewBox="0 0 58 64" aria-hidden="true"><polygon points="29,2 55,17 55,47 29,62 3,47 3,17" fill="rgba(6,12,26,.85)" stroke="currentColor" stroke-width="3"/></svg><b>${L.rank}</b></span>
+      <span class="who"><b>${esc(cfg.name||'PLAYER')}</b><small>Level ${L.L}${L.locked?' · locked':''}${fat?' · <i class="fatl">fatigued</i>':''}</small></span></button>
+    ${streakChip()}
+    <button class="chip shc" data-a="streaks" aria-label="${sh} streak shield${sh===1?'':'s'}">${IC.shield}<b>${sh}</b></button>
+    <button class="chip auc" data-a="tab:armory" aria-label="Aura ${fmt(S.aura)}">${IC.star}<b id="auraNum">${fmt(S.aura)}</b></button>
+  </header>
+  <div class="hb-xp rise" style="--i:0" aria-label="Aura ${fmt(L.have)} of ${fmt(L.need)} to level ${L.L+1}"><i id="xpFill" style="width:${prev.xp!=null?prev.xp:0}%"></i></div>
+  <div class="hrow rise${fat?' fat':''}" style="--i:1">
     <button class="hero-av sm" data-a="poke" aria-label="Poke your hunter">${HS.avatar.svg(S.equip,{mood:E.mood()})}</button>
-    <div class="s-top"><div class="rbadge" style="color:${RCOL[L.rank]}"><svg viewBox="0 0 58 64" aria-hidden="true"><polygon points="29,2 55,17 55,47 29,62 3,47 3,17" fill="rgba(6,12,26,.85)" stroke="currentColor" stroke-width="2.5"/></svg><b>${L.rank}</b></div>
-      <div class="who"><b>${esc(cfg.name||'PLAYER')}</b><span>LEVEL ${L.L}${L.locked?' · LOCKED':''}${fat?' · <i class="fatl">FATIGUED</i>':''}</span><small>« ${esc(title)} »</small></div>
-      <div class="aur"><b id="auraNum">${fmt(S.aura)}</b><span>AURA</span></div></div>
     <div class="bubble ${bl.tone}" id="bubble">${esc(bl.t)}</div>
-    <div class="s-bot"><div class="xp"><i id="xpFill" style="width:${prev.xp!=null?prev.xp:0}%"></i></div><div class="xpt">${L.locked?'LEVEL UP READY. LOCKED BY FATIGUE':'AURA '+fmt(L.have)+' / '+fmt(L.need)+' TO LEVEL '+(L.L+1)}</div></div>
-  </section>
-  <div class="rise" style="--i:0">${streakHtml()}</div>
-  <button class="move rise k-${mv.id}" style="--i:1" data-a="move" aria-label="Next move: ${esc(mv.title)}">
+  </div>
+  <button class="move rise k-${mv.id}" style="--i:2" data-a="move" aria-label="Next move: ${esc(mv.title)}">
     <span class="mic">${IC[mv.ic]||IC.check}</span>
     <span class="mm"><em>${camp?'CAMP WEEK · ':''}NEXT MOVE</em><b>${esc(mv.title)}</b><small>${esc(mv.sub)}</small></span>
     <span class="mr">${mv.reward?'<b>'+esc(mv.reward)+'</b>':''}<i>${IC.chev}</i></span></button>
-  ${fuelHtml(qs)}${tilesHtml(qs)}${moreHtml()}`;
+  ${fuelHtml(qs)}${tasksHtml(qs)}${moreHtml()}`;
   $('#screen').innerHTML=h;
   requestAnimationFrame(()=>{
     const ek=$('#ringK');

@@ -12,7 +12,6 @@ const fmtAmt=(x,u)=>{
   return (x>=100?fmt(x):x>=10?x.toFixed(0):x.toFixed(1))+' mcg';
 };
 const unitAmt=(r,x)=>fmtAmt(x,r.u);
-const SRC='Food values: Indian Food Composition Tables 2017 (NIN Hyderabad, ICMR), with recipes built from them. Mess dishes are estimates: oil and portions vary from day to day, and cooking loses some vitamins (allowed for). Vitamin B12 is not measured in those tables, so it is not shown. Targets: ICMR-NIN 2020 allowances for men aged 19 to 39, rounded. A guide, not a diagnosis.';
 
 /* ---------------- today's nutrition ---------------- */
 let open={};
@@ -54,9 +53,7 @@ function renderNutri(){
      <div class="sec">Omega-3</div>${grp('fat').map(r=>nrow(r,n)).join('')}
      <div class="sec">Supplements</div>
      ${supps.map(sp=>`<button class="chk" data-a="supp:${esc(sp.id)}" aria-pressed="${E.suppTaken(sp.id)}"><i>✓</i><span>${esc(sp.t)}<small>${esc(sp.when)}</small></span></button>`).join('')}
-     <div class="small">Ticked supplements count towards the totals above, so vitamin D and calcium are honest. Ask your doctor about doses.</div>
-     ${gaps.length?`<div class="sec">Low this week<small class="sub">Average of ${wk.days} logged days</small></div>`+gaps.map(g=>`<div class="gap"><b>${esc(g.r.t)} <em>${Math.round(g.p*100)}%</em></b><small>${E.richIn(g.r.k,null,4).map(esc).join(', ')} are good picks from the mess and your staples.</small></div>`).join(''):''}
-     <div class="note">${esc(SRC)}</div>`,
+     ${gaps.length?`<div class="sec">Low this week<small class="sub">${wk.days}-day average</small></div>`+gaps.map(g=>`<div class="gap"><b>${esc(g.r.t)} <em>${Math.round(g.p*100)}%</em></b><small>Try ${E.richIn(g.r.k,null,4).map(esc).join(', ')}</small></div>`).join(''):''}`,
     '<button class="btn" data-a="close">Done</button>',{full:true});
 }
 A.nsrc=function(v){open[v]=!open[v];U.keepScroll(renderNutri)};
@@ -70,19 +67,15 @@ U.foodSheet=function(name,g){
   g=g>0?g:f.ug;
   const k=x=>f.n[HS.NUT_IX[x]]||0,per=(x,gg)=>k(x)*gg/100;
   const big=[['kcal',per('k',g),''],['protein',per('p',g),'g'],['carbs',per('c',g),'g'],['fat',per('f',g),'g']];
-  const tier=HS.TIERS[f.tier]||(f.tier==='L'?'Your own entry':'');
   const rows=HS.RDA.filter(r=>r.k!=='n3'||k('n3')>0).map(r=>({r:r,x:per(r.k,g)}));
   const rich=rows.filter(o=>o.r.v&&o.r.kind==='min'&&o.x/o.r.v>=.1).sort((a,b)=>b.x/b.r.v-a.x/a.r.v);
   const hasMicro=f.n.slice(5).some(x=>x>0);
   U.openSheet(f.name,
-    `<div class="fh"><span class="fe">${HS.emoji(f.name)}</span><div><b>${Math.round(g)} g</b><small>${E.units(f,g)} × ${esc(f.unit)} (1 = ${f.ug} g)</small></div><em class="tier t-${f.tier}">${f.tier==='A'?'IFCT':f.tier==='B'?'RECIPE':f.tier==='C'?'TYPICAL':'MINE'}</em></div>
+    `<div class="fh"><span class="fe">${HS.emoji(f.name)}</span><div><b>${Math.round(g)} g</b><small>${E.units(f,g)} × ${esc(f.unit)} (1 = ${f.ug} g)</small></div></div>
      <div class="fbig">${big.map(b=>`<div><b>${b[1]>=100?Math.round(b[1]):b[1].toFixed(1).replace(/\.0$/,'')}</b><span>${b[0]}${b[2]?' ('+b[2]+')':''}</span></div>`).join('')}</div>
      <div class="sec">Per 100 g</div>
      <div class="ftab">${[['Calories',k('k'),'kcal'],['Protein',k('p'),'g'],['Carbs',k('c'),'g'],['Fat',k('f'),'g'],['Fibre',k('fi'),'g'],['Sugar',k('su'),'g'],['Saturated fat',k('sf'),'g'],['Sodium',k('na'),'mg']].map(r=>`<div><span>${r[0]}</span><b>${r[1]>=100?Math.round(r[1]):r[1].toFixed(1).replace(/\.0$/,'')} ${r[2]}</b></div>`).join('')}</div>
-     ${hasMicro?`<div class="sec">Vitamins and minerals in this portion</div>${rich.length?rich.slice(0,8).map(o=>`<div class="fr2"><span>${esc(o.r.t)}</span><b>${unitAmt(o.r,o.x)} <em>${Math.round(o.x/o.r.v*100)}%</em></b></div>`).join(''):'<div class="small" style="margin-top:0">Nothing here gives more than 10% of a daily target.</div>'}
-        <div class="small">Percent of the daily target for the amount shown. Cooking losses are already allowed for.</div>`:'<div class="small">This entry only has the numbers you gave it: calories and the macros.</div>'}
-     <div class="sec">Where this number comes from</div>
-     <div class="note" style="margin-top:0"><b>${esc(tier)}.</b> ${esc(f.note||'')}${f.custom?'':' See tools/nutrition/REPORT.md in the project for the recipe and the old estimate this replaced.'}</div>`,
+     ${hasMicro?`<div class="sec">Vitamins and minerals in this portion</div>${rich.length?rich.slice(0,8).map(o=>`<div class="fr2"><span>${esc(o.r.t)}</span><b>${unitAmt(o.r,o.x)} <em>${Math.round(o.x/o.r.v*100)}%</em></b></div>`).join(''):''}`:''}`,
     back?'<button class="btn" data-a="foodBack">Back to the plate</button>':'<button class="btn" data-a="close">Close</button>',{full:true});
 };
 A.foodInfo=function(){const sh=U.sh;if(!sh||sh.type!=='plate'||sh.edit<0)return;const it=E.day().items[sh.edit];if(it)U.foodSheet(it.name,it.g)};
@@ -95,8 +88,7 @@ U.customSheet=function(prefill){
   U.sh={type:'custom',back:back,asBackup:!!p.asBackup};
   const fld=(id,lbl,ph,unit,val,step)=>`<label class="fr"><span>${lbl}</span><input id="cf_${id}" type="number" inputmode="decimal" step="${step||'any'}" min="0" placeholder="${ph||''}" value="${val!=null?esc(val):''}"><i class="fu">${unit}</i></label>`;
   U.openSheet('Add food from a label',
-    `<div class="hint">Read the nutrition table on the pack. Use the amounts for ONE serving and tell the System how heavy that serving is.</div>
-     <label class="fr"><span>Name</span><input id="cf_name" type="text" maxlength="40" placeholder="e.g. MuscleBlaze protein bar" value="${esc(p.name||'')}"></label>
+    `<label class="fr"><span>Name</span><input id="cf_name" type="text" maxlength="40" placeholder="e.g. MuscleBlaze protein bar" value="${esc(p.name||'')}"></label>
      ${fld('g','Serving size','60','g',p.g!=null?p.g:'')}
      ${fld('kcal','Calories','230','kcal',p.kcal)}
      ${fld('p','Protein','20','g',p.p)}
@@ -104,8 +96,7 @@ U.customSheet=function(prefill){
      ${fld('f','Fat','8','g',p.f)}
      <div class="sec">Optional</div>
      ${fld('fi','Fibre','','g')}${fld('su','Sugar','','g')}${fld('na','Sodium','','mg')}
-     <button class="chk" id="cf_treat" data-a="cftreat" aria-pressed="false"><i>✓</i><span>This is a sugary treat<small>Sugar costs a little aura, on purpose</small></span></button>
-     <div class="small">Packs often list "per 100 g" and "per serving" side by side: use the per serving column, or type 100 as the size and the per 100 g numbers.</div>`,
+     <button class="chk" id="cf_treat" data-a="cftreat" aria-pressed="false"><i>✓</i><span>This is a sugary treat</span></button>`,
     '<button class="btn" data-a="cfsave">Save and add</button>',{full:true});
 };
 A.cftreat=function(v,b){b.setAttribute('aria-pressed',b.getAttribute('aria-pressed')==='true'?'false':'true');F.play('tick',100)};

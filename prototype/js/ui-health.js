@@ -38,8 +38,7 @@ U.healthSheet=function(){
       <div class="eleg"><span><b class="e1"></b>Resting <strong>${fmt(en.rest)}</strong></span><span><b class="e2"></b>Walking and daily movement <strong>${fmt(Math.max(0,en.walk))}</strong></span>${en.lift?`<span><b class="e3"></b>Workouts <strong>${fmt(en.lift)}</strong></span>`:''}</div>
       ${walk!=null?`<div class="fr2"><span>Recorded walks and runs</span><b>${d.hWalk.min} min · ${fmt(walk)} kcal</b></div>`:''}
       <div class="fr2"><span>Burned so far</span><b>${fmt(en.out)} kcal</b></div><div class="fr2"><span>Eaten so far</span><b>${fmt(en.eaten)} kcal</b></div>
-      <div class="fr2"><span>Balance so far</span><b class="${en.net<=0?'gd':'wn'}">${en.net<=0?'−':'+'}${fmt(Math.abs(en.net))} kcal</b></div>
-      <div class="note">Phones and watches estimate active calories from your steps and heart rate. Studies find they can be off by a third or more, in either direction, so treat the number as a guide. Your weight trend is the real judge. Your calorie target already counts training, so do not eat the active calories back.</div>`;
+      <div class="fr2"><span>Balance so far</span><b class="${en.net<=0?'gd':'wn'}">${en.net<=0?'−':'+'}${fmt(Math.abs(en.net))} kcal</b></div>`;
   }
   if(sleepH!=null){
     const tot=st?st.deep+st.rem+st.light+st.awake:0;
@@ -51,17 +50,15 @@ U.healthSheet=function(){
     }
   }
   if(d.hRhr||d.hHr){
-    b+=`<div class="sec">Heart</div>${d.hRhr?`<div class="fr2"><span>Resting heart rate</span><b>${d.hRhr} bpm</b></div>`:''}${d.hHr?`<div class="fr2"><span>Average today</span><b>${d.hHr.avg} bpm${d.hHr.max?' · peak '+d.hHr.max:''}</b></div>`:''}
-      <div class="small">A resting rate that stays a few beats above your normal for several days is a sign to ease off and sleep more.</div>`;
+    b+=`<div class="sec">Heart</div>${d.hRhr?`<div class="fr2"><span>Resting heart rate</span><b>${d.hRhr} bpm</b></div>`:''}${d.hHr?`<div class="fr2"><span>Average today</span><b>${d.hHr.avg} bpm${d.hHr.max?' · peak '+d.hHr.max:''}</b></div>`:''}`;
   }
   if(d.hWeight)b+=`<div class="sec">Weight</div><div class="fr2"><span>Samsung Health has</span><b>${d.hWeight.toFixed(1)} kg</b></div>`;
   b+=`<div class="sec">Connection</div>`;
   if(nat){
-    if(on)b+=`<div class="hrow"><div><b>Connected</b><small>${S.health.last?'Last sync '+new Date(S.health.last).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'Not synced yet'} · read-only</small></div><button class="btn ghost sm" data-a="hsync">Sync now</button></div>
-      ${miss.length?`<div class="note amberb">New data is available (${miss.map(esc).join(', ')}). Tap Allow more data once so Android can ask.</div><div class="stack2"><button class="btn good" data-a="hconnect">Allow more data</button></div>`:''}`;
-    else b+=`<div class="small" style="margin-top:0">Reads steps, distance, floors, active calories, heart rate, sleep and weight from Samsung Health through Health Connect. Read-only: nothing is written back and nothing leaves your phone.</div><div class="stack2"><button class="btn good" data-a="hconnect">Connect Samsung Health</button></div>`;
-    b+=`<div class="small">If the permission window does not appear, open Samsung Health, then Settings, then Health Connect, and allow it there.</div>`;
-  }else b+=`<div class="small" style="margin-top:0">Samsung Health sync works in the Android app. In the browser, type your steps below.</div>`;
+    if(on)b+=`<div class="hrow"><div><b>Connected</b><small>${S.health.last?'Last sync '+new Date(S.health.last).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'Not synced yet'}</small></div><button class="btn ghost sm" data-a="hsync">Sync now</button></div>
+      ${miss.length?`<div class="note amberb">New data is available (${miss.map(esc).join(', ')}).</div><div class="stack2"><button class="btn good" data-a="hconnect">Allow more data</button></div>`:''}`;
+    else b+=`<div class="stack2" style="margin-top:0"><button class="btn good" data-a="hconnect">Connect Samsung Health</button></div>`;
+  }else b+=`<div class="small" style="margin-top:0">Samsung Health works in the Android app.</div>`;
   b+=`<div class="sec">Steps by hand</div><div class="field"><input id="stepsIn" type="number" inputmode="numeric" min="0" placeholder="e.g. 7400" value="${esc(d.steps||'')}" aria-label="Steps today"><button data-a="saveSteps">Save</button></div>`;
   U.openSheet('Samsung Health',b,'<button class="btn ghost" data-a="close">Close</button>',{full:true});
 };

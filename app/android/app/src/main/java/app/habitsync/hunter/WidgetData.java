@@ -100,6 +100,19 @@ final class WidgetData {
         return PendingIntent.getActivity(ctx, 0, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
+    static int layoutFor(String kind) {
+        if (KIND_WEEK.equals(kind)) return R.layout.widget_week;
+        if (KIND_TODAY.equals(kind)) return R.layout.widget_today;
+        return R.layout.widget_streak;
+    }
+
+    /** The label of the water button: the plain amount, or what is waiting for the app to pick up. */
+    static String waterLabel(int pending) {
+        if (pending <= 0) return "+250 ml";
+        if (pending >= 1000) return String.format(Locale.US, "+%.1f L \u2713", pending / 1000.0);
+        return "+" + pending + " ml \u2713";
+    }
+
     static void apply(Context ctx, AppWidgetManager m, int[] ids, String kind) {
         if (ids == null || ids.length == 0) return;
         SharedPreferences p = sp(ctx);
@@ -107,20 +120,21 @@ final class WidgetData {
         int pending = p.getInt("pendingWater", 0);
         for (int id : ids) {
             try {
-            RemoteViews v = new RemoteViews(ctx.getPackageName(), today ? R.layout.widget_img_water : R.layout.widget_img);
+            // the layout already holds the empty picture, so a widget the app has not drawn yet still looks finished
+            RemoteViews v = new RemoteViews(ctx.getPackageName(), layoutFor(kind));
             File f = imgFile(ctx, id);
             Bitmap bmp = f.exists() ? BitmapFactory.decodeFile(f.getPath()) : null;
             if (bmp != null) {
                 v.setImageViewBitmap(R.id.w_img, bmp);
-                v.setViewVisibility(R.id.w_hint, View.GONE);
+                // after midnight the picture is yesterday's: it fades and says so, until the app is opened
+                v.setInt(R.id.w_img, "setImageAlpha", fresh ? 255 : 120);
                 v.setViewVisibility(R.id.w_stale, fresh ? View.GONE : View.VISIBLE);
             } else {
-                v.setViewVisibility(R.id.w_hint, View.VISIBLE);
                 v.setViewVisibility(R.id.w_stale, View.GONE);
             }
             v.setOnClickPendingIntent(R.id.w_root, openApp(ctx));
             if (today) {
-                v.setTextViewText(R.id.w_water_btn, pending > 0 ? "+" + pending + " ml queued" : "+250 ml");
+                v.setTextViewText(R.id.w_water_btn, waterLabel(pending));
                 v.setViewVisibility(R.id.w_water_btn, bmp != null && fresh ? View.VISIBLE : View.GONE);
                 Intent wi = new Intent(ctx, TodayWidget.class).setAction(TodayWidget.ACTION_WATER);
                 v.setOnClickPendingIntent(R.id.w_water_btn, PendingIntent.getBroadcast(ctx, 7, wi, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));

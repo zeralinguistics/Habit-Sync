@@ -105,7 +105,7 @@ HS.CUES={
 HS.GOALS=[
   {id:'g_gate',t:'Clear a gate',d:'Weight trend down one full gate this week.',need:1,aura:150,always:true},
   {id:'g_protein',t:'Protein x3',d:'Hit your protein target on 3 days.',need:3,aura:90},
-  {id:'g_weigh',t:'Weigh in x5',d:'Five weigh-ins this week. Data beats guessing.',need:5,aura:60},
+  {id:'g_weigh',t:'Weigh in x5',d:'Five weigh-ins this week.',need:5,aura:60},
   {id:'g_train',t:'Train x4',d:'Four finished workouts.',need:4,aura:100},
   {id:'g_water',t:'Hydrate x4',d:'Reach your water target on 4 days.',need:4,aura:80},
   {id:'g_rehab',t:'Rehab x5',d:'Finish rehab on 5 days.',need:5,aura:100},
@@ -114,7 +114,7 @@ HS.GOALS=[
   {id:'g_log',t:'Full plates x3',d:'Log breakfast, lunch and dinner on 3 days.',need:3,aura:80},
   {id:'g_pr',t:'New personal record',d:'Beat a previous best on any lift (inside your pain rules).',need:1,aura:80},
   {id:'g_steps',t:'Log steps x5',d:'Enter your steps on 5 days.',need:5,aura:50},
-  {id:'g_clear',t:'Clear the day x4',d:'Clear four days with 3 of 4 quests.',need:4,aura:120}
+  {id:'g_clear',t:'Clear the day x4',d:'Clear four days with 3 or more pillars.',need:4,aura:120}
 ];
 /* streak milestones: rolling, not weekly */
 HS.STREAK_STEPS=[3,7,14,30,60,100,200,365];

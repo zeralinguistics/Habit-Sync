@@ -38,19 +38,18 @@ function renderStreak(){
   const used=Object.keys(sh.used).sort().slice(-3).map(k=>U.date(k));
   U.openSheet('Daily streak',
     `<div class="sk2"><div class="sk2f">${U.flame(n)}</div><div class="sk2n"><b>${n}</b><span>day streak</span></div><div class="sk2b"><span>BEST</span><b>${best}</b></div></div>
-     <div class="hint" style="margin-top:6px">${met>=goal?'Today is lit. See you tomorrow.':'Light '+goal+' of 6 pillars today to keep it going. '+met+' so far.'}</div>
+     ${weekHtml()}
+     <div class="hint" style="margin-top:6px">${met>=goal?'Today is lit. See you tomorrow.':met+' of '+goal+' pillars lit today'}</div>
      <div class="sec">Today’s pillars</div>
      <div class="pils">${pil.map(p=>`<button class="pil${p.met?' on':''}" data-a="pil:${p.id}" aria-label="${esc(p.t+', '+(p.met?'done':p.s))}"><span class="pili">${p.met?IC.check:IC[p.ic]}</span><b>${p.t}</b><small>${esc(p.s)}</small></button>`).join('')}</div>
      <div class="sec">Your daily goal</div>
      <div class="seg2 full">${E.SPARK_GOALS.map(g=>`<button data-a="sgoal:${g}" aria-pressed="${goal===g}">${({3:'Easy',4:'Steady',5:'Hard'})[g]} · ${g}</button>`).join('')}</div>
-     <div class="small">The day lights up when ${goal} of the 6 pillars are done. Start easy: a streak you keep beats one you break. You can change this any time.</div>
      <div class="sec">${mg.title}</div>
      <div class="mhead"><button class="mnav" data-a="smonth:-1" ${mg.canBack?'':'disabled'} aria-label="Previous month">${IC.chev.replace('<svg','<svg style="transform:scaleX(-1)"')}</button><span>${mg.lit} lit day${mg.lit===1?'':'s'} of ${mg.total}</span><button class="mnav" data-a="smonth:1" ${mg.canFwd?'':'disabled'} aria-label="Next month">${IC.chev}</button></div>
      <div class="mdow">${['M','T','W','T','F','S','S'].map(x=>'<i>'+x+'</i>').join('')}</div><div class="mgrid">${mg.html}</div>
      <div class="legend lg2"><span><b class="lgl"></b>Lit</span><span><b class="lgs"></b>Shield</span><span><b class="lgh"></b>Protected</span><span><b class="lgm"></b>Missed</span></div>
      <div class="sec">Streak shields</div>
-     <div class="shieldrow"><span class="shi">${IC.shield}</span><div><b>${sh.n} shield${sh.n===1?'':'s'} held</b><small>${sh.n?'It saves the next day you miss, if your streak is 2 days or more.':'Earn one at every 7th day of a streak.'}${used.length?' Used on '+used.join(', ')+'.':''}</small></div></div>
-     <div class="small">A pain day or your weekly rest pass never breaks the streak. Two shields is the most you can hold.</div>
+     <div class="shieldrow"><span class="shi">${IC.shield}</span><div><b>${sh.n} shield${sh.n===1?'':'s'} held</b><small>${sh.n?'Saves the next day you miss.':'Earn one every 7 days.'}${used.length?' Used on '+used.join(', ')+'.':''}</small></div></div>
      ${nm?`<div class="sec">Next milestone</div><div class="gl2"><div><b>${nm.step}-day streak</b><small>${nm.left} more day${nm.left===1?'':'s'} for +${fmt(nm.aura)} aura</small><div class="xp"><i style="width:${nm.pct}%"></i></div></div><span class="fl">${U.flame(nm.step)}</span></div>`:''}`,
     '<button class="btn" data-a="goalsOpen">Goals and rewards</button>',{full:true});
 }

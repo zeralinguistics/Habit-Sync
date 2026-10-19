@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The picture fills the widget. Nothing is laid over it except the optional +250 ml button, which has its own clear corner in the picture
+     (76 x 24 dp, 10 dp from the right, 8 dp from the bottom: the same figures as BTN in widget-art.js). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/w_img"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="Habit Sync streak widget"
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_blank_streak" />
+
+    <TextView
+        android:id="@+id/w_stale"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/widget_stale"
+        android:paddingStart="12dp"
+        android:paddingTop="5dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="5dp"
+        android:text="New day · tap to refresh"
+        android:textColor="#FFFFB23D"
+        android:textSize="11dp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+</FrameLayout>

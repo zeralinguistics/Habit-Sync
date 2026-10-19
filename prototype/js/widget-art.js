@@ -122,7 +122,7 @@ function weekDots(c,days,x,y,w,d,withLetters){
     }
     if(q.today){c.lineWidth=2;c.strokeStyle='rgba(255,255,255,.9)';c.beginPath();c.arc(cx,cy,d/2+2.6,0,6.3);c.stroke()}
     c.restore();
-    if(withLetters)text(c,q.d,cx,y+d+11,9.5,q.today?'#fff':'rgba(255,255,255,.5)',{weight:700,font:F_CAP,align:'center',ls:.6});
+    if(withLetters)text(c,q.d,cx,y+d+12.5,10.5,q.today?'#fff':'rgba(255,255,255,.5)',{weight:700,font:F_CAP,align:'center',ls:.6});
     else if(st!=='lit'&&st!=='shield'&&st!=='safe'&&st!=='miss')text(c,q.d,cx,cy+d*.18,d*.42,st==='open'?'#ffd36a':'rgba(255,255,255,.4)',{weight:700,font:F_CAP,align:'center'});
   });
 }
@@ -146,64 +146,100 @@ function draw(kind,w,h,dpr,d){
   else today(c,w,h,d,n,lit,risk,tier,moodOf);
   return cv;
 }
+/* the native +250 ml button sits on the Today picture: its size and margins in dp. The picture keeps that corner clear and draws nothing
+   under it, so the button can never cover a number or the next move. The Android layout uses the same figures. */
+const BTN={w:76,h:24,mr:10,mb:8};
+const btnSlot=(w,h)=>({x:w-BTN.mr-BTN.w,y:h-BTN.mb-BTN.h,w:BTN.w,h:BTN.h});
+/* only for the preview in the widget picker: the button is a real Android view on the home screen */
+function drawBtn(c,w,h){
+  const b=btnSlot(w,h);c.save();rr(c,b.x,b.y,b.w,b.h,b.h/2);c.fillStyle='rgba(94,200,255,.2)';c.fill();c.lineWidth=1;c.strokeStyle='#5ec8ff';c.stroke();
+  text(c,'+250 ml',b.x+b.w/2,b.y+b.h/2+4,11,'#9fe0ff',{weight:700,align:'center',font:F_CAP,ls:.3});c.restore();
+}
+function tick(c,x,y,r){c.save();c.beginPath();c.arc(x,y,r,0,6.3);c.fillStyle='#3ddc97';c.fill();c.lineWidth=r*.3;c.lineCap='round';c.lineJoin='round';c.strokeStyle='#07221a';
+  c.beginPath();c.moveTo(x-r*.45,y);c.lineTo(x-r*.1,y+r*.38);c.lineTo(x+r*.5,y-r*.34);c.stroke();c.restore()}
+
 function statusLabel(d,lit,risk,n){
+  if(d.blank)return{t:'OPEN APP',fg:'#cfe1ff',bg:'rgba(255,255,255,.1)',border:'rgba(255,255,255,.18)'};
   if(lit)return{t:d.met>=6?'PERFECT DAY':'LIT TODAY',fg:'#3a2200',bg:'#ffd36a',border:null};
   const need=Math.max(1,(d.goal||3)-(d.met||0));
   if(risk)return{t:'AT RISK',fg:'#ffb23d',bg:'rgba(255,178,61,.14)',border:'rgba(255,178,61,.6)'};
   return{t:need+' TO LIGHT',fg:'#cfe1ff',bg:'rgba(255,255,255,.1)',border:'rgba(255,255,255,.18)'};
 }
 function streak(c,w,h,d,n,lit,risk,tier,mood){
-  const st=statusLabel(d,lit,risk,n);
-  /* the status ribbon and the shields */
-  chip(c,w*.07,h*.075,st.t,st.fg,st.bg,st.border,Math.max(8.5,h*.062));
-  if(d.shields>0&&w>=140){c.save();c.font='700 '+Math.max(9,h*.065)+'px '+F_CAP;const tw=c.measureText(String(d.shields)).width;c.restore();const cw=tw+h*.2+h*.1;chip(c,w-w*.07-cw-h*.04,h*.075,String(d.shields),'#8fdcff','rgba(94,200,255,.14)','rgba(94,200,255,.5)',Math.max(8.5,h*.062),'shield')}
-  const fh=h*.4;flame(c,w/2,h*.62,fh,tier,lit);
-  if(lit){sparkle(c,w/2-fh*.55,h*.3,h*.05,.9);sparkle(c,w/2+fh*.6,h*.4,h*.04,.8);sparkle(c,w/2+fh*.3,h*.2,h*.028,.7)}
-  const s=String(n),sz=fitSize(c,s,h*.3,w*.8);
-  text(c,s,w/2,h*.855,sz,lit?'#ffe08a':'#ffffff',{weight:800,align:'center',stroke:sz*.07,shadow:'rgba(0,0,0,.5)',sb:8,sy:3});
-  text(c,n===1?'DAY STREAK':'DAY STREAK',w/2,h*.945,Math.max(9,h*.07),lit?'#ffd36a':'rgba(255,255,255,.62)',{weight:700,font:F_CAP,align:'center',ls:2.4});
+  const st=statusLabel(d,lit,risk,n),small=h<130,fs=Math.max(10,h*.068);
+  /* the status ribbon and the shields, along the top */
+  chip(c,w*.07,h*.07,st.t,st.fg,st.bg,st.border,fs);
+  if(d.shields>0&&w>=130){c.save();c.font='700 '+fs+'px '+F_CAP;const tw=c.measureText(String(d.shields)).width;c.restore();const cw=tw+fs*1.9+fs*.4;chip(c,w-w*.07-cw,h*.07,String(d.shields),'#8fdcff','rgba(94,200,255,.14)','rgba(94,200,255,.5)',fs,'shield')}
+  /* the flame, then the number under it, then the label: three clear bands that never touch */
+  const fh=h*(small?.36:.46);flame(c,w/2,h*(small?.56:.635),fh,tier,lit);
+  if(lit){sparkle(c,w/2-fh*.55,h*.34,h*.05,.9);sparkle(c,w/2+fh*.6,h*.42,h*.04,.8);sparkle(c,w/2+fh*.32,h*.3,h*.028,.7)}
+  const s=String(n),sz=fitSize(c,s,h*(small?.27:.29),w*.8);
+  text(c,s,w/2,h*(small?.8:.865),sz,lit?'#ffe08a':'#ffffff',{weight:800,align:'center',stroke:sz*.07,shadow:'rgba(0,0,0,.5)',sb:8,sy:3});
+  text(c,'DAY STREAK',w/2,h*(small?.94:.95),Math.max(10,h*.068),lit?'#ffd36a':'rgba(255,255,255,.66)',{weight:700,font:F_CAP,align:'center',ls:2.2});
 }
 function week(c,w,h,d,n,lit,risk,tier,mood){
-  const padX=14;
-  const fh=h*.62;flame(c,padX+h*.32,h*.74,fh,tier,lit);
-  const s=String(n),sz=fitSize(c,s,h*.56,h*.9);
-  text(c,s,padX+h*.78,h*.6,sz,lit?'#ffe08a':'#fff',{weight:800,stroke:sz*.07,shadow:'rgba(0,0,0,.5)',sb:6,sy:2});
-  const lsz=Math.max(8.5,h*.12);
-  text(c,'DAY STREAK',padX+h*.8,h*.8,lsz,lit?'#ffd36a':'rgba(255,255,255,.6)',{weight:700,font:F_CAP,ls:1.6});
-  /* the dots start after whichever is wider, the number or its label, so a short widget never runs the two together */
-  c.save();c.font='800 '+sz+'px '+F_NUM;const nw=c.measureText(s).width;c.font='700 '+lsz+'px '+F_CAP;const lw=c.measureText('DAY STREAK').width+16;c.restore();
-  const x0=padX+h*.78+Math.max(nw,lw)+Math.max(8,h*.2),wDots=w-x0-padX,dd=Math.max(5,Math.min(h*.36,(wDots/7)-4));
-  weekDots(c,d.week,x0,h*.2,wDots,dd,true);
+  const padX=Math.max(12,h*.2);
+  flame(c,padX+h*.3,h*.8,h*.62,tier,lit);
+  const s=String(n),sz=fitSize(c,s,h*.5,h*.9),nx=padX+h*.72;
+  text(c,s,nx,h*.58,sz,lit?'#ffe08a':'#fff',{weight:800,stroke:sz*.07,shadow:'rgba(0,0,0,.5)',sb:6,sy:2});
+  const lsz=Math.max(10,h*.14),nameCol=lit?'#ffd36a':'rgba(255,255,255,.64)';
+  c.save();c.font='800 '+sz+'px '+F_NUM;const nw=c.measureText(s).width;c.font='700 '+lsz+'px '+F_CAP;if('letterSpacing' in c)c.letterSpacing='1.6px';
+  const full=c.measureText('DAY STREAK').width,short=c.measureText('DAYS').width;c.restore();
+  /* the dots start after whichever is wider, the number or its label; on a narrow widget the label shortens so the dots keep their size */
+  const room=lab=>{const x0=nx+Math.max(nw,lab)+Math.max(10,h*.22);return{x0:x0,wd:w-x0-padX}};
+  let lab='DAY STREAK',r=room(full);
+  if(r.wd/7-5<Math.min(h*.3,16)){lab='DAYS';r=room(short)}
+  text(c,lab,nx,h*.84,lsz,nameCol,{weight:700,font:F_CAP,ls:1.6});
+  const dd=Math.max(6,Math.min(h*.4,r.wd/7-5,30)),y=Math.max(4,(h-(dd+14))/2);
+  weekDots(c,d.week,r.x0,y,r.wd,dd,true);
 }
 function today(c,w,h,d,n,lit,risk,tier,mood){
-  const lw=Math.min(112,w*.34);
-  /* left: the flame and the number, the hunter peeking in below */
-  const fh=h*.3;flame(c,lw/2+4,h*.36,fh,tier,lit);
-  if(lit){sparkle(c,lw/2-fh*.5,h*.14,h*.034,.9);sparkle(c,lw/2+fh*.7,h*.2,h*.026,.8)}
-  const s=String(n),sz=fitSize(c,s,h*.25,lw*.8);
-  text(c,s,lw/2+4,h*.6,sz,lit?'#ffe08a':'#fff',{weight:800,align:'center',stroke:sz*.07,shadow:'rgba(0,0,0,.5)',sb:6,sy:2});
-  text(c,'DAY STREAK',lw/2+4,h*.69,Math.max(8,h*.056),lit?'#ffd36a':'rgba(255,255,255,.6)',{weight:700,font:F_CAP,align:'center',ls:1.4});
-  mascot(c,lw/2+4,h+4,h*.3,lit?'lit':risk?'risk':'idle');
-  /* a thin divider */
-  c.fillStyle='rgba(255,255,255,.1)';c.fillRect(lw+8,h*.12,1,h*.76);
-  const x0=lw+22,wr=w-x0-14;
-  const tall=h>=118;
-  if(tall)weekDots(c,d.week,x0,h*.09,wr,Math.min(22,wr/7-5),false);
-  const rows=[['KCAL',(d.kcalT-d.kcal)>=0?fmt(d.kcalT-d.kcal)+' left':fmt(d.kcal-d.kcalT)+' over',d.kcal/d.kcalT,'#3aa8ff','#7fd3ff',d.kcal>d.kcalT*1.05],
-              ['PROTEIN',fmt(d.protein)+'/'+fmt(d.proteinT)+' g',d.protein/d.proteinT,'#8b5cff','#c9a7ff',false],
-              ['WATER',(d.water/1000).toFixed(1)+'/'+(d.waterT/1000).toFixed(1)+' L',d.water/d.waterT,'#34b6f0','#b5f0ff',false]];
-  const y0=tall?h*.36:h*.16,step=tall?h*.18:h*.22,labW=46,valW=60;
+  const pad=Math.max(10,Math.min(14,h*.09)),lw=Math.min(104,w*.32),cx=lw/2+6,tallL=h>=150;
+  /* left: the flame, the number and the label (the hunter peeks in below when there is room) */
+  const mcol=lit?'#ffd36a':'rgba(255,255,255,.64)';
+  if(tallL){
+    const fh=h*.3;flame(c,cx,h*.35,fh,tier,lit);
+    if(lit){sparkle(c,cx-fh*.5,h*.14,h*.034,.9);sparkle(c,cx+fh*.7,h*.2,h*.026,.8)}
+    const s=String(n),sz=fitSize(c,s,h*.24,lw*.8);
+    text(c,s,cx,h*.59,sz,lit?'#ffe08a':'#fff',{weight:800,align:'center',stroke:sz*.07,shadow:'rgba(0,0,0,.5)',sb:6,sy:2});
+    text(c,'DAY STREAK',cx,h*.675,10,mcol,{weight:700,font:F_CAP,align:'center',ls:1.4});
+    mascot(c,cx,h+4,h*.3,lit?'lit':risk?'risk':'idle');
+  }else{
+    const fh=h*.36;flame(c,cx,h*.46,fh,tier,lit);
+    if(lit){sparkle(c,cx-fh*.5,h*.16,h*.04,.9);sparkle(c,cx+fh*.7,h*.24,h*.03,.8)}
+    const s=String(n),sz=fitSize(c,s,h*.27,lw*.8);
+    text(c,s,cx,h*.76,sz,lit?'#ffe08a':'#fff',{weight:800,align:'center',stroke:sz*.07,shadow:'rgba(0,0,0,.5)',sb:6,sy:2});
+    text(c,'DAY STREAK',cx,h*.9,10,mcol,{weight:700,font:F_CAP,align:'center',ls:1.4});
+  }
+  c.fillStyle='rgba(255,255,255,.1)';c.fillRect(lw+10,h*.12,1,h*.76);
+  const x0=lw+26,wr=w-x0-pad,strip=BTN.h+BTN.mb+6;
+  /* right: the week (when the widget is tall enough), then three rows of label, value and a bar */
+  let y=pad;
+  if(h-strip-pad>=100){const dd=Math.min(24,wr/7-5);weekDots(c,d.week,x0,y,wr,dd,false);y+=dd+10}
+  const avail=h-strip-y,pitch=Math.min(30,avail/3),roomy=pitch>=24,tsz=roomy?11.5:10.5,bh=roomy?8:6;
+  y+=Math.max(0,(avail-pitch*3)/2);
+  const pc=(a,b)=>b>0?Math.max(0,Math.min(1,a/b)):0,left=d.kcalT-d.kcal;
+  const rows=[
+    {k:'KCAL',v:left>=0?fmt(left)+' left':fmt(-left)+' over',p:pc(d.kcal,d.kcalT),c0:'#ff9a3d',c1:'#ffd36a',over:d.kcal>d.kcalT*1.05,done:false},
+    {k:'PROTEIN',v:fmt(d.protein)+'/'+fmt(d.proteinT)+' g',p:pc(d.protein,d.proteinT),c0:'#8b5cff',c1:'#c9a7ff',done:d.proteinT>0&&d.protein>=d.proteinT},
+    {k:'WATER',v:(d.water/1000).toFixed(1)+'/'+(d.waterT/1000).toFixed(1)+' L',p:pc(d.water,d.waterT),c0:'#34b6f0',c1:'#b5f0ff',done:d.waterT>0&&d.water>=d.waterT}];
   rows.forEach((r,i)=>{
-    const y=y0+i*step;
-    text(c,r[0],x0,y+8,Math.max(8,h*.058),'rgba(255,255,255,.58)',{weight:700,font:F_CAP,ls:1.2});
-    bar(c,x0+labW,y+1,wr-labW-valW-6,8,Math.max(0,Math.min(1,r[2])),r[3],r[4],r[5]);
-    text(c,r[1],x0+wr,y+9,Math.max(9.5,h*.07),r[5]?'#ff8a8a':'#fff',{weight:700,align:'right',font:F_CAP,ls:.3});
+    const yy=y+i*pitch,base=yy+tsz;
+    text(c,r.k,x0,base,tsz,r.over?'#ff9a9a':r.c1,{weight:700,font:F_CAP,ls:1.2});
+    const vf='700 '+(tsz+1)+'px '+F_CAP;
+    text(c,r.v,x0+wr,base,tsz+1,r.over?'#ff8a8a':'#fff',{weight:700,align:'right',font:F_CAP,ls:.3});
+    if(r.done){c.save();c.font=vf;const tw=c.measureText(r.v).width;c.restore();tick(c,x0+wr-tw-12,base-tsz*.34,5.5)}
+    bar(c,x0,base+4,wr,bh,r.p,r.c0,r.c1,r.over);
   });
-  /* the next move; the water button of the widget sits at the bottom right */
-  const ny=h-13,nsz=Math.max(10,h*.075);
-  text(c,ellipsize(c,'› '+(d.next||'Open Habit Sync'),'700 '+nsz+'px '+F_CAP,wr-(w>=300?104:8)),x0,ny,nsz,'#ffd36a',{weight:700,font:F_CAP,ls:.4});
+  /* the next move, on the same line as the water button, which has its corner to itself */
+  const b=btnSlot(w,h),nsz=12.5;
+  text(c,ellipsize(c,'› '+(d.next||'Open Habit Sync'),'700 '+nsz+'px '+F_CAP,Math.max(40,b.x-12-x0)),x0,b.y+b.h/2+4.4,nsz,'#ffd36a',{weight:700,font:F_CAP,ls:.4});
+  if(d.preview)drawBtn(c,w,h);
 }
 A.draw=draw;
 A.sample=function(){return{streak:10,lit:false,met:1,goal:3,shields:1,hour:13,kcal:613,kcalT:2050,protein:79,proteinT:140,water:1750,waterT:3000,steps:5400,next:'Log lunch',
   week:[{st:'lit',d:'T'},{st:'lit',d:'F'},{st:'lit',d:'S'},{st:'shield',d:'S'},{st:'lit',d:'M'},{st:'lit',d:'T'},{st:'open',d:'W',today:true}]}};
+/* what a widget shows before the app has drawn it: an empty, friendly picture that asks for the first open */
+A.blank=function(){return{blank:true,streak:0,lit:false,met:0,goal:3,shields:0,hour:12,kcal:0,kcalT:2000,protein:0,proteinT:120,water:0,waterT:3000,steps:0,next:'Open Habit Sync once',
+  week:['M','T','W','T','F','S','S'].map(x=>({st:'future',d:x}))}};
 })();

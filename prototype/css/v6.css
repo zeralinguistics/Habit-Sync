@@ -418,9 +418,7 @@
 .cyest{display:block;margin:14px auto 0;padding:10px 12px;min-height:44px;background:none;border:0;color:var(--mute);font-size:13px;text-decoration:underline;text-underline-offset:3px}
 
 /* the tile that was just finished pops and draws its tick (game.css draws ticks on .qrow; the tiles are .tl2) */
-.tl2.just .tli{animation:pop .55s cubic-bezier(.2,1.6,.4,1)}
-.tl2.just .tli svg path{stroke-dasharray:32;stroke-dashoffset:32;animation:tickdraw .55s .1s ease-out forwards}
-@media (prefers-reduced-motion:reduce){.tl2.just .tli svg path{stroke-dashoffset:0!important}}
+
 /* the name of a food from a label is text: give it the room, left aligned */
 .fr input#cf_name{flex:1;width:auto;min-width:0;text-align:left}
 

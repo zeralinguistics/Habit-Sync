@@ -20,15 +20,15 @@ const seg=(act,opts,cur)=>`<div class="seg2">${opts.map(o=>`<button data-a="${ac
 function routineEditor(){
   const list=E.routine(rTab);
   return `<div class="tg">${['Push','Pull','Legs'].map(t=>`<button data-a="rtab:${t}" aria-pressed="${rTab===t}">${t}</button>`).join('')}</div>
-   <div class="small">${list.length} exercises · ${list.reduce((a,x)=>a+x.sets,0)} sets. Two exercises per muscle at three sets each is plenty on a deficit. Weights are logged in the workout, so this list only holds the plan.</div>
+   <div class="small">${list.length} exercises · ${list.reduce((a,x)=>a+x.sets,0)} sets</div>
    ${list.map((x,i)=>`<div class="rxr"><div class="rxn"><input data-rx="n" data-i="${i}" value="${esc(x.n)}" aria-label="Exercise name"><input data-rx="g" data-i="${i}" value="${esc(x.g)}" aria-label="Muscle group" class="sm"></div>
      <div class="rxc"><div class="mini"><button data-a="rxs:${i}:-1" aria-label="Fewer sets">−</button><b>${x.sets}</b><span>sets</span><button data-a="rxs:${i}:1" aria-label="More sets">+</button></div>
      <div class="mini"><button data-a="rxr:${i}:-1" aria-label="Fewer reps">−</button><b>${x.reps}</b><span>reps</span><button data-a="rxr:${i}:1" aria-label="More reps">+</button></div>
      <button class="capb" data-a="rxcap:${i}" aria-pressed="${!!x.cap}">cap ${HS.CAP_KG} kg</button><button class="del" data-a="rxdel:${i}" aria-label="Remove">×</button></div></div>`).join('')}
    <div class="rxadd"><input id="rxNew" placeholder="New exercise" aria-label="New exercise name"><input id="rxNewG" placeholder="Muscle" class="sm" aria-label="Muscle group"><button data-a="rxadd">Add</button></div>`;
 }
-function strictTxt(s){return s==='chill'?'Skipping a session costs 30 aura. No fatigue.':s==='hard'?'Skipping costs 100 aura, a strength point and fatigue. A second miss in a row hits twice.':'Skipping costs 60 aura and fatigue: aura gains are halved and your level is locked until you train. Absence is punished too.'}
-function roastTxt(r){return r==='off'?'No teasing. Only encouragement.':r==='savage'?'Savage: sharper lines when you skip. Still only about the habit you skipped, never your body or looks.':'Playful: light teasing when you skip. Only about the habit you skipped, never your body or looks.'}
+function strictTxt(s){return s==='chill'?'Skipping a session costs 30 aura. No fatigue.':s==='hard'?'Skipping costs 100 aura, a strength point and fatigue.':'Skipping costs 60 aura and fatigue.'}
+function roastTxt(r){return r==='off'?'No teasing. Only encouragement.':r==='savage'?'Savage: sharper lines when you skip.':'Playful: light teasing when you skip.'}
 
 /* ---------------- data vault ---------------- */
 function vaultHtml(){
@@ -37,15 +37,13 @@ function vaultHtml(){
   const bk=info.lastBackup?(age===0?'today':age===1?'yesterday':age+' days ago'):'never';
   const due=E.backupDue();
   return `<div class="vault ${due?'due':''}"><div><span>DAYS STORED</span><b>${info.days}</b></div><div><span>SIZE</span><b>${kb} KB</b></div><div><span>LAST BACKUP</span><b>${bk}</b></div></div>
-   ${due?'<div class="warn" style="margin-top:10px">Your data lives only on this phone. Save a backup file now and then (it takes five seconds). It is your insurance if the phone is lost or reset.</div>':''}
+   ${due?'<div class="warn" style="margin-top:10px">Save a backup file. Your data lives only on this phone.</div>':''}
    <div class="stack2"><button class="btn good" data-a="bkSave">${IC.down.replace('<svg','<svg class="bi"')}Save a backup file</button>
     <button class="btn ghost" data-a="bkCopy">Copy backup text</button>
     <label class="btn ghost filebtn">Restore from a backup file<input type="file" accept=".json,application/json,text/plain" id="restoreFile" hidden></label>
     <button class="btn ghost" data-a="bkPaste">Restore from pasted text</button>
     <button class="btn ghost" data-a="bkAuto">Restore yesterday’s automatic copy</button>
     ${E.undoInfo()?'<button class="btn ghost" data-a="undo">Undo last reset or restore \u00B7 '+E.undoInfo().days+' days</button>':''}</div>
-   <div class="small">${P.persisted===true?'Storage is protected: the browser will not clear it when space runs low.':P.persisted===false?'The browser may clear storage if the phone runs very low on space. Install the app or save backups.':'Storage protection status is unknown here.'}
-     ${P.native?' You are using the Android app, which keeps its data in private app storage.':P.standalone?' Installed as an app.':''}</div>
    ${P.deferred?'<div class="stack2"><button class="btn vio" data-a="install">Install on this phone</button></div>':''}
    <div id="exWrap"></div>`;
 }
@@ -60,57 +58,42 @@ const SECS={
   profile:{t:'Profile and goals',html:()=>{const c=E.cfg();return NUMF[0][1].map(fieldRow).join('')+`<div class="fr"><span>Gate size</span><div class="seg2">${[.5,1].map(g=>`<button data-a="gate:${g}" aria-pressed="${c.gateStep===g}">${g} kg</button>`).join('')}</div></div>
       <div class="fr"><span>Camp week after each boss</span>${seg('camp',[[1,'On'],[0,'Off']],c.camp!==false?1:0)}</div>
       <div class="fr"><span>Auto-lower calories at bosses</span>${seg('autok',[[1,'On'],[0,'Off']],c.autoKcal!==false?1:0)}</div>
-      <div class="fr"><span>Your day ends at</span>${seg('dayend',[[0,'12 am'],[2,'2 am'],[3,'3 am'],[4,'4 am']],c.dayStart==null?3:c.dayStart)}</div>
-      <div class="small">Go to bed after midnight? Quests, the chest and your streak stay on the same day until this hour.</div>`}},
+      <div class="fr"><span>Your day ends at</span>${seg('dayend',[[0,'12 am'],[2,'2 am'],[3,'3 am'],[4,'4 am']],c.dayStart==null?3:c.dayStart)}</div>`}},
   targets:{t:'Daily targets',html:()=>{const c=E.cfg(),g=E.sparkGoal();return NUMF[1][1].map(fieldRow).join('')+
-      `<div class="fr"><span>Daily streak goal<small class="sub2">pillars to light the day</small></span>${seg('sgoalset',[[3,'Easy 3'],[4,'Steady 4'],[5,'Hard 5']],g)}</div>
-       <div class="small">Starting estimates. After two to three weeks, your weight trend should decide whether to move them. The streak goal is how many of the six daily pillars light a day.</div>`}},
+      `<div class="fr"><span>Daily streak goal<small class="sub2">pillars to light the day</small></span>${seg('sgoalset',[[3,'Easy 3'],[4,'Steady 4'],[5,'Hard 5']],g)}</div>`}},
   protein:{t:'Protein backup',html:()=>{
       const c=E.cfg(),cur=c.backup,opts=['Yogabar Pro Clean Plant Protein (1 scoop)','Plant protein powder (1 scoop)','Whey protein (1 scoop)','Protein bar (20 g protein)','Protein bar (10 g protein)'].concat(Object.keys(E.S().custom).filter(n=>E.S().custom[n].p100>0));
-      return `<div class="hint">For the days food alone will not reach your protein target. When you are short late in the day, Today offers it in one tap.</div>
-        ${opts.map(n=>{const f=E.food(n);return f?`<button class="chk" data-a="backupset:${esc(n)}" aria-pressed="${cur===n}"><i>✓</i><span>${esc(n)}<small>${f.kcal} kcal · ${Math.round(f.p)} g protein per ${f.ug} g</small></span></button>`:''}).join('')}
+      return `${opts.map(n=>{const f=E.food(n);return f?`<button class="chk" data-a="backupset:${esc(n)}" aria-pressed="${cur===n}"><i>✓</i><span>${esc(n)}<small>${f.kcal} kcal · ${Math.round(f.p)} g protein per ${f.ug} g</small></span></button>`:''}).join('')}
         <button class="chk" data-a="backupset:"><i>✓</i><span>No backup<small>Hide the suggestion</small></span></button>
-        <div class="stack2"><button class="btn vio" data-a="backupLabel">Enter my protein powder from its label</button></div>
-        <div class="small">Brands differ a lot. Read the "per serving" column on your tub (for example Yogabar) and enter it: serving size in grams, calories, protein, carbs and fat.</div>`}},
-  routine:{t:'Training routine',html:()=>{const due=E.ROT[E.S().rot.i];return `<div class="sec" style="margin-top:0">Where you are in the cycle</div><div class="small" style="margin:0 0 8px">Push, Pull, Legs, Rest, then again. Pick the session that is due next. Rest comes after Legs by itself. Due now: <b>${due}</b>.</div>${seg('nextsess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],due).replace('seg2','seg2 full')}<div class="sec">Exercises</div><div id="rxWrap">${routineEditor()}</div>`}},
+        <div class="stack2"><button class="btn vio" data-a="backupLabel">Enter my protein powder from its label</button></div>`}},
+  routine:{t:'Training routine',html:()=>{const due=E.ROT[E.S().rot.i];return `<div class="sec" style="margin-top:0">Where you are in the cycle</div><div class="small" style="margin:0 0 8px">Due now: <b>${due}</b></div>${seg('nextsess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],due).replace('seg2','seg2 full')}<div class="sec">Exercises</div><div id="rxWrap">${routineEditor()}</div>`}},
   rules:{t:'Rules and teasing',html:()=>{const c=E.cfg();return `<div class="small" style="margin-top:0">Penalties</div>${seg('strict',[['chill','Chill'],['standard','Standard'],['hard','Hard']],c.strict).replace('seg2','seg2 full')}
     <div class="small" id="strictTxt">${strictTxt(c.strict)}</div>
-    <div class="small">Pain days never count as a skip. You also get one rest pass a week.</div>
     <div class="small" style="margin-top:14px">Teasing when you slack</div>${seg('roast',[['off','Off'],['playful','Playful'],['savage','Savage']],c.roast).replace('seg2','seg2 full')}
     <div class="small" id="roastTxt">${roastTxt(c.roast)}</div>
     <label class="fr col"><span>Habit contract: a real cost when you skip (you enforce it)</span><textarea data-cfg="contract" rows="2" placeholder="e.g. No Instagram or YouTube until I train. Rs 100 into the cheat jar.">${esc(c.contract)}</textarea></label>`}},
   look:{t:'Look and sound',html:()=>{const c=E.cfg();return `<div class="themes">
       <button class="th auto" data-a="theme:auto" aria-pressed="${c.theme==='auto'}" style="--c:${F.THEMES[E.realm().theme].glow};--c2:${F.THEMES[E.realm().theme].acc}"><i></i>My realm</button>
       ${Object.keys(F.THEMES).map(k=>`<button class="th" data-a="theme:${k}" aria-pressed="${c.theme===k}" style="--c:${F.THEMES[k].glow};--c2:${F.THEMES[k].acc}"><i></i>${F.THEMES[k].name}</button>`).join('')}</div>
-    <div class="small">"My realm" changes the look every time a boss gate falls. Pick a fixed colour if you prefer.</div>
     <label class="fr"><span>Sound</span>${seg('snd',[[1,'On'],[0,'Off']],c.sound?1:0)}</label>
     <label class="fr col"><span>Volume</span><input type="range" min="0" max="1" step="0.05" value="${c.volume}" data-vol="1" aria-label="Volume"></label>
     <label class="fr"><span>Vibration</span>${seg('hap',[[1,'On'],[0,'Off']],c.haptics?1:0)}</label>`}},
-  samsung:{t:'Samsung Health',html:()=>{const N=HS.native;if(!(N&&N.native()))return '<div class="small" style="margin-top:0">Samsung Health sync works in the Android app. This is the browser version.</div>';const hs=E.S().health;
-    return `${hs.on?`<div class="hrow"><div><b>Connected</b><small>Steps, distance, floors, active calories, heart rate, sleep and weight, read-only.</small></div><button class="btn ghost sm" data-a="hsync">Sync now</button></div>`:`<div class="small" style="margin-top:0">Reads steps, distance, floors, active calories, heart rate, sleep and weight from Samsung Health through Health Connect. Nothing is written back and nothing leaves your phone.</div><div class="stack2"><button class="btn good" data-a="hconnect">Connect Samsung Health</button></div>`}
-      <div class="stack2"><button class="btn ghost" data-a="healthOpen2">See today’s data</button></div>
-      <div class="small">If the permission window does not appear, open Samsung Health, then Settings, then Health Connect, and allow it there.</div>`}},
+  samsung:{t:'Samsung Health',html:()=>{const N=HS.native;if(!(N&&N.native()))return '<div class="small" style="margin-top:0">Samsung Health works in the Android app.</div>';const hs=E.S().health;
+    return `${hs.on?`<div class="hrow"><div><b>Connected</b></div><button class="btn ghost sm" data-a="hsync">Sync now</button></div>`:`<div class="stack2" style="margin-top:0"><button class="btn good" data-a="hconnect">Connect Samsung Health</button></div>`}
+      <div class="stack2"><button class="btn ghost" data-a="healthOpen2">See today’s data</button></div>`}},
   remind:{t:'Reminders',html:()=>{const N=HS.native;if(!(N&&N.native()))return '<div class="small" style="margin-top:0">Reminders work in the Android app.</div>';const rm=E.S().remind;
     return `<label class="fr"><span>Daily nudges</span>${seg('remind',[[1,'On'],[0,'Off']],rm.on?1:0)}</label>
-      ${rm.on?['weigh','lunch','dinner','rehab','spark','clear'].map(k=>`<label class="fr"><span>${{weigh:'Weigh-in',lunch:'Lunch',dinner:'Dinner',rehab:'Rehab',spark:'Streak at risk',clear:'Clear the day'}[k]}</span><input type="time" data-rm="${k}" value="${esc(rm[k]||HS.notify.DEFAULT[k])}"></label>`).join(''):''}
-      <div class="small">Friendly pokes from the System at the times you choose. "Streak at risk" only fires if the day is not lit yet. They are scheduled on this phone, no internet needed.</div>`}},
-  widgets:{t:'Home-screen widgets',html:()=>{const W=HS.widget,nat=W&&W.available();return `<div class="hint">Three widgets show your day without opening the app: <b>Streak</b> (the flame), <b>Streak week</b> (the flame and your last seven days) and <b>Today</b> (calories left, protein, water, your next move and a +250 ml button).</div>
-      <div class="wprev"><div class="wp1"><b>10</b><span>day streak</span></div><div class="wp2"><div><b>1,437</b><span>kcal left</span></div><div><b>79/140</b><span>g protein</span></div><div><b>1.8/3</b><span>L water</span></div></div></div>
+      ${rm.on?['weigh','lunch','dinner','rehab','spark','clear'].map(k=>`<label class="fr"><span>${{weigh:'Weigh-in',lunch:'Lunch',dinner:'Dinner',rehab:'Rehab',spark:'Streak at risk',clear:'Clear the day'}[k]}</span><input type="time" data-rm="${k}" value="${esc(rm[k]||HS.notify.DEFAULT[k])}"></label>`).join(''):''}`}},
+  widgets:{t:'Home-screen widgets',html:()=>{const W=HS.widget,nat=W&&W.available();return `<div class="wprev"><div class="wp1"><b>10</b><span>day streak</span></div><div class="wp2"><div><b>1,437</b><span>kcal left</span></div><div><b>79/140</b><span>g protein</span></div><div><b>1.8/3</b><span>L water</span></div></div></div>
       ${nat?`<div class="sec">How to add one</div><ol class="steps"><li>Touch and hold an empty spot on your home screen.</li><li>Tap <b>Widgets</b>, then find <b>Habit Sync</b>.</li><li>Drag <b>Streak</b>, <b>Streak week</b> or <b>Today</b> onto the screen.</li></ol>
-        <div class="stack2"><button class="btn" data-a="widgetPush">Refresh the widgets now</button></div>`:'<div class="note">Widgets work in the Android app. In the browser version there is nothing to add.</div>'}
-      <div class="small">Widgets update whenever you use the app. They show what the app last knew, so open it once after a meal for the freshest numbers. Nothing leaves your phone.</div>`}},
+        <div class="stack2"><button class="btn" data-a="widgetPush">Refresh the widgets now</button></div>`:'<div class="small">Widgets work in the Android app.</div>'}`}},
   menu:{t:'Mess menu',html:()=>{const di=E.di();return `<div class="tg" style="margin-top:0;flex-wrap:wrap">${DAYN.map((n,i)=>`<button data-a="menuday:${i}" aria-pressed="${(U.sh.day==null?di:U.sh.day)===i}">${n.slice(0,3)}</button>`).join('')}</div>
-      ${(()=>{const d=U.sh.day==null?di:U.sh.day,mm=HS.menuDay(d);return ['breakfast','lunch','dinner'].map(k=>`<div class="sec">${cap(k)}</div><div class="menuchips">${mm[k].map(n=>{const f=E.food(n);return `<span>${HS.emoji(n)} ${esc(n)}<small>${f?f.kcal+' kcal':''}</small></span>`}).join('')}</div>`).join('')})()}
-      <div class="small">Typed from the printed IIM Kozhikode students mess menu, October 2026. The mess says the menu is tentative. When a new month’s menu arrives, send it over and it gets updated here.</div>`}},
-  backup:{t:'Backup and data',html:()=>`<div id="vaultWrap">${vaultHtml()}<div class="stack2"><button class="btn bad" data-a="reset" id="resetBtn">Reset everything</button></div></div>`},
-  sources:{t:'Where the numbers come from',html:()=>`<div class="sec" style="margin-top:0">Foods</div><div class="hp2">Every food has calories, protein, carbohydrate, fat, fibre and the main vitamins and minerals per 100 g. They come from the <b>Indian Food Composition Tables 2017</b> (IFCT, National Institute of Nutrition, Hyderabad, ICMR), the national reference for Indian foods. Cooked mess dishes are <b>recipes built from those rows</b>: for example, dal tadka is about 14 g of dry toor dal, onion, tomato and 2 g of oil in every 100 g served. Packed and restaurant foods (protein bars, whey, biscuits, shawarma) are typical values and are marked <b>TYPICAL</b>.</div>
-      <div class="sec">How close is it?</div><div class="hp2">Single foods such as eggs, milk and rice are usually within 10 percent, packed foods match their label, and a few rows (paneer, roasted snacks, fried foods) depend on the brand or the cook. Mess dishes can be off by 15 to 25 percent, sometimes more, because oil, portion size and how thin the dal is change daily. The portion ruler, the “add from a label” form and your own weight trend are the checks. If the weight trend disagrees with the calories for two weeks, trust the trend: the Weekly report shows that cross-check.</div>
-      <div class="sec">What is not included</div><div class="hp2">IFCT counts only available carbohydrate and part of the fibre as energy, so dals, chickpeas and rajma read about 20 percent lower than US tables such as the USDA one that most phone apps use. Both are honest; they use different rules. Vitamin B12 is not measured in IFCT, so it is not shown. Vitamin D only counts from animal foods, because IFCT lists large D2 values in some cereals and spices that no other source supports. Cooking losses of vitamin C, folate and B vitamins are estimated. Targets are the ICMR-NIN 2020 allowances for men of your age, rounded. They are guides, not a diagnosis: ask your doctor about supplements and blood tests.</div>
-      <div class="note">Every dish with its recipe, the old estimate it replaced and the checks run on it are in the project folder: prototype/tools/nutrition/REPORT.md.</div>`}
+      ${(()=>{const d=U.sh.day==null?di:U.sh.day,mm=HS.menuDay(d);return ['breakfast','lunch','dinner'].map(k=>`<div class="sec">${cap(k)}</div><div class="menuchips">${mm[k].map(n=>{const f=E.food(n);return `<span>${HS.emoji(n)} ${esc(n)}<small>${f?f.kcal+' kcal':''}</small></span>`}).join('')}</div>`).join('')})()}`}},
+  backup:{t:'Backup and data',html:()=>`<div id="vaultWrap">${vaultHtml()}<div class="stack2"><button class="btn bad" data-a="reset" id="resetBtn">Reset everything</button></div></div>`}
 };
 function renderSetting(sec){
   const s=SECS[sec];if(!s)return;
-  const full=sec==='routine'||sec==='backup'||sec==='menu'||sec==='sources';
+  const full=sec==='routine'||sec==='backup'||sec==='menu';
   U.openSheet(s.t,s.html(),s.foot||'<button class="btn ghost" data-a="close">Done</button>',{full:full});
   const rf=$('#restoreFile');if(rf)rf.addEventListener('change',onRestoreFile);
 }
@@ -132,19 +115,18 @@ U.views.forge=function(){
   <div class="slabel rise" style="--i:1">You</div>
   <div class="card more rise" style="--i:1">${row('targets','list','Daily targets',fmt(c.kcal)+' kcal · '+c.protein+' g protein · '+(c.water/1000).toFixed(1)+' L water')}
     ${row('protein','prot','Protein backup',bk?bk.name.replace(/\s*\(.*\)/,'')+' · '+Math.round(bk.p)+' g per scoop':'None set')}
-    ${row('routine','gym','Training routine','Push, Pull, Legs · sets, reps and your 40 kg cap')}
+    ${row('routine','gym','Training routine','Push, Pull, Legs · sets and reps')}
     ${row('rules','shield','Rules and teasing','Penalties '+cap(c.strict)+' · teasing '+cap(c.roast))}</div>
   <div class="slabel rise" style="--i:2">Connected</div>
   <div class="card more rise" style="--i:2">${row('samsung','heartbeat','Samsung Health',hs.on?'Connected':'Not connected')}
     ${row('remind','bell','Reminders',S.remind.on?'On':'Off')}
     ${row('widgets','widget','Home-screen widgets','Streak, week and Today')}
-    ${row('menu','food','Mess menu','October 2026, typed from the printed menu')}</div>
+    ${row('menu','food','Mess menu','October 2026')}</div>
   <div class="slabel rise" style="--i:3">App</div>
   <div class="card more rise" style="--i:3">${row('look','user','Look and sound',(c.theme==='auto'?'My realm':'Fixed colour')+' · sound '+(c.sound?'on':'off'))}
     ${row('backup','down','Backup and data',E.backupDue()?'Back up now':(E.dataInfo().days+' days stored'),E.backupDue()?'!':'')}
-    ${row('sources','info','Where the numbers come from','IFCT 2017, recipes and how accurate it is')}
     <button class="mrow" data-a="help"><span class="mri">${IC.star}</span><span class="mrm"><b>How the game works</b><small>Aura, ranks, streaks, gates and realms</small></span><i class="chev">${IC.chev}</i></button></div>
-  <div class="foot rise" style="--i:4">Habit Sync ${HS.VERSION||''}${HS.BUILD?' · build '+HS.BUILD:''}. Every number stays on this phone. Mess dishes are estimates.</div>`;
+  <div class="foot rise" style="--i:4">Habit Sync ${HS.VERSION||''}${HS.BUILD?' · build '+HS.BUILD:''}</div>`;
   $('#screen').innerHTML=h;
 };
 
@@ -292,7 +274,7 @@ U.welcome=function(){
       <label class="fr"><span>Your name</span><input id="wName" type="text" maxlength="14" value="${esc(c.name==='PLAYER'?'':c.name)}" placeholder="PLAYER"></label>
       <label class="fr"><span>Weight today (kg)</span><input id="wStart" type="number" inputmode="decimal" step="0.1" value="${S.startW}"></label>
       <label class="fr"><span>Goal weight (kg)</span><input id="wGoal" type="number" inputmode="decimal" step="0.5" value="${c.goalW}"></label>
-      <div class="small" style="margin-top:12px">When you slack, the System can tease you. It only ever teases the skipped habit, never your body.</div>
+      <div class="sec">Teasing when you slack</div>
       <div id="wRoast">${seg('wroast',[['off','Off'],['playful','Playful'],['savage','Savage']],'playful').replace('seg2','seg2 full')}</div></div>`,
     '<button class="btn" data-a="wGo">ARISE</button><button class="link" data-a="wRestore">I already have a backup</button>');
 };

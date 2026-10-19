@@ -123,7 +123,7 @@ function rowsFor(sh){
   const meal=sh.meal,pool=new Set(E.poolFor(meal)),by=(a,b)=>(pool.has(b.name)-pool.has(a.name))||(b.p-a.p);
   if(sh.tab==='menu'){
     const names=meal==='snack'?[]:HS.menuFor(meal,E.di());
-    return{head:`${DAYN[E.di()]} ${meal} at the mess <small>The printed menu is tentative.</small>`,html:names.map(n=>frow(n)).join('')||'<div class="small">No mess menu for a snack. Try Snacks.</div>'};
+    return{head:`${DAYN[E.di()]} ${meal} at the mess`,html:names.map(n=>frow(n)).join('')||'<div class="small">No mess menu for a snack. Try Snacks.</div>'};
   }
   if(sh.tab==='protein'){
     const bk=E.backupFood(),pk=E.picks(meal),seen=new Set();let h='';
@@ -347,7 +347,7 @@ function rotStrip(plan){
 function didRow(){
   const a=U.sh&&U.sh.armed;
   const b=t=>`<button type="button" class="btn ${a===t?'good':'ghost'}" data-a="didit:${t}">${a===t?'Tap again: '+t+' was done':t}</button>`;
-  return `<div class="sec">Already trained today?</div><div class="small" style="margin:0 0 8px">Tap the session you did and the cycle moves on. No sets needed, but it pays less than logging them.</div><div class="didrow">${['Push','Pull','Legs'].map(b).join('')}</div>`;
+  return `<div class="sec">Already trained today?</div><div class="didrow">${['Push','Pull','Legs'].map(b).join('')}</div>`;
 }
 /* a run done yesterday without the phone: offered only when yesterday was a rest day with nothing logged */
 function yestCardioBtn(){
@@ -364,42 +364,38 @@ function renderGym(){
     const t=sh.tmp,yk=E.keyOffset(-1),canY=E.cardioDayOk(yk)&&(plan==='Rest'&&!d.sess)&&!t.yestOnly,hw=cardioHW(t),lv=cardioLive(sh);
     const dn=t.day==='yest'?'Yesterday, '+U.date(yk):'Today';
     U.openSheet('Cardio day',
-      '<div class="hint">Walking and running count. Left the phone behind? Type in the minutes and distance after, it works out your speed and calories.</div>'+
-      (canY?seg('cday',[['today','Today'],['yest','Yesterday']],t.day||'today')+'<div class="small" style="margin:6px 0 0">Logging for: '+esc(dn)+'</div>':t.day==='yest'?'<div class="small" style="margin:6px 0 0">Logging for: '+esc(dn)+'</div>':'')+
+            (canY?seg('cday',[['today','Today'],['yest','Yesterday']],t.day||'today')+'<div class="small" style="margin:6px 0 0">Logging for: '+esc(dn)+'</div>':t.day==='yest'?'<div class="small" style="margin:6px 0 0">Logging for: '+esc(dn)+'</div>':'')+
       cardioBlock(sh)+
-      `<div class="est" id="cEst">${lv.est}</div>`+(hw?`<button class="chipbtn${t.useH?' on':''}" data-a="useHW" aria-pressed="${!!t.useH}"><b>Samsung Health recorded ${hw.min} min of walking or running, ${fmt(hw.kcal)} kcal</b><span>${t.useH?'Using it':'Use that'}</span></button>`:'')+
-      '<div class="note">Cardio is optional on a rest day. It lights your streak and earns +60 aura once. Note how the knee felt, the way you do for lifting days.</div>',
+      `<div class="est" id="cEst">${lv.est}</div>`+(hw?`<button class="chipbtn${t.useH?' on':''}" data-a="useHW" aria-pressed="${!!t.useH}"><b>Samsung Health recorded ${hw.min} min of walking or running, ${fmt(hw.kcal)} kcal</b><span>${t.useH?'Using it':'Use that'}</span></button>`:''),
       '<button class="btn good" data-a="cardioSave">Save cardio</button>');
     return;
   }
   if(plan==='Rest'&&!d.sess&&sh.step==='choose'&&d.workout!=='done'){
     const m=d.mins||{};
-    U.openSheet('Rest day','<div class="hint">Rest from lifting. Your rest day is cardio: walking and running, plus the rehab list.</div>'+rotStrip(plan)+(d.cardio?`<div class="note">Cardio logged: ${m.walk||0} min walking, ${m.run||0} min running.</div>`:'')+'<div class="sec">Feeling strong and want to lift anyway?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+didRow()+'<div class="small">The rotation follows what you finish, not the calendar. Rest comes after Legs, and it moves on to Push when the day passes. A session you miss stays due.</div>','<button class="btn good" data-a="cardioStart">'+(d.cardio?'Change my cardio':'Log my walk or run')+'</button><button class="btn ghost" data-a="close">Close</button>');return}
+    U.openSheet('Rest day',rotStrip(plan)+(d.cardio?`<div class="note">Cardio logged: ${m.walk||0} min walking, ${m.run||0} min running.</div>`:'')+'<div class="sec">Feeling strong and want to lift anyway?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+didRow()+'','<button class="btn good" data-a="cardioStart">'+(d.cardio?'Change my cardio':'Log my walk or run')+'</button><button class="btn ghost" data-a="close">Close</button>');return}
   if(sh.step==='lift')return renderLift();
   if(sh.step==='details'){
     const lv=cardioLive(sh),en=E.energyDay(d);
     U.openSheet(plan+' report',
-      '<div class="hint">Last time’s numbers are filled in. Change only what was different today.</div>'+stp('lift','Lifting','minutes',sh.tmp.lift)+cardioBlock(sh)+
-      `<div class="est" id="cEst">${lv.est}</div>`+(d.hWork?`<button class="chipbtn${sh.tmp.useH?' on':''}" data-a="useHB" aria-pressed="${!!sh.tmp.useH}"><b>Samsung Health recorded ${d.hWork.min} min, ${fmt(d.hWork.kcal)} kcal</b><span>${sh.tmp.useH?'Using it':'Use that number'}</span></button>`:'')+(en.act!=null?`<div class="note">Samsung Health counts ${fmt(en.act)} active kcal so far today, walking included.</div>`:''),
+      stp('lift','Lifting','minutes',sh.tmp.lift)+cardioBlock(sh)+
+      `<div class="est" id="cEst">${lv.est}</div>`+(d.hWork?`<button class="chipbtn${sh.tmp.useH?' on':''}" data-a="useHB" aria-pressed="${!!sh.tmp.useH}"><b>Samsung Health recorded ${d.hWork.min} min, ${fmt(d.hWork.kcal)} kcal</b><span>${sh.tmp.useH?'Using it':'Use that number'}</span></button>`:''),
       '<button class="btn" data-a="gymNext">Next</button>');
     return;
   }
   if(sh.step==='pain'){
     const p=d.pain||{knee:'none',back:'none'};
-    U.openSheet(plan+' done','<div class="hint">How did it feel? This goes in your pain log for the physio.</div><div class="sec">Right knee</div>'+seg('pk',[['none','None'],['mild','Mild'],['sharp','Sharp']],p.knee)+'<div class="sec">Lower back</div>'+seg('pb',[['none','None'],['mild','Mild'],['sharp','Sharp']],p.back)+
-      (p.knee==='sharp'||p.back==='sharp'?'<div class="warn">Sharp pain is a stop signal for that movement. Note which exercise caused it and tell your physio.</div>':'')+
-      `<div class="note">Next in your rotation: <b>${E.ROT[E.S().rot.i]}</b>. Rehab for it: ${HS.REHAB_FOR[E.ROT[E.S().rot.i]]}.</div>`,
+    U.openSheet(plan+' done','<div class="hint">How did it feel?</div><div class="sec">Right knee</div>'+seg('pk',[['none','None'],['mild','Mild'],['sharp','Sharp']],p.knee)+'<div class="sec">Lower back</div>'+seg('pb',[['none','None'],['mild','Mild'],['sharp','Sharp']],p.back)+
+      (p.knee==='sharp'||p.back==='sharp'?'<div class="warn">Sharp pain: stop that move.</div>':''),
       '<button class="btn good" data-a="gymFinish">Finish</button>');
     return;
   }
   if(d.workout==='pain'||d.workout==='lazy'||d.workout==='pass'){
     const t=d.workout==='pain'?': pain day':d.workout==='pass'?': rest pass':': skipped';
-    U.openSheet(plan+t,'<div class="hint">'+(d.workout==='pain'?'No penalty. Tell your physio what hurt. '+plan+' is still due next.':d.workout==='pass'?'Covered by your weekly rest pass. '+plan+' is still due next.':'Logged. '+plan+' is still due. Tomorrow you show up.')+'</div>','<button class="btn ghost" data-a="close">Close</button>');return;
+    U.openSheet(plan+t,'<div class="hint">'+(d.workout==='pain'?'No penalty. '+plan+' is still due next.':d.workout==='pass'?'Covered by your weekly rest pass. '+plan+' is still due next.':plan+' is still due.')+'</div>','<button class="btn ghost" data-a="close">Close</button>');return;
   }
-  const capn=plan==='Legs'?'<div class="note">Your own cap: 30 to 40 kg on squats and deadlifts until your physio says otherwise.</div>':'';
-  const fat=E.fatigued()?'<div class="warn" style="margin-top:0">You are fatigued. Finishing this workout is your comeback quest: it lifts the level lock and the aura penalty.</div>':'';
+  const fat=E.fatigued()?'<div class="warn" style="margin-top:0">You are fatigued. Finishing this workout lifts the level lock.</div>':'';
   const list=E.routine(plan);
-  U.openSheet(plan+' day',fat+rotStrip(plan)+'<div class="hint" style="margin-top:12px">'+list.length+' exercises, '+list.reduce((a,x)=>a+x.sets,0)+' sets. Rehab today: '+(HS.REHAB_FOR[plan]||'')+'.</div>'+'<div class="sec">Doing a different session today?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+capn+didRow()+'<div class="sec">Not training today?</div><div class="notrain"><button class="btn vio" data-a="gym:pain">Pain day, could not train</button>'+(E.passLeft()?'<button class="btn ghost" data-a="gym:pass">Use my weekly rest pass</button>':'')+'<button class="btn bad" data-a="gym:lazy">Skip with no excuse</button></div><div class="small pen">'+penaltyLine()+'</div>'+yestCardioBtn(),
+  U.openSheet(plan+' day',fat+rotStrip(plan)+'<div class="hint" style="margin-top:12px">'+list.length+' exercises, '+list.reduce((a,x)=>a+x.sets,0)+' sets</div>'+'<div class="sec">Doing a different session today?</div>'+seg('sess',[['Push','Push'],['Pull','Pull'],['Legs','Legs']],plan)+didRow()+'<div class="sec">Not training today?</div><div class="notrain"><button class="btn vio" data-a="gym:pain">Pain day, could not train</button>'+(E.passLeft()?'<button class="btn ghost" data-a="gym:pass">Use my weekly rest pass</button>':'')+'<button class="btn bad" data-a="gym:lazy">Skip with no excuse</button></div><div class="small pen">'+penaltyLine()+'</div>'+yestCardioBtn(),
     '<button class="btn" data-a="liftStart">Start workout</button>');
 }
 A.cardioStart=function(){
@@ -454,7 +450,7 @@ A.sess=function(v){if(v==='Rest'&&E.planFor()!=='Rest')return;U.sh.armed=null;  
   E.setSession(v);E.save();U.sh.step='choose';renderGym()};
 A.liftStart=function(){U.sh.step='lift';F.play('pick');renderGym()};
 A.gym=function(v){
-  if(v==='pain'){E.painDay();U.justRow='gym';U.closeSheet();U.sys('Smart call. Pain day, no penalty. Log what hurt and tell your physio.','')}
+  if(v==='pain'){E.painDay();U.justRow='gym';U.closeSheet();U.sys('Pain day logged. No penalty.','')}
   else if(v==='pass'){E.restPass();U.closeSheet();U.sys('Rest pass used. No penalty, no reward. Never miss twice.','')}
   else if(v==='lazy'){E.skipWorkout();U.closeSheet()}
 };
@@ -466,7 +462,7 @@ function lastTxt(ex){
 function renderLift(){
   const sh=U.sh,plan=E.planFor(),list=E.routine(plan),p=E.liftProgress(plan),vol=E.volumeToday(plan);
   const exDone=list.filter(ex=>E.exState(ex).sets.slice(0,ex.sets).every(s=>s.done)).length;
-  let body=`<div class="lh2"><div class="lhr"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="trk" cx="22" cy="22" r="18"/><circle class="arc g" cx="22" cy="22" r="18" pathLength="100" style="stroke-dashoffset:${100-(p.total?p.done/p.total*100:0)}"/></svg><b>${exDone}/${list.length}</b></div><div class="lht"><b>${exDone===list.length?'All exercises done':exDone+' of '+list.length+' exercises'}</b><small>${p.done} of ${p.total} sets${vol?' · '+fmt(vol)+' kg moved':''}</small></div></div><div class="small" style="margin-top:0">Tap the circle to log a whole exercise. Tap a set to log it alone.</div>`;
+  let body=`<div class="lh2"><div class="lhr"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="trk" cx="22" cy="22" r="18"/><circle class="arc g" cx="22" cy="22" r="18" pathLength="100" style="stroke-dashoffset:${100-(p.total?p.done/p.total*100:0)}"/></svg><b>${exDone}/${list.length}</b></div><div class="lht"><b>${exDone===list.length?'All exercises done':exDone+' of '+list.length+' exercises'}</b><small>${p.done} of ${p.total} sets${vol?' · '+fmt(vol)+' kg moved':''}</small></div></div>`;
   list.forEach((ex,xi)=>{
     const st=E.exState(ex),open=sh.exEdit===xi,w0=st.sets[0]?st.sets[0].w:0,over=ex.cap&&st.sets.some(s=>s.w>HS.CAP_KG),fin=st.sets.slice(0,ex.sets).every(s=>s.done),sg=E.suggestW(ex);
     body+=`<div class="ex2${fin?' fin':''}"><div class="ex2h"><button class="ex2c" data-a="exall:${xi}" aria-pressed="${fin}" aria-label="${fin?'Undo all sets of ':'Log all sets of '}${esc(ex.n)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.500l4.500 4.500L19 7.500"/></svg></button>
@@ -474,7 +470,7 @@ function renderLift(){
       <button class="exw" data-a="exedit:${xi}" aria-pressed="${open}" aria-label="Weight ${w0?w0+' kilograms':'not set'}, tap to change"><b>${w0||'set'}</b><small>kg</small></button></div>
       <div class="sets">${st.sets.slice(0,ex.sets).map((s,si)=>`<button class="sb${s.done?' done':''}" data-a="set:${xi}:${si}" aria-pressed="${s.done}" aria-label="Set ${si+1}, ${s.r} reps"><b>${s.r}</b><small>${s.w?s.w+' kg':'reps'}</small></button>`).join('')}</div>
       <div class="exl">${esc(lastTxt(ex))}</div>
-      ${over?'<div class="warn capw">Above your own '+HS.CAP_KG+' kg cap for this lift.</div>':''}
+      ${over?'<div class="warn capw">Above your '+HS.CAP_KG+' kg cap.</div>':''}
       ${open?`<div class="exe2"><div class="stp"><span>Weight<small>every set of this exercise</small></span><div class="c"><button data-a="exw:${xi}:-2.5" aria-label="Less weight">−</button><i>${w0}</i><button data-a="exw:${xi}:2.5" aria-label="More weight">+</button></div></div>
         ${sg&&sg!==w0?`<button class="chipbtn" data-a="exset:${xi}:${sg}"><b>Try ${sg} kg</b><span>a small step up from last time</span></button>`:''}
         <div class="stp"><span>Reps<small>sets not done yet</small></span><div class="c"><button data-a="exr:${xi}:-1" aria-label="Fewer reps">−</button><i>${st.sets[0].r}</i><button data-a="exr:${xi}:1" aria-label="More reps">+</button></div></div></div>`:''}</div>`;
@@ -505,13 +501,13 @@ E.on('set',e=>{
   if(!e.on){F.play('tap');return}
   if(e.pr){F.play('pr');F.vib([30,40,30,40,160]);F.burstCenter(70);U.overlay('','NEW PR','',e.ex.n+'. +25 aura.',2600)}
   else{F.play('set');F.vib(18)}
-  if(e.over)U.sys('Above your own '+HS.CAP_KG+' kg cap. Drop the weight unless your physio cleared it.','bad',true);
+  if(e.over)U.sys('Above your '+HS.CAP_KG+' kg cap.','bad',true);
 });
 E.on('sets',e=>{
   if(!e.on){F.play('tap');return}
   if(e.pr){F.play('pr');F.vib([30,40,30,40,160]);F.burstCenter(70);U.overlay('','NEW PR','',e.ex.n+'. +25 aura.',2600)}
   else{F.play('set');F.vib([18,30,18])}
-  if(e.over)U.sys('Above your own '+HS.CAP_KG+' kg cap. Drop the weight unless your physio cleared it.','bad',true);
+  if(e.over)U.sys('Above your '+HS.CAP_KG+' kg cap.','bad',true);
 });
 function startRest(){
   const sh=U.sh;stopRest();sh.rest={end:Date.now()+75000};
@@ -599,10 +595,10 @@ U.rehabSheet=function(tab){
   U.sh={type:'rehab',tab:tab||'today',g:null};renderRehab();
 };
 A.roadmap=function(){U.rehabSheet('road')};
-function lightText(l){return l==='red'?'RED: stop, keep it gentle, and message your physio.':l==='amber'?'AMBER: hold your loads today. Do not progress.':'GREEN: fine to continue as planned.'}
+function lightText(l){return l==='red'?'Red: keep today gentle.':l==='amber'?'Amber: hold your loads today.':'Green: carry on as planned.'}
 function holdBanner(t){
-  if(t.hold==='red')return '<div class="warn" style="margin-top:0">Your last check-in was <b>RED</b>. Keep today gentle: only the daily block, only what stays pain-free, no strength work and no cardio. If red repeats, message your physio.</div>';
-  if(t.hold==='amber')return '<div class="note amberb" style="margin-top:0">Your last check-in was <b>AMBER</b>. Hold your loads today: the strength finisher is skipped and the daily block should be gentle.</div>';
+  if(t.hold==='red')return '<div class="warn" style="margin-top:0">Last check-in was <b>red</b>. Keep today gentle: the daily block only, nothing that hurts.</div>';
+  if(t.hold==='amber')return '<div class="note amberb" style="margin-top:0">Last check-in was <b>amber</b>. Hold your loads today: no strength finisher.</div>';
   return '';
 }
 function renderRehab(){
@@ -620,18 +616,14 @@ function renderRehab(){
     tabs+`<div class="rhead"><div class="rring"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="trk" cx="22" cy="22" r="18"/><circle class="arc k" cx="22" cy="22" r="18" pathLength="100" style="stroke-dashoffset:${100-(pr.total?pr.done/pr.total*100:0)}"/></svg><b>${pr.done}/${pr.total}</b></div>
       <div class="rtxt"><b>${t.plan} day · ${esc(HS.REHAB_FOR[t.plan]||'')}</b><small>${pr.total} moves · about ${mins} min${t.aerobic?' + 30 min easy cardio':''}</small></div></div>
     ${holdBanner(t)}
-    ${r.done?'<div class="note" style="margin-top:12px">Rehab quest cleared today. Extra moves still help. Log how it felt below.</div>':''}
-    <button class="btn vio gstart" data-a="rguide">${pr.done?'Continue the guided session':'Start the guided session'}<small>${left} move${left===1?'':'s'} left · one at a time, left and right sides separately</small></button>
+        <button class="btn vio gstart" data-a="rguide">${pr.done?'Continue the guided session':'Start the guided session'}<small>${left} move${left===1?'':'s'} left</small></button>
     ${rg.groups.map(g=>`<div class="sec">${esc(g.title)}${g.bonus?' <em>optional</em>':''}<small>${esc(g.sub)}</small></div>${g.items.map(g.cover?cov:row).join('')}`).join('')}
-    ${t.finisher!=null&&HS.RDAYS[t.finisher].x.some(e=>e[3])?'<div class="small">Jefferson curl is left out, as you chose.</div>':''}
-    <div class="note">The moves come from your external physio’s written plan (the sheet shows age 19, so confirm it is still current at your next visit). Knee-to-chest is held for 30 seconds on each leg, as your physio confirmed (the printed sheet says 10 seconds). Figures are simplified outlines of the movement, not technique advice: ask your physio to show you the exact form. "S/B" is drawn as a Swiss ball.</div>
-    <button class="chk" data-a="rconf" aria-pressed="${S.rehab.confirmed}"><i>✓</i><span>My physio confirmed this plan is current<small>Tick it once they have seen this</small></span></button>
     <div class="sec" id="checkin">Check-in</div>
     <div class="rngl"><span>RIGHT KNEE</span><b id="kv">${r.knee}</b></div><input class="rng" id="kr" type="range" min="0" max="10" value="${r.knee}" aria-label="Right knee pain 0 to 10">
     <div class="rngl"><span>LOWER BACK</span><b id="bv">${r.back}</b></div><input class="rng" id="br" type="range" min="0" max="10" value="${r.back}" aria-label="Lower back pain 0 to 10">
     <div class="tg"><button data-a="rok" aria-pressed="${!!r.checked&&!r.knee&&!r.back&&!r.sharp}">No pain today</button><button data-a="rsharp" aria-pressed="${r.sharp}">Sharp pain on any exercise today</button></div>
     <div class="light ${green}" id="rlight">${lightText(green)}</div>
-    ${r.sharp?'<div class="warn">Stop that exercise. Write down which one and tell your physio.</div>':''}`,
+    ${r.sharp?'<div class="warn">Stop that exercise.</div>':''}`,
     '<button class="btn good" data-a="rehabFinish">Finish rehab</button>');
 }
 A.rview=function(v){stopHold();U.sh.tab=v==='today'&&U.sh.tab==='guide'?'today':v;U.sh.g=null;$('#shBody').scrollTop=0;renderRehab()};
@@ -652,7 +644,6 @@ A.rside=function(v){
   E.save();F.play(o[sd]?'set':'tap');F.vib(8);
   U.keepScroll(renderRehab);
 };
-A.rconf=function(){const S=E.S();S.rehab.confirmed=!S.rehab.confirmed;E.save();F.play('pick');U.keepScroll(renderRehab)};
 A.rsharp=function(){const r=rehRec();r.sharp=!r.sharp;r.checked=true;if(r.sharp){F.play('sharp');F.vib([80,60,80])}E.save();U.keepScroll(renderRehab)};
 A.rok=function(){const r=rehRec();r.knee=0;r.back=0;r.sharp=false;r.checked=true;E.save();F.play('pick');F.vib(10);U.keepScroll(renderRehab)};
 let sliderT=null;
@@ -702,7 +693,7 @@ function renderGuide(){
       ${HS.CUES&&HS.CUES[it.fig]?'<div class="gcue">'+esc(HS.CUES[it.fig])+'</div>':''}
       ${nextSide&&g.set===total-1?'<div class="gcue">'+nextSide+'</div>':''}
       <div class="gsets">${Array.from({length:total},(_,i)=>`<i class="${i<g.set?'on':''}"></i>`).join('')}</div>
-      <div class="small gtip">General cue, not a prescription: confirm the exact form with your physio. Stop if you feel sharp pain.</div></div>`,
+</div>`,
     `<button class="btn good" id="gsetBtn" data-a="gset">${label}</button><div class="gnav"><button class="link" data-a="gprev">Back</button><button class="link" data-a="gskip">Skip this move</button><button class="link" data-a="gend">Back to the list</button></div>`);
 }
 function guideNext(){
@@ -762,25 +753,23 @@ A.rehabFinish=function(){
 };
 function weekPlanHtml(){
   const w=E.rehabWeek(),td=E.dkey();
-  return '<div class="rweek">'+w.map(x=>`<div class="${x.k===td?'today':''}"><b>${x.d}</b><span>${x.plan}</span><small>${x.fin||'block'}${x.aero?' + walk':''}${x.bonus?' + bonus':''}</small><i>${x.n}</i></div>`).join('')+'</div><div class="small">The daily block every day. Day 1 core with Push, Day 2 Swiss-ball work with Pull, Day 3 with Legs (your leg workout is Day 3, so only the balance work is extra), and a longer session on the rest day. Days follow the rotation: they are today\u2019s plan and a forecast, and they shift when you train a different session. The number is how many moves count that day.</div>';
+  return '<div class="rweek">'+w.map(x=>`<div class="${x.k===td?'today':''}"><b>${x.d}</b><span>${x.plan}</span><small>${x.fin||'block'}${x.aero?' + walk':''}${x.bonus?' + bonus':''}</small><i>${x.n}</i></div>`).join('')+'</div>';
 }
 function roadmapHtml(){
   const pd=E.painDays(14),ci=pd.filter(x=>x.r).length,gr=pd.filter(x=>E.light(x.r)==='green').length,runs=pd.filter(x=>x.run!=null).map(x=>x.run);
   const phase=(n,t,w,goal,dos,gate)=>`<div class="ph"><div class="phh"><b>PHASE ${n}</b><span>${t}</span></div><div class="phw">${w}</div><div class="phg"><b>Goal</b> ${goal}</div><ul>${dos.map(x=>'<li>'+x+'</li>').join('')}</ul><div class="phgate"><b>Gate</b> ${gate}</div></div>`;
-  return `<div class="warn" style="margin-top:12px"><b>DRAFT for your physio to approve.</b> Not medical advice. Recovery time varies. Three to six months is a target to aim for, not a promise. Nothing here changes the exercises, sets or reps your physio wrote.</div>
-   <div class="sec">Your numbers</div>
+  return `<div class="sec" style="margin-top:0">Your numbers</div>
    <div class="dis"><div><span>CHECK-INS</span><b>${ci} / 14</b></div><div><span>GREEN DAYS</span><b>${gr}</b></div><div><span>RUN BEFORE PAIN</span><b>${runs.length?runs[runs.length-1]+' min':'no data'}</b></div></div>
    <div class="sec">Your rehab week</div>
    ${weekPlanHtml()}
-   <div class="sec">Pain traffic light (proposed)</div>
-   <div class="tl"><div class="light green">GREEN 0 to 3: continue as planned</div><div class="light amber">AMBER 4 to 5: hold loads, no progression</div><div class="light red">RED 6 or more, or any sharp pain: stop and message your physio</div></div>
+   <div class="sec">Pain traffic light</div>
+   <div class="tl"><div class="light green">GREEN 0 to 3: continue as planned</div><div class="light amber">AMBER 4 to 5: hold loads, no progression</div><div class="light red">RED 6 or more, or any sharp pain: stop</div></div>
    <div class="sec">Phases</div>
    ${phase(1,'Calm and control','Weeks 1 to 4','Settle the knee and low back, and make the daily block a habit.',['Daily block every day it feels OK','Day 1 and Day 2 strength rotation','Lifting inside pain-free range and your own 30 to 40 kg cap','Pain-free aerobic work, 30 minutes, 3 to 4 days a week'],'Mostly green days for two weeks, with no sharp episodes. Physio agrees.')}
    ${phase(2,'Rebuild strength','Weeks 5 to 12','Add load slowly where the plan allows it.',['Day 3 lower-body work at loads your physio sets','Raise one thing at a time, never two','Track run minutes before pain and let your physio set the next target'],'Pain settles within a day of sessions, three weeks running. Physio agrees.')}
    ${phase(3,'Return to full training','Months 4 to 6','Normal training, with the knee and back in charge of the pace.',['More load and impact only with physio sign-off','Re-check the knee and back at a review','Keep the daily block for good'],'Physio reassessment. Then your cap changes, not before.')}
    <div class="sec">Stop and get checked quickly if</div>
-   <ul class="stop"><li>Numbness, pins and needles or growing weakness in a leg</li><li>Trouble controlling your bladder or bowels, or numbness around the groin (urgent)</li><li>The knee gives way, locks or swells</li><li>Sharp pain that does not settle</li></ul>
-   <div class="small">These are general safety rules, not from your documents.</div>`;
+   <ul class="stop"><li>Numbness, pins and needles or growing weakness in a leg</li><li>Trouble controlling your bladder or bowels, or numbness around the groin (urgent)</li><li>The knee gives way, locks or swells</li><li>Sharp pain that does not settle</li></ul>`;
 }
 
 /* ---- physio sheet ---- */
@@ -799,7 +788,7 @@ function physioText(){
 }
 A.physio=function(){
   U.sh={type:'physio'};
-  U.openSheet('Physio sheet','<div class="hint">Built only from what you logged. Show it at your next visit.</div><textarea class="ta" id="phT" readonly aria-label="Physio sheet text">'+esc(physioText())+'</textarea>','<button class="btn" data-a="copy">Copy text</button>');
+  U.openSheet('Physio sheet','<textarea class="ta" id="phT" readonly aria-label="Physio sheet text">'+esc(physioText())+'</textarea>','<button class="btn" data-a="copy">Copy text</button>');
 };
 A.copy=function(){
   const t=$('#phT');
@@ -821,13 +810,10 @@ const sleepNote=h=>h>=7?'Good. +15 aura':h>=6?'Okay. +8 aura':'Short night. Be k
 function renderWeigh(){
   const sh=U.sh,d=E.day();
   U.openSheet('Morning check-in',
-    `<div class="hint">Before food, after the toilet. Same scale every day.</div>
-    <div class="wnum"><button data-a="wd" aria-label="Down 0.1">−</button><input id="wIn" type="number" step="0.1" inputmode="decimal" value="${wVal.toFixed(1)}" aria-label="Weight in kg"><button data-a="wu" aria-label="Up 0.1">+</button></div>
+    `<div class="wnum"><button data-a="wd" aria-label="Down 0.1">−</button><input id="wIn" type="number" step="0.1" inputmode="decimal" value="${wVal.toFixed(1)}" aria-label="Weight in kg"><button data-a="wu" aria-label="Up 0.1">+</button></div>
     ${d.hWeight&&!d.weighed?`<button class="chipbtn" data-a="useHW"><b>Samsung Health has ${d.hWeight.toFixed(1)} kg</b><span>Use this reading</span></button>`:''}
-    <div class="note">One reading never moves your trend by more than a quarter. Water weight is noise.</div>
     <div class="sec">Last night’s sleep</div>
-    <div class="stp"><span>Hours slept<small id="slpn">${sleepNote(sh.sleep)}</small></span><div class="c"><button class="sbtn" data-a="slp:-0.5" aria-label="Less sleep">−</button><i class="slpv" id="slpv">${sh.sleep.toFixed(1)}</i><button class="sbtn" data-a="slp:0.5" aria-label="More sleep">+</button></div></div>
-    <div class="small">${d.sleep!=null?'Already logged: '+d.sleep+' h. Change it above if it is off.':'Skip this if you would rather not log it today.'}</div>`,
+    <div class="stp"><span>Hours slept<small id="slpn">${sleepNote(sh.sleep)}</small></span><div class="c"><button class="sbtn" data-a="slp:-0.5" aria-label="Less sleep">−</button><i class="slpv" id="slpv">${sh.sleep.toFixed(1)}</i><button class="sbtn" data-a="slp:0.5" aria-label="More sleep">+</button></div></div>`,
     '<button class="btn" data-a="wSave">Save</button>');
 }
 A.useHW=function(){const d=E.day();if(!d.hWeight)return;const i=$('#wIn');i.value=d.hWeight.toFixed(1);wVal=d.hWeight;F.play('pick');F.vib(8)};
@@ -853,12 +839,12 @@ U.closeDaySheet=function(){
   const d=E.day();
   if(d.closed){U.openSheet('Day cleared','<div class="hint">'+d.score+' of 6 pillars. Aura today: '+(d.delta>=0?'+':'−')+Math.abs(d.delta)+'.</div>'+(d.chest?'':'<div class="stack2"><button class="btn vio" data-a="chestOpen">Open today’s chest</button></div>'),'<button class="btn ghost" data-a="close">Close</button>');return}
   const open=U.quests().filter(q=>q.st==='todo'&&!q.opt&&['close','weigh','rehab'].indexOf(q.id)<0).map(q=>q.id==='gym'?'Log your workout':'Log or skip '+q.id);
-  if(open.length){U.openSheet('Not yet','<div class="hint">Finish these first, so the tally is honest.</div>'+open.map(o=>'<div class="q"><span>'+esc(o)+'</span><span class="no">OPEN</span></div>').join(''),'<button class="btn ghost" data-a="close">Back</button>');return}
+  if(open.length){U.openSheet('Not yet',''+open.map(o=>'<div class="q"><span>'+esc(o)+'</span><span class="no">OPEN</span></div>').join(''),'<button class="btn ghost" data-a="close">Back</button>');return}
   const st=E.dayStatus(),T=st.T,tot=st.tot;
   /* the same six pillars as the streak, one list */
   const rows=st.pillars.map(p=>'<div class="q"><span>'+esc(p.t)+'</span><span class="'+(p.met?'ok':'no')+'">'+(p.met?'✓ ':'')+esc(p.s)+'</span></div>').join('');
   const cal='<div class="q"><span>Calories '+fmt(T.lo)+' to '+fmt(T.hi)+' <small class="sb2">bonus +80 aura</small></span><span class="'+(st.calOk?'ok':'no')+'">'+(st.calOk?'✓ ':'')+fmt(tot.k)+'</span></div>';
-  U.openSheet('Clear the day','<div class="hint">Last look: '+st.score+' of 6 pillars lit. Clearing opens your chest, and the calorie window pays a bonus on top.</div>'+rows+'<div class="sec">Bonus</div>'+cal+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal does not count. Eating too little costs muscle. If you forgot to log something, go back and add it.</div>':''),'<button class="btn" data-a="lock">Clear it</button>');
+  U.openSheet('Clear the day','<div class="hint">'+st.score+' of 6 pillars lit</div>'+rows+'<div class="sec">Bonus</div>'+cal+(tot.k<T.lo?'<div class="note">Under '+fmt(T.lo)+' kcal does not count.</div>':''),'<button class="btn" data-a="lock">Clear it</button>');
 };
 A.lock=function(){
   if(E.day().closed)return;

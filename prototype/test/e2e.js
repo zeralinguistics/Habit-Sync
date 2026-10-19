@@ -64,7 +64,7 @@ const pin = (iso) => {
   await pg.evaluate(() => { HS.ui.tab = 'home'; HS.ui.render(true); }); await pg.waitForTimeout(1200);
   await pg.screenshot({ path: out + 'a1-home.png' });
   ok(await pg.evaluate(() => /Log lunch/i.test(document.querySelector('.move').textContent)), 'next move at 12:30 is "Log lunch": ' + await pg.evaluate(() => document.querySelector('.move b').textContent));
-  ok(await pg.evaluate(() => !!document.querySelector('.hero-av svg.av') && !!document.querySelector('.scene svg.scn') && !!document.querySelector('#bubble')), 'character, realm backdrop and speech bubble are drawn');
+  ok(await pg.evaluate(() => !!document.querySelector('.hero-av svg.av') && !!document.querySelector('#bubble') && !!document.querySelector('.hb #skCard')), 'character, speech bubble and the streak chip in the top bar are drawn');
   await pg.click('#waterTile .wmain'); await pg.click('#waterTile .wmain'); await pg.waitForTimeout(300);
   ok((await S(pg)).days[TODAY].water === 500, 'water: two taps add 500 ml');
   await pg.click('#waterTile .wundo'); await pg.waitForTimeout(200);
@@ -296,7 +296,10 @@ const pin = (iso) => {
   ok(info.gates >= 4 && G.goals === 5 && G.owned >= 8 && G.week === 7, 'seeded history: ' + info.gates + ' gates, 5 weekly goals, ' + G.owned + ' items owned');
   ok(G.ahead > 0 && /pace|Plateau|Adherence|Dropping/i.test(G.report), 'weekly report and plan comparison work on real data (' + G.report + ', ahead ' + G.ahead + ' kg)');
   await pg.evaluate(() => { HS.ui.tab = 'home'; HS.ui.render(true); }); await pg.waitForTimeout(900);
-  ok(await pg.evaluate(() => /day streak/.test(document.querySelector('#screen').textContent) && !!document.querySelector('#skCard') && document.querySelectorAll('.skd').length === 7), 'home shows the streak card with the last seven days on seeded history');
+  ok(await pg.evaluate(() => !!document.querySelector('#skCard') && /\d/.test(document.querySelector('#skCard').textContent) && !document.querySelector('#screen .skd')), 'home shows only a small streak chip, not the week card');
+  await pg.evaluate(() => HS.ui.act.streaks()); await pg.waitForTimeout(700);
+  ok(await pg.evaluate(() => document.querySelectorAll('#sheet .skd').length === 7 && /day streak/.test(document.querySelector('#sheet').textContent)), 'the streak chip opens the sheet with the last seven days on seeded history');
+  await pg.evaluate(() => HS.ui.closeSheet()); await pg.waitForTimeout(500);
 
   /* ---------- a day that ends at 3 am, for someone who goes to bed after midnight ---------- */
   const lp = await mk(null, '2026-10-06T01:10:00');
@@ -818,8 +821,8 @@ const pin = (iso) => {
     ok(await wq.evaluate(() => Object.keys(HS.E.S().weights).length) === 1, 'the second tap saves it');
     const hid = await wq.evaluate(async () => { HS.ui.closeSheet(); const sh = document.querySelector('#sheet'); for (let i = 0; i < 40 && getComputedStyle(sh).visibility !== 'hidden'; i++) await new Promise(r => setTimeout(r, 50)); const before = Object.keys(HS.E.S().weights).length; let thrown = ''; try { HS.ui.act.wSave(); } catch (e) { thrown = e.message; } return { vis: getComputedStyle(sh).visibility, thrown: thrown, same: Object.keys(HS.E.S().weights).length === before }; });
     ok(hid.vis === 'hidden' && hid.thrown === '' && hid.same, 'a closed sheet is hidden from focus and screen readers, and its Save does nothing ' + JSON.stringify(hid));
-    const nl = await wq.evaluate(() => { HS.E.S().welcomed = true; const n = HS.E.S(); n.cfg.name = 'WWWWWWWWWWWWWW'; HS.ui.tab = 'home'; HS.ui.render(true); const who = document.querySelector('.who').getBoundingClientRect(), aur = document.querySelector('.aur').getBoundingClientRect(); return who.right <= aur.left + 1; });
-    ok(nl, 'a 14-letter wide name stays clear of the aura counter');
+    const nl = await wq.evaluate(() => { HS.E.S().welcomed = true; const n = HS.E.S(); n.cfg.name = 'WWWWWWWWWWWWWW'; HS.ui.tab = 'home'; HS.ui.render(true); const who = document.querySelector('.hb .who').getBoundingClientRect(), chip = document.querySelector('#skCard').getBoundingClientRect(); return who.right <= chip.left + 1; });
+    ok(nl, 'a 14-letter wide name stays clear of the streak chip');
   }
   {
     const bf = await mk();
@@ -873,7 +876,7 @@ const pin = (iso) => {
     const rp2 = await rm.newPage(); rp2.errs = [];
     rp2.on('pageerror', e => rp2.errs.push('PAGEERR ' + e.message));
     await rp2.goto(url); await rp2.waitForTimeout(700);
-    const RM = await rp2.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.E.logWeight(83.9); HS.ui.justRow = 'weigh'; HS.ui.render(); const p = document.querySelector('.tl2.just .tli svg path'); return p ? getComputedStyle(p).strokeDashoffset : 'none'; });
+    const RM = await rp2.evaluate(() => { HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.E.logWeight(83.9); HS.ui.justRow = 'weigh'; HS.ui.render(); const p = document.querySelector('.trow.just .tic svg path'); return p ? getComputedStyle(p).strokeDashoffset : 'none'; });
     ok(RM === '0px', 'with "remove animations" on, the tick on a finished quest is still drawn (' + RM + ')');
     await rm.close();
   }
@@ -1091,7 +1094,7 @@ const pin = (iso) => {
     ok(NU.cols && Math.abs(NU.k - NU.tk) <= 1, 'nutrient totals include micronutrients and agree with the calorie total');
     await nu.evaluate(() => HS.ui.foodSheet('Boiled egg')); await nu.waitForTimeout(500);
     const FS = await nu.evaluate(() => document.querySelector('#shBody').textContent);
-    ok(/Per 100 g/.test(FS) && /Saturated fat/.test(FS) && /Vitamins and minerals in this portion/.test(FS) && /Where this number comes from/.test(FS) && /Indian Food Composition|IFCT/.test(FS), 'the food facts sheet lists the macros, vitamins and minerals, and says where the number comes from');
+    ok(/Per 100 g/.test(FS) && /Saturated fat/.test(FS) && /Vitamins and minerals in this portion/.test(FS) && !/Where this number comes from|REPORT\.md/.test(FS), 'the food facts sheet lists the macros, vitamins and minerals, with no source notes');
     await nu.evaluate(() => { HS.ui.closeSheet(); HS.ui.customSheet({ name: 'Yogabar protein powder', g: 33, asBackup: true }); }); await nu.waitForTimeout(500);
     ok(await nu.evaluate(() => document.querySelector('#cf_name').value === 'Yogabar protein powder' && document.querySelector('#cf_g').value === '33' && !!document.querySelector('#cf_kcal') && !!document.querySelector('#cf_p')), 'the label form opens ready for the owner\'s own protein powder (name and 33 g filled in)');
     ok(nu.errs.length === 0, 'no console errors in the nutrition checks ' + JSON.stringify(nu.errs));
@@ -1303,6 +1306,41 @@ const pin = (iso) => {
     await cy.click('[data-a="nextsess:Pull"]'); await cy.waitForTimeout(400);
     ok(await cy.evaluate(() => HS.E.ROT[HS.E.S().rot.i] === 'Pull' && HS.E.setNext('Rest') === false), 'picking Pull makes Pull due next; Rest cannot be chosen');
     ok(cy.errs.length === 0, 'no console errors in the cycle checks ' + JSON.stringify(cy.errs));
+  }
+
+  /* ---------- the simpler Home, one clean task list, and no disclaimers anywhere ---------- */
+  {
+    const hm = await mk();
+    await hm.goto(url); await hm.waitForTimeout(800);
+    await hm.evaluate(() => { HS.E.reset(); HS.E.S().welcomed = true; HS.ui.closeSheet(); HS.ui.clearCele(); HS.ui.tab = 'home'; HS.ui.render(true); }); await hm.waitForTimeout(800);
+    const H = await hm.evaluate(() => {
+      const q = s => document.querySelector(s), r = el => el.getBoundingClientRect();
+      const rows = [...document.querySelectorAll('#taskCard .trow')];
+      return { bar: !!q('.hb'), chipH: r(q('#skCard')).height, scene: !!q('#screen .scene'), card: !!q('#screen .skw'), moveTop: r(q('.move')).top, rows: rows.length,
+        same: rows.every(x => Math.abs(r(x).width - r(q("#taskCard")).width) < 6), minH: Math.min(...rows.map(x => r(x).height)), water: !!q('#waterTile .wmain') && !!q('#waterTile .wundo'),
+        clear: !!q('.clearbar'), over: document.documentElement.scrollWidth <= window.innerWidth };
+    });
+    ok(H.bar && !H.scene && !H.card && H.chipH <= 44 && H.moveTop < 320, 'Home opens with a slim top bar and a small streak chip; the next move is near the top (' + Math.round(H.moveTop) + ' px, chip ' + Math.round(H.chipH) + ' px)');
+    ok(H.rows === 4 && H.same && H.minH >= 56 && H.water && H.clear && H.over, 'the task list has four even rows (check-in, train, rehab, water), a clear-the-day bar and nothing wider than the screen ' + JSON.stringify(H));
+    ok(await hm.evaluate(() => { const t = document.querySelector('#tcount').textContent; HS.ui.act.water(); return /of 4/.test(t); }), 'the task list shows how many of the four are done');
+    ok(await hm.evaluate(() => { HS.E.S().rot.i = 3; HS.ui.render(); const t = document.querySelector('#taskCard .trow.cardio .tic'); if (!t) return false; const r = t.getBoundingClientRect(); HS.E.S().rot.i = 0; HS.ui.render(); return Math.abs(r.width - r.height) < 2 && r.width < 60; }), 'on a rest day the Cardio row keeps a round icon (the old .rest timer style must not stretch it)');
+    /* every window, read for caveats: the app stays plain */
+    const BAD = /estimate|draft|not medical|medical advice|diagnos|accura|tentative|approximate|ask your doctor|IFCT|REPORT\.md|not a prescription|where the numbers|physio confirmed/i;
+    const texts = await hm.evaluate(async () => {
+      const out = [], wait = ms => new Promise(r => setTimeout(r, ms)), U = HS.ui;
+      const grab = async (name, fn) => { try { U.closeSheet(); await wait(120); fn(); await wait(200); out.push([name, (document.querySelector('#sheet').textContent || '')]); } catch (e) { out.push([name, 'ERR ' + e.message]); } };
+      for (const sec of ['profile', 'targets', 'protein', 'routine', 'rules', 'look', 'samsung', 'remind', 'widgets', 'menu', 'backup']) await grab('settings ' + sec, () => U.settingSheet(sec));
+      await grab('nutrition', () => U.nutriSheet()); await grab('food facts', () => U.foodSheet('Chapati', 40)); await grab('custom food', () => U.customSheet());
+      await grab('health', () => U.healthSheet()); await grab('gym', () => U.gymSheet()); await grab('rehab', () => U.rehabSheet()); await grab('roadmap', () => U.rehabSheet('road'));
+      await grab('weigh', () => U.weighSheet()); await grab('close the day', () => U.closeDaySheet()); await grab('streak', () => U.streakSheet()); await grab('campaign', () => U.campaignSheet());
+      await grab('report', () => U.reportSheet()); await grab('goals', () => U.goalsSheet());
+      U.closeSheet(); U.tab = 'forge'; U.render(); out.push(['settings list', document.querySelector('#screen').textContent]);
+      U.tab = 'home'; U.render(); out.push(['home', document.querySelector('#screen').textContent]);
+      return out;
+    });
+    const hit = texts.filter(t => BAD.test(t[1])).map(t => t[0] + ': ' + (t[1].match(BAD) || [''])[0]);
+    ok(texts.length >= 26 && !texts.some(t => /^ERR/.test(t[1])) && hit.length === 0, 'no caveats, source notes or accuracy talk on ' + texts.length + ' screens and windows ' + JSON.stringify(hit.concat(texts.filter(t => /^ERR/.test(t[1])).map(t => t[0]))));
+    ok(hm.errs.length === 0, 'no console errors on the new Home ' + JSON.stringify(hm.errs));
   }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
